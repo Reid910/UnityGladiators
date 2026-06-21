@@ -2,18 +2,32 @@ using UnityEngine;
 
 public class EnemyController : MonoBehaviour
 {
+    [Header("Movement")]
+    [SerializeField] private float movementSpeed = 2.5f;
+    [SerializeField] private float rotationSpeed = 10f;
+    [SerializeField] private float stoppingDistance = 1.6f;
+    [SerializeField] private float gravity = -20f;
+
+    [Header("Combat")]
+    [SerializeField] private int attackDamage = 10;
+    [SerializeField] private float attackCooldown = 1.25f;
+
+    [Header("References")]
     [SerializeField] private Transform target;
-    [SerializeField] private float movementSpeed = 3f;
-    [SerializeField] private float stoppingDistance = 1.5f;
-    [SerializeField] private int damage = 10;
-    [SerializeField] private float attackCooldown = 1.2f;
+    [SerializeField] private Animator animator;
 
     private CharacterController characterController;
+    private Vector3 verticalVelocity;
     private float nextAttackTime;
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+
+        if (animator == null)
+        {
+            animator = GetComponentInChildren<Animator>();
+        }
 
         GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
 
@@ -27,6 +41,16 @@ public class EnemyController : MonoBehaviour
     {
         if (target == null)
         {
+            SetMoving(false);
+            ApplyGravity();
+            return;
+        }
+
+        Health enemyHealth = GetComponent<Health>();
+
+        if (enemyHealth != null && enemyHealth.IsDead)
+        {
+            SetMoving(false);
             return;
         }
 
@@ -35,21 +59,38 @@ public class EnemyController : MonoBehaviour
         if (distanceToTarget > stoppingDistance)
         {
             MoveTowardTarget();
+            SetMoving(true);
         }
         else
         {
+            SetMoving(false);
             AttackTarget();
         }
+
+        ApplyGravity();
     }
 
     private void MoveTowardTarget()
     {
-        Vector3 direction = target.position - transform.position;
-        direction.y = 0f;
-        direction.Normalize();
+        Vector3 directionToTarget = target.position - transform.position;
+        directionToTarget.y = 0f;
 
-        transform.rotation = Quaternion.LookRotation(direction);
-        characterController.Move(direction * movementSpeed * Time.deltaTime);
+        if (directionToTarget.sqrMagnitude <= 0.01f)
+        {
+            return;
+        }
+
+        directionToTarget.Normalize();
+
+        Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
+
+        transform.rotation = Quaternion.Slerp(
+            transform.rotation,
+            targetRotation,
+            rotationSpeed * Time.deltaTime
+        );
+
+        characterController.Move(directionToTarget * movementSpeed * Time.deltaTime);
     }
 
     private void AttackTarget()
@@ -59,13 +100,44 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
+        if (animator != null)
+        {
+            animator.SetTrigger("Attack");
+        }
+
         Health targetHealth = target.GetComponent<Health>();
 
         if (targetHealth != null)
         {
-            targetHealth.TakeDamage(damage);
+            targetHealth.TakeDamage(attackDamage);
         }
 
         nextAttackTime = Time.time + attackCooldown;
+    }
+
+    private void ApplyGravity()
+    {
+        if (characterController == null || !characterController.enabled)
+        {
+            return;
+        }
+
+        if (characterController.isGrounded && verticalVelocity.y < 0f)
+        {
+            verticalVelocity.y = -2f;
+        }
+
+        verticalVelocity.y += gravity * Time.deltaTime;
+        characterController.Move(verticalVelocity * Time.deltaTime);
+    }
+
+    private void SetMoving(bool isMoving)
+    {
+        if (animator == null)
+        {
+            return;
+        }
+
+        animator.SetBool("IsMoving", isMoving);
     }
 }

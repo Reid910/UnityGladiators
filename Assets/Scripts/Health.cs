@@ -82,7 +82,29 @@ public class Health : MonoBehaviour
 
         if (animator != null)
         {
+            animator.SetBool("IsDead", true);
             animator.SetTrigger("Death");
+        }
+
+        PlayerController playerController = GetComponent<PlayerController>();
+
+        if (playerController != null)
+        {
+            playerController.enabled = false;
+        }
+
+        PlayerCombat playerCombat = GetComponent<PlayerCombat>();
+
+        if (playerCombat != null)
+        {
+            playerCombat.enabled = false;
+        }
+
+        EnemyController enemyController = GetComponent<EnemyController>();
+
+        if (enemyController != null)
+        {
+            enemyController.enabled = false;
         }
 
         if (characterController != null)
@@ -93,13 +115,6 @@ public class Health : MonoBehaviour
         if (objectCollider != null)
         {
             objectCollider.enabled = false;
-        }
-
-        EnemyController enemyController = GetComponent<EnemyController>();
-
-        if (enemyController != null)
-        {
-            enemyController.enabled = false;
         }
 
         if (destroyOnDeath)

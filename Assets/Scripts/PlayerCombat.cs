@@ -1,31 +1,87 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class PlayerCombat : MonoBehaviour
 {
+    [Header("Attack")]
     [SerializeField] private Transform attackPoint;
     [SerializeField] private float attackRange = 1.5f;
     [SerializeField] private int attackDamage = 25;
     [SerializeField] private float attackCooldown = 0.6f;
     [SerializeField] private LayerMask enemyLayer;
 
+    [Header("References")]
+    [SerializeField] private Animator animator;
+    [SerializeField] private Health health;
+
+    private InputSystem_Actions inputSystemActions;
     private float nextAttackTime;
 
-    private void Update()
+    private void Awake()
     {
-        if (Input.GetMouseButtonDown(0) && Time.time >= nextAttackTime)
+        inputSystemActions = new InputSystem_Actions();
+
+        if (animator == null)
         {
-            Attack();
-            nextAttackTime = Time.time + attackCooldown;
+            animator = GetComponentInChildren<Animator>();
         }
+
+        if (health == null)
+        {
+            health = GetComponent<Health>();
+        }
+    }
+
+    private void OnEnable()
+    {
+        inputSystemActions.Player.Enable();
+        inputSystemActions.Player.Attack.performed += OnAttackPerformed;
+    }
+
+    private void OnDisable()
+    {
+        inputSystemActions.Player.Attack.performed -= OnAttackPerformed;
+        inputSystemActions.Player.Disable();
+    }
+
+    private void OnAttackPerformed(InputAction.CallbackContext context)
+    {
+        TryAttack();
+    }
+
+    private void TryAttack()
+    {
+        if (health != null && health.IsDead)
+        {
+            return;
+        }
+
+        if (Time.time < nextAttackTime)
+        {
+            return;
+        }
+
+        Attack();
+
+        nextAttackTime = Time.time + attackCooldown;
     }
 
     private void Attack()
     {
-        Collider[] hitEnemies = Physics.OverlapSphere(attackPoint.position, attackRange, enemyLayer);
+        if (animator != null)
+        {
+            animator.SetTrigger("Attack");
+        }
+
+        Collider[] hitEnemies = Physics.OverlapSphere(
+            attackPoint.position,
+            attackRange,
+            enemyLayer
+        );
 
         foreach (Collider enemyCollider in hitEnemies)
         {
-            Health enemyHealth = enemyCollider.GetComponent<Health>();
+            Health enemyHealth = enemyCollider.GetComponentInParent<Health>();
 
             if (enemyHealth != null)
             {
