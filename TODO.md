@@ -65,35 +65,38 @@ breaks and finishers, not a slow tank-and-spank.
       as the player can do to enemies.
 
 ## M2 — Item data model
-- [ ] `ItemDefinition` ScriptableObject: slot (Head/Chest/Pants/Boots/Weapon —
-      5 slots, one weapon wielded in both hands, no separate left/right), rarity
-      tier (Common/Rare/Super Rare), and a flat damage roll range (armor slots can
-      just roll 0 or a small damage bonus if you don't want them contributing
-      offense).
-- [ ] `Weapon` items reference an `AbilityDefinition` (which move it grants for the
-      `Ability` input) in addition to their damage/affix.
-- [ ] `Boots` items reference a `DashDefinition` (which dash variant it grants for
-      the `Dash` input). No boots equipped means no dash available.
-- [ ] Head/Chest/Pants stay passive (no active-input grant) — themed stat carriers,
-      keeping the input scheme at 4 buttons total (light, heavy, ability, dash):
-      - Chest: survivability-flavored (max HP, armor/damage reduction, stagger
-        resistance — ties into the finisher-death stakes from M1).
-      - Head: accuracy/detection-flavored (crit chance, bonus finisher damage, or
-        loot-related utility like revealing corpse rarity before hitting it).
-      - Pants: mobility/stamina-flavored (move speed, dash cooldown reduction, extra
-        dash charge — synergizes with boots).
-      Final kit: Weapon = skill + damage, Boots = dash, Chest/Head/Pants = passive
-      stats that keep you alive/effective (survivability, accuracy, mobility).
-- [ ] `Affix` ScriptableObject or struct: stat type (attack speed, crit chance,
-      ability cooldown, move speed, max health, armor — pick ~5-6 total) + min/max
-      roll range. Consider splitting the affix pool per slot theme above rather
-      than one pool shared across all 5 slots, so drops feel distinct by slot.
-- [ ] Roll logic on drop: every item gets one flat damage roll. Common/Rare get
-      exactly one affix rolled from the pool; Super Rare (low drop chance) gets
-      two distinct affixes. Rarity also widens/raises the roll ranges (a Rare rolls
-      higher numbers than a Common) on top of the extra affix.
-- [ ] `EquippedItem` runtime instance = definition + rolled damage value + rolled
-      affix (type + value) + rarity, distinct from the ScriptableObject template.
+- [x] `ItemDefinition` ScriptableObject (`Assets/Scripts/Items/ItemDefinition.cs`):
+      slot (`ItemSlot` enum: Head/Chest/Pants/Boots/Weapon — 5 slots, one weapon
+      wielded in both hands), and a flat damage roll range (`minDamage`/`maxDamage`).
+      Deviation from the original plan: rarity is NOT stored on the template — it's
+      rolled per drop by `ItemRoller` (see below), since the same item template can
+      drop at any rarity. Armor slots can just leave damage at 0 if you don't want
+      them contributing offense.
+- [x] `Weapon` items reference an `AbilityDefinition` (`AbilityDefinition.cs` —
+      name, cooldown, animator trigger) via `ItemDefinition.AbilityDefinition`, only
+      relevant when `Slot == Weapon`.
+- [x] `Boots` items reference a `DashDefinition` (`DashDefinition.cs` — distance,
+      cooldown, optional damage) via `ItemDefinition.DashDefinition`, only relevant
+      when `Slot == Boots`. No boots equipped still means no dash — not wired yet,
+      that gating happens in M4.
+- [x] Head/Chest/Pants stay passive (no active-input grant) — themed stat carriers
+      via slot-eligible affixes (see below), keeping the input scheme at 4 buttons
+      total (light, heavy, ability, dash). Final kit: Weapon = skill + damage,
+      Boots = dash, Chest/Head/Pants = passive stats (survivability, accuracy,
+      mobility).
+- [x] `AffixDefinition` ScriptableObject (`AffixDefinition.cs`): `StatType` enum
+      (attack speed, crit chance, ability cooldown reduction, move speed, max
+      health, armor — 6 total), min/max roll range, and an `eligibleSlots` array so
+      the pool is naturally split by slot theme (empty array = eligible anywhere)
+      rather than needing a fully separate pool per slot.
+- [x] Roll logic on drop (`ItemRoller.cs`, static `Roll(definition, rarity)`):
+      every item gets one flat damage roll. Common/Rare get exactly one affix
+      rolled from the item's eligible pool; SuperRare gets two distinct affixes
+      (no repeats). Rarity also multiplies both the damage roll and each affix's
+      rolled value on top of the extra affix (`RarityRollMultiplier`).
+- [x] `EquippedItem` runtime instance (`EquippedItem.cs`) = definition + rolled
+      damage + rolled affixes (`RolledAffix.cs`: definition + value) + rarity,
+      distinct from the `ItemDefinition` ScriptableObject template.
 
 ## M3 — Corpse looting, pickup & cleanup
 - [ ] On enemy death (`Health.Die()` in `Health.cs`), leave the corpse in the scene
