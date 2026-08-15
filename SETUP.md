@@ -44,3 +44,28 @@ each feature.
    `dashCooldown` fields in the Inspector) — these reset to script defaults
    since the old `attackDamage`/`attackCooldown` fields were replaced. Tune to
    taste once you can playtest.
+
+## Stagger / hitstun / finishers — M1, core logic done
+
+1. **Add `Stagger` and `Hitstun` components to both the Player prefab and the
+   Enemy prefab.** These are plain `MonoBehaviour`s with no required Inspector
+   wiring (all their fields have sane defaults) — just add the components via
+   **Add Component → Stagger** and **Add Component → Hitstun** on each prefab.
+   Without them, combat still works but nothing staggers/stuns — the
+   `IsIncapacitated` checks in `PlayerController`/`PlayerCombat`/`EnemyController`
+   just no-op if the components are missing (`GetComponent` returns null), so
+   this won't break anything if skipped, it just won't do anything either.
+2. **No new Animator params required for stagger/hitstun logic itself** — being
+   staggered/stunned currently just freezes movement/attack via code, it
+   doesn't play a dedicated animation yet. If you want a visible "broken" pose,
+   that'd need its own Animator work later (not blocking).
+3. **Tune stagger numbers per prefab** once you can playtest — `Stagger.cs`'s
+   `maxStagger`, `decayPerSecond`, `decayDelayAfterHit`, and `brokenDuration`
+   are all serialized fields, so a tankier enemy (e.g. a future "legionary"
+   variant from M5) can just get a higher `maxStagger` on its own component
+   instance without any code changes.
+4. **Test carefully**: the player can now die instantly from a finisher if hit
+   while broken — this is intentional (see TODO.md), but means iterating on
+   `Stagger`'s numbers matters for whether the game feels fair vs. cheap. Watch
+   for the player's stagger meter filling too fast against multiple enemies at
+   once early on, before there's any gear to offset it.

@@ -7,6 +7,8 @@ public class PlayerCombat : MonoBehaviour
     private struct ComboHit
     {
         public int damage;
+        public float staggerAmount;
+        public float hitstunDuration;
         public float recoveryTime;
         public string animatorTrigger;
     }
@@ -15,14 +17,16 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField]
     private ComboHit[] lightComboHits =
     {
-        new ComboHit { damage = 15, recoveryTime = 0.35f, animatorTrigger = "AttackCombo1" },
-        new ComboHit { damage = 18, recoveryTime = 0.35f, animatorTrigger = "AttackCombo2" },
-        new ComboHit { damage = 28, recoveryTime = 0.5f, animatorTrigger = "AttackCombo3" },
+        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "AttackCombo1" },
+        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "AttackCombo2" },
+        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, recoveryTime = 0.5f, animatorTrigger = "AttackCombo3" },
     };
     [SerializeField] private float comboWindow = 0.8f;
 
     [Header("Heavy Attack")]
     [SerializeField] private int heavyDamage = 40;
+    [SerializeField] private float heavyStaggerAmount = 35f;
+    [SerializeField] private float heavyHitstunDuration = 0.35f;
     [SerializeField] private float heavyRecoveryTime = 0.9f;
 
     [Header("Ability")]
@@ -41,6 +45,8 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private Health health;
     [SerializeField] private CharacterController characterController;
+    [SerializeField] private Stagger stagger;
+    [SerializeField] private Hitstun hitstun;
 
     private InputSystem_Actions inputSystemActions;
 
@@ -51,6 +57,13 @@ public class PlayerCombat : MonoBehaviour
     private float nextDashTime;
 
     private bool IsDead => health != null && health.IsDead;
+
+    // The player can't act while stunned from a hit or broken from stagger —
+    // mirrors the same restriction EnemyController applies to enemies.
+    private bool IsIncapacitated =>
+        IsDead ||
+        (hitstun != null && hitstun.IsStunned) ||
+        (stagger != null && stagger.IsBroken);
 
     private void Awake()
     {
@@ -69,6 +82,16 @@ public class PlayerCombat : MonoBehaviour
         if (characterController == null)
         {
             characterController = GetComponent<CharacterController>();
+        }
+
+        if (stagger == null)
+        {
+            stagger = GetComponent<Stagger>();
+        }
+
+        if (hitstun == null)
+        {
+            hitstun = GetComponent<Hitstun>();
         }
     }
 
@@ -100,7 +123,7 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryLightAttack()
     {
-        if (IsDead || Time.time < nextAttackTime || lightComboHits.Length == 0)
+        if (IsIncapacitated || Time.time < nextAttackTime || lightComboHits.Length == 0)
         {
             return;
         }
@@ -113,7 +136,7 @@ public class PlayerCombat : MonoBehaviour
         int hitIndex = comboStep % lightComboHits.Length;
         ComboHit hit = lightComboHits[hitIndex];
 
-        DealDamage(hit.damage, hit.animatorTrigger);
+        DealDamage(hit.damage, hit.staggerAmount, hit.hitstunDuration, hit.animatorTrigger);
 
         comboStep++;
         nextAttackTime = Time.time + hit.recoveryTime;
@@ -122,12 +145,12 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryHeavyAttack()
     {
-        if (IsDead || Time.time < nextAttackTime)
+        if (IsIncapacitated || Time.time < nextAttackTime)
         {
             return;
         }
 
-        DealDamage(heavyDamage, "AttackHeavy");
+        DealDamage(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "AttackHeavy");
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
@@ -137,7 +160,7 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryUseAbility()
     {
-        if (IsDead || Time.time < nextAbilityTime)
+        if (IsIncapacitated || Time.time < nextAbilityTime)
         {
             return;
         }
@@ -154,7 +177,7 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryDash()
     {
-        if (IsDead || Time.time < nextDashTime || characterController == null)
+        if (IsIncapacitated || Time.time < nextDashTime || characterController == null)
         {
             return;
         }
@@ -171,7 +194,7 @@ public class PlayerCombat : MonoBehaviour
         nextDashTime = Time.time + dashCooldown;
     }
 
-    private void DealDamage(int damage, string animatorTrigger)
+    private void DealDamage(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger)
     {
         if (animator != null && !string.IsNullOrEmpty(animatorTrigger))
         {
@@ -188,9 +211,32 @@ public class PlayerCombat : MonoBehaviour
         {
             Health enemyHealth = enemyCollider.GetComponentInParent<Health>();
 
-            if (enemyHealth != null)
+            if (enemyHealth == null || enemyHealth.IsDead)
             {
-                enemyHealth.TakeDamage(damage);
+                continue;
+            }
+
+            Stagger enemyStagger = enemyCollider.GetComponentInParent<Stagger>();
+
+            // Landing any hit on an already-broken enemy is a finisher — instant kill.
+            if (enemyStagger != null && enemyStagger.IsBroken)
+            {
+                enemyHealth.Execute();
+                continue;
+            }
+
+            enemyHealth.TakeDamage(damage);
+
+            if (enemyStagger != null)
+            {
+                enemyStagger.AddStagger(staggerAmount);
+            }
+
+            Hitstun enemyHitstun = enemyCollider.GetComponentInParent<Hitstun>();
+
+            if (enemyHitstun != null)
+            {
+                enemyHitstun.ApplyStun(hitstunDuration);
             }
         }
     }

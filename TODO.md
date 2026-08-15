@@ -33,32 +33,36 @@ breaks and finishers, not a slow tank-and-spank.
       from code in `PlayerCombat.cs` — the Animator Controller states/transitions
       for them still need to be built in the Editor, see `SETUP.md`).
 - [ ] Combat feedback: hit-stop/flinch on enemies, a damage number popup or flash —
-      cheap juice that makes combos feel worth building.
-- [ ] Hitstun: each landed hit briefly locks the target out of acting (distinct from
-      the stagger meter below) — this is what lets a combo actually chain, both
-      player-on-enemy and enemy-on-player, since the target can't act or interrupt
-      mid-hitstun. Every hit that causes hitstun also contributes to that target's
-      stagger meter.
-- [ ] Stagger meter on `Health.cs` (or a new `Stagger` component alongside it) for
-      enemies: fills on hit, M2/heavy hits fill it faster than M1 combo hits, decays
-      slowly over time if the enemy isn't being hit.
-- [ ] When stagger meter fills, put the enemy into a "broken" state — disable
-      `EnemyController` movement/attack briefly (reuse the enable/disable pattern
-      already in `Health.Die()`) and expose it as hittable-for-finisher.
-- [ ] Finisher: while an enemy is broken, a specific input (could just be normal
-      attack while in range) triggers a canned finisher animation dealing heavy/
-      execute damage instead of a normal combo hit. Wire this in `PlayerCombat.cs`
-      similar to how `Attack()` already checks for hits via `OverlapSphere`.
+      cheap juice that makes combos feel worth building. Partial: `Health.TakeDamage()`
+      now fires an animator `Hit` trigger for flinch reactions; hit-stop and damage
+      number popups still pending (popup likely belongs with M6 UI work).
+- [x] Hitstun: new `Hitstun.cs` component (`ApplyStun(duration)` / `IsStunned`),
+      distinct from the stagger meter — this is what lets a combo actually chain,
+      both player-on-enemy and enemy-on-player, since the target can't act while
+      stunned. Wired into `PlayerCombat.DealDamage()` and
+      `EnemyController.AttackTarget()`, both of which also feed the target's
+      stagger meter on every hit that causes hitstun.
+- [x] Stagger meter: new `Stagger.cs` component (`AddStagger(amount)` / `IsBroken`,
+      decays over time if not recently hit). Heavy hits fill it faster than light
+      combo hits (see `heavyStaggerAmount` vs. per-hit `staggerAmount` in
+      `PlayerCombat.cs`).
+- [x] When stagger meter fills, the target enters a "broken" state (`Stagger.IsBroken`)
+      — `EnemyController`/`PlayerController`/`PlayerCombat` all check this (via an
+      `IsIncapacitated` property) and skip movement/attack/input while broken,
+      instead of literally disabling components.
+- [x] Finisher: `Health.Execute()` instant-kills regardless of remaining health.
+      Landing any hit on an already-broken target triggers it — wired in both
+      `PlayerCombat.DealDamage()` (player → enemy) and
+      `EnemyController.AttackTarget()` (enemy → player).
 - [ ] Feedback for stagger: a UI bar over the enemy (or screen-space) and a visual/
       audio cue when it breaks, so the player can read "this one's about to go down."
-- [ ] Make the stagger meter apply to the player too, symmetrically: enemy attacks
-      (`EnemyController.AttackTarget()`) fill it instead of/alongside normal damage.
-      When it fills, put the player into the same "broken" state (brief disable of
-      `PlayerController`/`PlayerCombat`, mirroring `Health.Die()`'s pattern).
-- [ ] If any enemy attack connects while the player is broken, it's a finisher —
-      instant death (or a big execute-damage hit) regardless of remaining health,
-      same as the player can do to enemies. Gives blocking/dodging real stakes
-      instead of just being a DPS race against the health bar.
+      Not built yet — needs a UI prefab, see `SETUP.md`/M6.
+- [x] Stagger meter applies to the player too, symmetrically: `EnemyController.AttackTarget()`
+      fills the player's `Stagger` on every landed hit, same as the player does to
+      enemies.
+- [x] If any enemy attack connects while the player is broken, it's a finisher —
+      instant death via `Health.Execute()`, regardless of remaining health, same
+      as the player can do to enemies.
 
 ## M2 — Item data model
 - [ ] `ItemDefinition` ScriptableObject: slot (Head/Chest/Pants/Boots/Weapon —
