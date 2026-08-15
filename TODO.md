@@ -132,15 +132,30 @@ breaks and finishers, not a slow tank-and-spank.
       drop) — gives dropped items one full wave of grace before they're cleared.
 
 ## M4 — Stats integration
-- [ ] A `PlayerStats` aggregator that sums base stats + all equipped item affixes,
-      recalculated on equip/unequip.
-- [ ] Wire `PlayerCombat.cs` damage/cooldown and `Health.cs` max HP to read from
-      `PlayerStats` instead of their own hardcoded serialized fields.
+- [x] `PlayerStats.cs` aggregator: sums base damage + every equipped item's
+      rolled damage (`TotalDamage`) and every equipped item's affixes by
+      `StatType` (`GetStat()`), recalculated whenever `PlayerEquipment` reports
+      a change (subscribes to `ItemEquipped`).
+- [x] `PlayerCombat.cs` now adds `PlayerStats.TotalDamage` on top of each
+      combo/heavy/dash hit's base damage, applies the Attack Speed affix to
+      shorten recovery time (`ApplyAttackSpeed()`), and applies Ability
+      Cooldown Reduction to the equipped weapon's ability cooldown.
+      `Health.cs` gained `SetMaxHealthBonus()`, called by `PlayerStats` so the
+      Max Health affix total adjusts `MaxHealth` (healing through on a gain,
+      clamping down current health only if it would exceed a lowered max).
+      `PlayerController.cs` applies the Move Speed affix as a multiplier on
+      base movement speed.
 - [ ] Same treatment isn't needed for enemies unless you want elite/rare enemies later.
-- [ ] Wire the equipped weapon's `AbilityDefinition` into `PlayerCombat.TryUseAbility()`
-      (currently a fixed placeholder trigger) and the equipped boots'
-      `DashDefinition` into `TryDash()` (currently always available with a fixed
-      distance) — gate dash behind boots being equipped.
+- [x] Weapon-granted ability and boots-granted dash are now fully live, not
+      placeholders: `PlayerCombat.TryUseAbility()` reads the equipped weapon's
+      `AbilityDefinition` (no weapon/no ability = button does nothing) and
+      `TryDash()` reads the equipped boots' `DashDefinition` (no boots = no
+      dash) — both fields removed from `PlayerCombat`'s own Inspector, now
+      fully gear-driven.
+- [ ] Crit Chance affix exists in the data model (`StatType.CritChance`) but
+      isn't consumed by any damage calculation yet — no crit roll/multiplier
+      implemented. Left for a later pass since it's a self-contained addition
+      to `DealDamage()` whenever it's wanted.
 
 ## M5 — Content pass (make waves feel different, not just numerous)
 - [ ] At least 2-3 gladiator-themed enemy variants by extending or subclassing

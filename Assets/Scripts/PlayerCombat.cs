@@ -29,13 +29,6 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private float heavyHitstunDuration = 0.35f;
     [SerializeField] private float heavyRecoveryTime = 0.9f;
 
-    [Header("Ability")]
-    [SerializeField] private float abilityCooldown = 5f;
-
-    [Header("Dash")]
-    [SerializeField] private float dashDistance = 4f;
-    [SerializeField] private float dashCooldown = 1.5f;
-
     [Header("Attack")]
     [SerializeField] private Transform attackPoint;
     [SerializeField] private float attackRange = 1.5f;
@@ -49,6 +42,8 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Stagger stagger;
     [SerializeField] private Hitstun hitstun;
+    [SerializeField] private PlayerStats playerStats;
+    [SerializeField] private PlayerEquipment equipment;
 
     private InputSystem_Actions inputSystemActions;
 
@@ -94,6 +89,16 @@ public class PlayerCombat : MonoBehaviour
         if (hitstun == null)
         {
             hitstun = GetComponent<Hitstun>();
+        }
+
+        if (playerStats == null)
+        {
+            playerStats = GetComponent<PlayerStats>();
+        }
+
+        if (equipment == null)
+        {
+            equipment = GetComponent<PlayerEquipment>();
         }
     }
 
@@ -141,7 +146,7 @@ public class PlayerCombat : MonoBehaviour
         DealDamage(hit.damage, hit.staggerAmount, hit.hitstunDuration, hit.animatorTrigger);
 
         comboStep++;
-        nextAttackTime = Time.time + hit.recoveryTime;
+        nextAttackTime = Time.time + ApplyAttackSpeed(hit.recoveryTime);
         comboResetTime = nextAttackTime + comboWindow;
     }
 
@@ -156,8 +161,15 @@ public class PlayerCombat : MonoBehaviour
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
-        nextAttackTime = Time.time + heavyRecoveryTime;
+        nextAttackTime = Time.time + ApplyAttackSpeed(heavyRecoveryTime);
         comboResetTime = nextAttackTime;
+    }
+
+    // Attack Speed affix (Head-flavored, see TODO.md) shortens recovery time.
+    private float ApplyAttackSpeed(float recoveryTime)
+    {
+        float attackSpeedMultiplier = 1f + (playerStats != null ? playerStats.GetStat(StatType.AttackSpeed) : 0f);
+        return recoveryTime / Mathf.Max(0.1f, attackSpeedMultiplier);
     }
 
     private void TryUseAbility()
@@ -167,14 +179,28 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        // Placeholder move. Once the item system (M2/M4) lands, this should
-        // come from the equipped weapon's AbilityDefinition instead.
-        if (animator != null)
+        // Ash-of-War style: the ability comes from whichever weapon is
+        // equipped. No weapon (or a weapon with no AbilityDefinition) means
+        // the ability button does nothing.
+        AbilityDefinition abilityDefinition = equipment?.GetEquipped(ItemSlot.Weapon)?.Definition?.AbilityDefinition;
+
+        if (abilityDefinition == null)
         {
-            animator.SetTrigger("AbilityCast");
+            return;
         }
 
-        nextAbilityTime = Time.time + abilityCooldown;
+        float cooldownReduction = playerStats != null ? playerStats.GetStat(StatType.AbilityCooldownReduction) : 0f;
+        float effectiveCooldown = Mathf.Max(0.1f, abilityDefinition.Cooldown * (1f - cooldownReduction));
+
+        if (animator != null)
+        {
+            string trigger = string.IsNullOrEmpty(abilityDefinition.AnimatorTrigger)
+                ? "AbilityCast"
+                : abilityDefinition.AnimatorTrigger;
+            animator.SetTrigger(trigger);
+        }
+
+        nextAbilityTime = Time.time + effectiveCooldown;
     }
 
     private void TryDash()
@@ -184,16 +210,27 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        // Placeholder: always available for now. Once boots gate this
-        // (M2/M4), TryDash should return early when no boots are equipped.
-        characterController.Move(transform.forward * dashDistance);
+        // Risk of Rain shift-style: the dash comes from whichever boots are
+        // equipped. No boots (or boots with no DashDefinition) means no dash.
+        DashDefinition dashDefinition = equipment?.GetEquipped(ItemSlot.Boots)?.Definition?.DashDefinition;
 
-        if (animator != null)
+        if (dashDefinition == null)
+        {
+            return;
+        }
+
+        characterController.Move(transform.forward * dashDefinition.Distance);
+
+        if (dashDefinition.DealsDamage)
+        {
+            DealDamage(dashDefinition.Damage, 0f, 0f, "Dash");
+        }
+        else if (animator != null)
         {
             animator.SetTrigger("Dash");
         }
 
-        nextDashTime = Time.time + dashCooldown;
+        nextDashTime = Time.time + dashDefinition.Cooldown;
     }
 
     private void DealDamage(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger)
@@ -202,6 +239,10 @@ public class PlayerCombat : MonoBehaviour
         {
             animator.SetTrigger(animatorTrigger);
         }
+
+        // Combo/heavy/dash damage is a base move value; gear (base damage +
+        // every equipped item's rolled damage, see PlayerStats) adds on top.
+        int totalDamage = damage + (playerStats != null ? playerStats.TotalDamage : 0);
 
         Collider[] hitEnemies = Physics.OverlapSphere(
             attackPoint.position,
@@ -227,7 +268,7 @@ public class PlayerCombat : MonoBehaviour
                 continue;
             }
 
-            enemyHealth.TakeDamage(damage);
+            enemyHealth.TakeDamage(totalDamage);
 
             if (enemyStagger != null)
             {
