@@ -37,6 +37,7 @@ public class WaveManager : MonoBehaviour
     public int CurrentWave => currentWave;
     public int EnemiesAlive => enemiesAlive;
     public int TotalWaves => totalWaves;
+    public bool EndlessMode => endlessMode;
 
     private void Start()
     {

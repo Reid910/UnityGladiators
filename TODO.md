@@ -121,9 +121,11 @@ breaks and finishers, not a slow tank-and-spank.
       (new — tracks which `EquippedItem` is in each slot) and either destroys
       itself (slot was empty) or becomes the previously-equipped item (drops it in
       the same spot) — the Fortnite-style instant swap, no menu step.
-- [ ] Visual distinction by rarity (outline/glow color or a floating icon) so drops
-      read at a glance without opening any UI. Not built yet — needs an actual
-      pickup prefab/material, see `SETUP.md`.
+- [x] Visual distinction by rarity: new `RarityColor.cs` maps rarity to a color
+      (white/blue/orange), and `ItemPickup.cs` optionally colors a world-space
+      name label by it (`nameLabel` field — needs the actual TextMeshPro object
+      created on the pickup prefab, see `SETUP.md`; no icon/outline yet, just
+      the text label for now).
 - [x] Cleanup, tied to `WaveManager` instead of a timer: `StartNextWave()` now
       destroys everything in `spawnedEnemies` (the previous wave's corpses) before
       spawning the new wave. `OnEnemyDied()` now calls `ClearPickups()` when a wave
@@ -200,10 +202,17 @@ breaks and finishers, not a slow tank-and-spank.
       attack animations each enemy variant gets — not started.
 
 ## M6 — UI/feedback
-- [ ] `GameUI.cs`: show currently equipped item per slot (icon + rarity color) and
-      ability cooldown.
-- [ ] Combo counter or hit-counter readout (optional, but reinforces the combo system).
-- [ ] "Press E to pick up [Rare] Item Name" world-space prompt when near a drop.
+- [x] `GameUI.cs`: shows currently equipped item per slot, text-colored by
+      rarity (`UpdateEquippedItemsText()` — text only, no icons yet, would need
+      actual item icon assets), ability cooldown, and dash cooldown (added
+      since dash is now a real gated resource, not always-available).
+- [x] Combo counter readout (`comboText`, shows `PlayerCombat.ComboStep`).
+- [ ] "Press E to pick up..." prompt — **dropped, not just unbuilt**: this
+      doesn't fit the design anymore. Pickup is instant-on-touch
+      (Fortnite-style, decided earlier), not a button-press interaction, so
+      there's no "press E" moment. The floating rarity-colored name label on
+      `ItemPickup` (see M3) is the replacement — it tells you what's there
+      without requiring a prompt or a keypress.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
