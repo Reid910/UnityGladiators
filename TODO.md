@@ -99,33 +99,37 @@ breaks and finishers, not a slow tank-and-spank.
       distinct from the `ItemDefinition` ScriptableObject template.
 
 ## M3 — Corpse looting, pickup & cleanup
-- [ ] On enemy death (`Health.Die()` in `Health.cs`), leave the corpse in the scene
-      (already the default when `destroyOnDeath` is false) but re-enable a small
-      trigger/hitbox on a distinct "Corpse" layer so it can still be hit — the
-      combat collider gets disabled on death, so this needs to be separate from it.
-- [ ] `LootableCorpse` component: tracks whether it's already been looted, rolls
-      whether it has loot at all (not every corpse needs to drop something) and
-      which item, and doesn't drop until the player actually attacks it.
-- [ ] Loot table gated by enemy tier (see M5): T1 enemies only roll Common items,
-      T2 only roll Rare, T3 rolls from Rare+Super Rare (the one deliberate overlap,
-      so the toughest enemies are the place to farm for the best gear, but it's not
-      a guaranteed drop). Keeps low-tier farming useful without trivializing the
-      top tier.
-- [ ] On player attack hitting a corpse (extend `PlayerCombat.Attack()`'s
-      `OverlapSphere` to also check the Corpse layer): pop the rolled item out as a
-      world pickup at the corpse's position, mark the corpse looted so it can't be
-      hit again for more loot.
-- [ ] `ItemPickup` component: on player trigger enter, compare to currently equipped
-      item in that slot — equip the new one, drop the old one on the ground in the
-      player's place.
+- [x] On enemy death, the corpse stays in the scene (default when `destroyOnDeath`
+      is false) and `Health.cs` now enables an optional `corpseHitbox` Collider on
+      death — separate from `objectCollider`, which still gets disabled — so a
+      corpse can still be hit after death. Needs an actual child hitbox object
+      created and wired per prefab, see `SETUP.md`.
+- [x] `LootableCorpse.cs`: tracks whether it's been looted (`TryLoot()` is a no-op
+      after the first successful/attempted loot), rolls whether it has loot at all
+      (`dropChance`) and which item from a per-corpse `possibleItems` pool, and
+      doesn't drop until `PlayerCombat` actually hits it.
+- [x] Loot table gated by enemy tier: new `EnemyTier` enum (T1/T2/T3) on
+      `LootableCorpse`. T1 only rolls Common, T2 only Rare, T3 rolls Rare or
+      SuperRare (weighted by `t3SuperRareChance`) — the one deliberate overlap so
+      the toughest enemies are worth farming without a guaranteed top-tier drop.
+      (Tier is set per-corpse for now since M5's enemy variants don't exist yet —
+      once they do, each variant prefab just sets its own tier.)
+- [x] `PlayerCombat.DealDamage()` now also runs a second `OverlapSphere` against a
+      new `corpseLayer` (`LootCorpses()`) and calls `TryLoot()` on anything hit —
+      separate from `enemyLayer` so corpses aren't also taking live damage.
+- [x] `ItemPickup.cs`: on player trigger enter, calls `PlayerEquipment.Equip()`
+      (new — tracks which `EquippedItem` is in each slot) and either destroys
+      itself (slot was empty) or becomes the previously-equipped item (drops it in
+      the same spot) — the Fortnite-style instant swap, no menu step.
 - [ ] Visual distinction by rarity (outline/glow color or a floating icon) so drops
-      read at a glance without opening any UI.
-- [ ] Cleanup, tied to `WaveManager` instead of a timer: when a new wave starts
-      (`StartNextWave()`), destroy all remaining corpses (looted or not — last
-      chance to loot is before you commit to the next wave). When that new wave
-      finishes (`enemiesAlive` hits 0 again), destroy any items still sitting on
-      the ground from the previous loot window — gives the player one full wave
-      to grab drops before they're gone.
+      read at a glance without opening any UI. Not built yet — needs an actual
+      pickup prefab/material, see `SETUP.md`.
+- [x] Cleanup, tied to `WaveManager` instead of a timer: `StartNextWave()` now
+      destroys everything in `spawnedEnemies` (the previous wave's corpses) before
+      spawning the new wave. `OnEnemyDied()` now calls `ClearPickups()` when a wave
+      finishes, destroying anything in the new `activePickups` list (populated via
+      `WaveManager.RegisterPickup()`, called from `LootableCorpse` when it spawns a
+      drop) — gives dropped items one full wave of grace before they're cleared.
 
 ## M4 — Stats integration
 - [ ] A `PlayerStats` aggregator that sums base stats + all equipped item affixes,
