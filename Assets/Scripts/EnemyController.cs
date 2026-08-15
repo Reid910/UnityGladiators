@@ -2,6 +2,10 @@ using UnityEngine;
 
 public class EnemyController : MonoBehaviour
 {
+    [Header("Tier")]
+    [Tooltip("Drives loot rarity (see LootableCorpse, which reads this) and is a label for tuning this prefab's own stats — it doesn't auto-scale anything itself. Fast/low-hp = T1, slow/high-damage = T2, ranged/tankier = T3 is the suggested split.")]
+    [SerializeField] private EnemyTier tier = EnemyTier.T1;
+
     [Header("Movement")]
     [SerializeField] private float movementSpeed = 2.5f;
     [SerializeField] private float rotationSpeed = 10f;
@@ -29,6 +33,8 @@ public class EnemyController : MonoBehaviour
 
     private Vector3 verticalVelocity;
     private float nextAttackTime;
+
+    public EnemyTier Tier => tier;
 
     // Enemies can't move or attack while stunned from a hit or broken from
     // stagger — mirrors the same restriction PlayerCombat applies to the player.

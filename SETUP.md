@@ -149,3 +149,32 @@ actual scene/prefab objects, not just component references.
    waiting for actual pickups to exist in the scene).
 3. **Crit Chance affix does nothing yet** — it rolls and aggregates fine, just
    isn't consumed by any damage math. Not blocking, noted in TODO.md.
+
+## Enemy variants and wave composition — M5, needs prefab creation
+
+The existing Enemy prefab has an `EnemyController` with a new `Tier` field
+(defaults to T1) — no existing prefab breaks. To actually get variety:
+
+1. **Set the current/only Enemy prefab's `Tier`** to whatever makes sense (T1
+   is fine as the baseline). Also make sure it has `Stagger`, `Hitstun`, and
+   `LootableCorpse` components (from the M1/M3 steps above) — `LootableCorpse`
+   now requires an `EnemyController` on the same object (`[RequireComponent]`),
+   which the existing prefab already has.
+2. **Duplicate the Enemy prefab 1-2 times** to create variants (e.g.
+   "Enemy_Retiarius", "Enemy_Legionary"), then just change values — no new
+   scripts needed:
+   - Retiarius (T1): higher `Movement Speed`, lower `Health.Max Health`, higher
+     `Attack Hitstun Duration`.
+   - Legionary (T2): lower `Movement Speed`, higher `Max Health`, higher
+     `Attack Damage`, higher `Stagger.Max Stagger`.
+   - Ranged/beast (T3): much higher `Stopping Distance` on `EnemyController`
+     (makes it attack from range using the existing instant-hit logic — no
+     projectile visual, that'd need real animation/VFX work later).
+   Give each its own `LootableCorpse.Possible Items` pool if you want
+   different variants to drop different gear.
+3. **On `WaveManager`**: replace the single `Enemy Prefab` reference (field is
+   now `Enemy Prefabs`, an array) with all your variant prefabs. Set
+   `T2 Unlock Wave`/`T3 Unlock Wave` if you don't like the defaults (2 and 3).
+4. **`Endless Mode` defaults to on** — the game no longer ends at wave 3, it
+   just keeps scaling. Uncheck it on `WaveManager` if you want the old
+   win-at-wave-3 behavior back for testing.
