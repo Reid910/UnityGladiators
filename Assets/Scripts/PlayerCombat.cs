@@ -40,6 +40,8 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private Transform attackPoint;
     [SerializeField] private float attackRange = 1.5f;
     [SerializeField] private LayerMask enemyLayer;
+    [Tooltip("Separate from enemyLayer — dead enemies' corpse hitboxes (see Health.corpseHitbox) live here so attacks can loot them instead of dealing damage.")]
+    [SerializeField] private LayerMask corpseLayer;
 
     [Header("References")]
     [SerializeField] private Animator animator;
@@ -237,6 +239,27 @@ public class PlayerCombat : MonoBehaviour
             if (enemyHitstun != null)
             {
                 enemyHitstun.ApplyStun(hitstunDuration);
+            }
+        }
+
+        LootCorpses();
+    }
+
+    private void LootCorpses()
+    {
+        Collider[] hitCorpses = Physics.OverlapSphere(
+            attackPoint.position,
+            attackRange,
+            corpseLayer
+        );
+
+        foreach (Collider corpseCollider in hitCorpses)
+        {
+            LootableCorpse corpse = corpseCollider.GetComponentInParent<LootableCorpse>();
+
+            if (corpse != null)
+            {
+                corpse.TryLoot();
             }
         }
     }

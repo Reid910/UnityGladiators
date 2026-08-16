@@ -94,5 +94,39 @@ need to create asset instances in the Editor:
    `AffixDefinition`s this item is allowed to roll (`Possible Affixes`). For
    Weapon-slot items, also assign an `AbilityDefinition`; for Boots-slot items,
    assign a `DashDefinition`.
-5. No specific count needed yet — just enough to have something to test with
-   once M3 (corpse loot) wires `ItemRoller.Roll()` into actual gameplay.
+5. No specific count needed yet — just enough to have something to test with,
+   now that M3 (below) actually wires `ItemRoller.Roll()` into gameplay.
+
+## Corpse looting, pickup, cleanup — M3, mostly done, needs prefab/layer work
+
+This is the one with the most Editor setup so far — several new pieces need
+actual scene/prefab objects, not just component references.
+
+1. **Create two new physics layers**: `Corpse` and `Pickup` (Project Settings →
+   Tags and Layers, or Edit → Project Settings → Tags and Layers). `Corpse` is
+   for dead-enemy loot hitboxes; `Pickup` is for the dropped-item trigger
+   colliders (keeps them from colliding with the `enemyLayer`/`corpseLayer`
+   OverlapSphere checks or with each other).
+2. **On the Enemy prefab**: add a child GameObject (e.g. "CorpseHitbox") with
+   its own `Collider` (a simple capsule/box is fine), set to the `Corpse`
+   layer, **disabled by default**. Drag it into `Health`'s new `Corpse Hitbox`
+   field. Also add a `LootableCorpse` component to the Enemy prefab (root is
+   fine) and set: `Tier` (T1 for now, until M5 adds real variants),
+   `Drop Chance`, `Possible Items` (drag in `ItemDefinition` assets from the
+   M2 step above), and `Item Pickup Prefab` (see next step).
+3. **Create an ItemPickup prefab**: any visible mesh (a placeholder cube/sphere
+   is fine per the earlier placeholder-assets discussion) with a trigger
+   `Collider` set to the `Pickup` layer, plus an `ItemPickup` component. This
+   is the prefab you drag into `LootableCorpse.Item Pickup Prefab`.
+4. **On the Player prefab**: add a `PlayerEquipment` component (no Inspector
+   wiring needed — it's just a runtime dictionary). Also set
+   `PlayerCombat`'s new `Corpse Layer` field to the `Corpse` layer you just
+   created (separate from the existing `Enemy Layer` field).
+5. **Visual rarity distinction is still unbuilt** — `ItemPickup`/`EquippedItem`
+   expose `Rarity` in code, but nothing colors/highlights the pickup by it yet.
+   A simple version: swap the pickup's material color based on
+   `item.Rarity` in `ItemPickup.Initialize()` — not done since there's no
+   pickup prefab/material to attach it to until you do step 3.
+6. **`WaveManager`** needs no new references — cleanup is automatic once the
+   above prefabs exist, since `LootableCorpse` finds it via
+   `FindFirstObjectByType<WaveManager>()`.

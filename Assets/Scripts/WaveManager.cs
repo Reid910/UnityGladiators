@@ -21,6 +21,7 @@ public class WaveManager : MonoBehaviour
     [SerializeField] private int enemiesAlive = 0;
 
     private readonly List<GameObject> spawnedEnemies = new List<GameObject>();
+    private readonly List<GameObject> activePickups = new List<GameObject>();
     private bool isSpawningWave;
     private bool gameEnded;
 
@@ -53,11 +54,50 @@ public class WaveManager : MonoBehaviour
             return;
         }
 
+        // Corpses from the previous wave are cleared right as the next wave
+        // starts — the inter-wave gap is the last chance to loot them.
+        ClearCorpses();
+
         currentWave++;
 
         int enemyCount = startingEnemyCount + ((currentWave - 1) * enemiesAddedPerWave);
 
         StartCoroutine(SpawnWave(enemyCount));
+    }
+
+    // Called by LootableCorpse when it spawns a dropped item, so WaveManager
+    // can clean it up on the same wave-boundary cadence as corpses.
+    public void RegisterPickup(GameObject pickupObject)
+    {
+        activePickups.Add(pickupObject);
+    }
+
+    private void ClearCorpses()
+    {
+        foreach (GameObject enemyObject in spawnedEnemies)
+        {
+            if (enemyObject != null)
+            {
+                Destroy(enemyObject);
+            }
+        }
+
+        spawnedEnemies.Clear();
+    }
+
+    // Items get one full wave of grace before they're cleared, unlike
+    // corpses which clear at the very next wave start.
+    private void ClearPickups()
+    {
+        foreach (GameObject pickupObject in activePickups)
+        {
+            if (pickupObject != null)
+            {
+                Destroy(pickupObject);
+            }
+        }
+
+        activePickups.Clear();
     }
 
     private IEnumerator SpawnWave(int enemyCount)
@@ -113,6 +153,7 @@ public class WaveManager : MonoBehaviour
 
         if (enemiesAlive <= 0 && !isSpawningWave)
         {
+            ClearPickups();
             StartCoroutine(StartNextWaveAfterDelay(timeBetweenWaves));
         }
     }

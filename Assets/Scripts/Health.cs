@@ -21,6 +21,8 @@ public class Health : MonoBehaviour
     [SerializeField] private Animator animator;
     [SerializeField] private CharacterController characterController;
     [SerializeField] private Collider objectCollider;
+    [Tooltip("Optional. Enabled on death so a corpse can still be hit for looting (see LootableCorpse) even though objectCollider gets disabled.")]
+    [SerializeField] private Collider corpseHitbox;
 
     public int CurrentHealth { get; private set; }
     public int MaxHealth => maxHealth;
@@ -134,6 +136,11 @@ public class Health : MonoBehaviour
         if (objectCollider != null)
         {
             objectCollider.enabled = false;
+        }
+
+        if (corpseHitbox != null)
+        {
+            corpseHitbox.enabled = true;
         }
 
         if (destroyOnDeath)
