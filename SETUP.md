@@ -178,3 +178,26 @@ The existing Enemy prefab has an `EnemyController` with a new `Tier` field
 4. **`Endless Mode` defaults to on** — the game no longer ends at wave 3, it
    just keeps scaling. Uncheck it on `WaveManager` if you want the old
    win-at-wave-3 behavior back for testing.
+
+## UI/feedback — M6, needs Canvas/TextMeshProUGUI creation
+
+`GameUI.cs` has new optional fields — none are required (all null-checked), so
+existing HUD keeps working untouched if you skip this. To actually see the new
+info:
+
+1. **On the GameUI object**: assign `Player Combat` and `Player Equipment`
+   (drag the Player object in) — needed for the new readouts below.
+2. **Create new TextMeshProUGUI elements** on your HUD Canvas (duplicate an
+   existing HUD text element and reposition, same as how `Wave Text`/
+   `Enemies Remaining Text` were presumably set up) for whichever of these you
+   want, then assign them on `GameUI`:
+   - `Equipped Items Text` — multi-line, shows all 5 slots colored by rarity
+     (uses TextMeshPro's `<color>` rich text tag, so make sure Rich Text is
+     enabled on that text object, which is the TMP default).
+   - `Ability Cooldown Text`, `Dash Cooldown Text` — simple "Ready" / "Xs"
+     readouts.
+   - `Combo Text` — shows current combo chain step.
+3. **`ItemPickup`'s new `Name Label` field** (on the pickup prefab from the M3
+   step): add a child `TextMeshPro` (3D, not UGUI — it's a floating
+   world-space label, not screen-space) above the pickup mesh, assign it.
+   Without it, pickups still work, they just don't show a name/rarity label.

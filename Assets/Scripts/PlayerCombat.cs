@@ -53,6 +53,10 @@ public class PlayerCombat : MonoBehaviour
     private float nextAbilityTime;
     private float nextDashTime;
 
+    public int ComboStep => comboStep;
+    public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
+    public float DashCooldownRemaining => Mathf.Max(0f, nextDashTime - Time.time);
+
     private bool IsDead => health != null && health.IsDead;
 
     // The player can't act while stunned from a hit or broken from stagger —
