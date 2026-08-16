@@ -14,6 +14,9 @@ public class PlayerController : MonoBehaviour
     [Header("References")]
     [SerializeField] private Transform cameraTransform;
     [SerializeField] private Animator animator;
+    [SerializeField] private Health health;
+    [SerializeField] private Stagger stagger;
+    [SerializeField] private Hitstun hitstun;
 
     private CharacterController characterController;
     private InputSystem_Actions inputSystemActions;
@@ -24,6 +27,13 @@ public class PlayerController : MonoBehaviour
     private float currentMoveX;
     private float currentMoveZ;
 
+    // Movement is locked while stunned from a hit, broken from stagger, or
+    // dead — mirrors the same restriction EnemyController applies to enemies.
+    private bool IsIncapacitated =>
+        (health != null && health.IsDead) ||
+        (hitstun != null && hitstun.IsStunned) ||
+        (stagger != null && stagger.IsBroken);
+
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
@@ -31,6 +41,21 @@ public class PlayerController : MonoBehaviour
         if (animator == null)
         {
             animator = GetComponentInChildren<Animator>();
+        }
+
+        if (health == null)
+        {
+            health = GetComponent<Health>();
+        }
+
+        if (stagger == null)
+        {
+            stagger = GetComponent<Stagger>();
+        }
+
+        if (hitstun == null)
+        {
+            hitstun = GetComponent<Hitstun>();
         }
 
         if (Camera.main != null)
@@ -53,9 +78,15 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
-        movementInput = inputSystemActions.Player.Move.ReadValue<Vector2>();
+        movementInput = IsIncapacitated
+            ? Vector2.zero
+            : inputSystemActions.Player.Move.ReadValue<Vector2>();
 
-        HandleMovement();
+        if (!IsIncapacitated)
+        {
+            HandleMovement();
+        }
+
         ApplyGravity();
         UpdateAnimation();
     }

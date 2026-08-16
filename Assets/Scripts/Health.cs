@@ -60,10 +60,29 @@ public class Health : MonoBehaviour
 
         UpdateHealthText();
 
+        if (animator != null && !IsDead)
+        {
+            animator.SetTrigger("Hit");
+        }
+
         if (IsDead)
         {
             Die();
         }
+    }
+
+    // Instant kill regardless of remaining health — used for finisher hits
+    // landed while the target is broken (see Stagger.IsBroken).
+    public void Execute()
+    {
+        if (IsDead)
+        {
+            return;
+        }
+
+        CurrentHealth = 0;
+        UpdateHealthText();
+        Die();
     }
 
     private void UpdateHealthText()

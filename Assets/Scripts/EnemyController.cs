@@ -10,6 +10,8 @@ public class EnemyController : MonoBehaviour
 
     [Header("Combat")]
     [SerializeField] private int attackDamage = 10;
+    [SerializeField] private float attackStaggerAmount = 15f;
+    [SerializeField] private float attackHitstunDuration = 0.2f;
     [SerializeField] private float attackCooldown = 1.25f;
 
     [Header("References")]
@@ -17,12 +19,30 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private Animator animator;
 
     private CharacterController characterController;
+    private Health health;
+    private Stagger stagger;
+    private Hitstun hitstun;
+
+    private Health targetHealth;
+    private Stagger targetStagger;
+    private Hitstun targetHitstun;
+
     private Vector3 verticalVelocity;
     private float nextAttackTime;
+
+    // Enemies can't move or attack while stunned from a hit or broken from
+    // stagger — mirrors the same restriction PlayerCombat applies to the player.
+    private bool IsIncapacitated =>
+        (health != null && health.IsDead) ||
+        (hitstun != null && hitstun.IsStunned) ||
+        (stagger != null && stagger.IsBroken);
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+        health = GetComponent<Health>();
+        stagger = GetComponent<Stagger>();
+        hitstun = GetComponent<Hitstun>();
 
         if (animator == null)
         {
@@ -34,6 +54,9 @@ public class EnemyController : MonoBehaviour
         if (playerObject != null)
         {
             target = playerObject.transform;
+            targetHealth = playerObject.GetComponent<Health>();
+            targetStagger = playerObject.GetComponent<Stagger>();
+            targetHitstun = playerObject.GetComponent<Hitstun>();
         }
     }
 
@@ -46,11 +69,10 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
-        Health enemyHealth = GetComponent<Health>();
-
-        if (enemyHealth != null && enemyHealth.IsDead)
+        if (IsIncapacitated)
         {
             SetMoving(false);
+            ApplyGravity();
             return;
         }
 
@@ -105,11 +127,27 @@ public class EnemyController : MonoBehaviour
             animator.SetTrigger("Attack");
         }
 
-        Health targetHealth = target.GetComponent<Health>();
-
-        if (targetHealth != null)
+        if (targetHealth != null && !targetHealth.IsDead)
         {
-            targetHealth.TakeDamage(attackDamage);
+            // Attacking an already-broken target is a finisher — instant kill.
+            if (targetStagger != null && targetStagger.IsBroken)
+            {
+                targetHealth.Execute();
+            }
+            else
+            {
+                targetHealth.TakeDamage(attackDamage);
+
+                if (targetStagger != null)
+                {
+                    targetStagger.AddStagger(attackStaggerAmount);
+                }
+
+                if (targetHitstun != null)
+                {
+                    targetHitstun.ApplyStun(attackHitstunDuration);
+                }
+            }
         }
 
         nextAttackTime = Time.time + attackCooldown;
