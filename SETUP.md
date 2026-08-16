@@ -69,3 +69,30 @@ each feature.
    `Stagger`'s numbers matters for whether the game feels fair vs. cheap. Watch
    for the player's stagger meter filling too fast against multiple enemies at
    once early on, before there's any gear to offset it.
+
+## Item data model — M2, code done, no assets created yet
+
+Nothing plays differently yet — this is just the data model (`ItemDefinition`,
+`AffixDefinition`, `AbilityDefinition`, `DashDefinition`, all under
+`Assets/Scripts/Items/`). Nothing in the game creates or equips items yet
+(that's M3/M4). To actually have items to work with once that lands, you'll
+need to create asset instances in the Editor:
+
+1. **Create `AffixDefinition` assets first** — right-click in the Project
+   window → **Create → UnityGladiators → Affix**, one per stat you want
+   available (attack speed, crit chance, ability cooldown reduction, move
+   speed, max health, armor). Set `Stat Type`, `Min Value`/`Max Value`, and
+   optionally `Eligible Slots` (leave empty for "any slot," or restrict e.g.
+   armor-flavored affixes to Chest/Head/Pants).
+2. **Create `AbilityDefinition` assets** (**Create → UnityGladiators →
+   Ability**) — one per weapon-granted skill. Just needs a name/cooldown for
+   now; the actual gameplay effect isn't implemented yet (M4).
+3. **Create `DashDefinition` assets** (**Create → UnityGladiators → Dash**) —
+   one per boots-granted dash variant. Same caveat, data only for now.
+4. **Create `ItemDefinition` assets** (**Create → UnityGladiators → Item**) —
+   one per droppable item. Set `Slot`, damage range, and drag in the
+   `AffixDefinition`s this item is allowed to roll (`Possible Affixes`). For
+   Weapon-slot items, also assign an `AbilityDefinition`; for Boots-slot items,
+   assign a `DashDefinition`.
+5. No specific count needed yet — just enough to have something to test with
+   once M3 (corpse loot) wires `ItemRoller.Roll()` into actual gameplay.
