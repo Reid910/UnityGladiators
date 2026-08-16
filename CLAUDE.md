@@ -4,18 +4,12 @@ A Unity project. See `TODO.md` for the feature roadmap and design decisions.
 
 ## Git workflow
 
-- Never commit directly to `main`. Before starting any new piece of work, create
-  a new feature branch off an up-to-date `main`
-  (`git checkout main && git pull --ff-only && git checkout -b <type>/<name>`).
-- If reworking a branch that hasn't been merged yet, push fixes to that same
-  branch. Only start a new branch for a rework if explicitly told to, or if the
-  existing branch's PR would otherwise be silently overwritten with an
-  incompatible design.
+Branching/PR-per-feature policy lives in the global `~/.claude/CLAUDE.md` —
+applies here too. Project-specific on top of that:
+
 - Before pushing, sanity-check the diff (`git diff origin/main HEAD --stat` or
   `--summary`) for unintended file drops.
-- When a feature/PR-sized piece of work is complete and pushed, write the PR
-  title + description directly in chat — do not assume the PR should be opened
-  automatically. Format:
+- PR description format:
   - `## Summary` — one paragraph on what changed and why
   - `## What's included` — bold subsection headers, bullet points underneath
   - `## Test plan` — what was actually verified, plainly stated, not padded.
@@ -27,9 +21,6 @@ A Unity project. See `TODO.md` for the feature roadmap and design decisions.
   - No "Generated with Claude Code" footer or similar attribution line.
   - Post the whole description inside a single fenced code block, so it's
     copy-pasteable in one action.
-- Only actually run `gh pr create` if the GitHub CLI is authenticated and
-  available and the user has asked for a PR to be opened — otherwise give the
-  compare-branch URL plus the description text for the user to paste in.
 
 ## Setup instructions file
 
