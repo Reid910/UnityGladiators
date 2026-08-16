@@ -8,13 +8,22 @@ public class WaveManager : MonoBehaviour
     public System.Action GameLost;
     
     [Header("Waves")]
-    [SerializeField] private GameObject enemyPrefab;
+    [Tooltip("All enemy prefabs must have an EnemyController so their Tier can gate which waves they're allowed to spawn in.")]
+    [SerializeField] private GameObject[] enemyPrefabs;
     [SerializeField] private Transform[] spawnPoints;
     [SerializeField] private int totalWaves = 3;
+    [Tooltip("If true, waves keep scaling past totalWaves forever instead of ending the run — fits a farming loop better than a hard win-at-wave-3 cap.")]
+    [SerializeField] private bool endlessMode = true;
     [SerializeField] private int startingEnemyCount = 2;
     [SerializeField] private int enemiesAddedPerWave = 2;
     [SerializeField] private float timeBetweenSpawns = 0.5f;
     [SerializeField] private float timeBetweenWaves = 2f;
+
+    [Header("Tier Unlocks")]
+    [Tooltip("T2 enemy prefabs won't be picked before this wave number.")]
+    [SerializeField] private int t2UnlockWave = 2;
+    [Tooltip("T3 enemy prefabs won't be picked before this wave number.")]
+    [SerializeField] private int t3UnlockWave = 3;
 
     [Header("State")]
     [SerializeField] private int currentWave = 0;
@@ -48,7 +57,7 @@ public class WaveManager : MonoBehaviour
             return;
         }
 
-        if (currentWave+1 > totalWaves)
+        if (!endlessMode && currentWave+1 > totalWaves)
         {
             WinGame();
             return;
@@ -113,11 +122,58 @@ public class WaveManager : MonoBehaviour
         isSpawningWave = false;
     }
 
+    // T1 is always eligible; T2/T3 only join the pool once their unlock wave
+    // is reached, so early waves stay easy and later waves mix in tougher
+    // (better-looting) enemies instead of just adding more of the same one.
+    private GameObject ChooseEnemyPrefab()
+    {
+        if (enemyPrefabs == null || enemyPrefabs.Length == 0)
+        {
+            return null;
+        }
+
+        List<GameObject> eligiblePrefabs = new List<GameObject>();
+
+        foreach (GameObject prefab in enemyPrefabs)
+        {
+            if (prefab == null)
+            {
+                continue;
+            }
+
+            EnemyController enemyController = prefab.GetComponent<EnemyController>();
+            EnemyTier prefabTier = enemyController != null ? enemyController.Tier : EnemyTier.T1;
+
+            bool isEligible = prefabTier switch
+            {
+                EnemyTier.T1 => true,
+                EnemyTier.T2 => currentWave >= t2UnlockWave,
+                EnemyTier.T3 => currentWave >= t3UnlockWave,
+                _ => true,
+            };
+
+            if (isEligible)
+            {
+                eligiblePrefabs.Add(prefab);
+            }
+        }
+
+        if (eligiblePrefabs.Count == 0)
+        {
+            // Fall back to whatever exists rather than spawning nothing.
+            return enemyPrefabs[Random.Range(0, enemyPrefabs.Length)];
+        }
+
+        return eligiblePrefabs[Random.Range(0, eligiblePrefabs.Count)];
+    }
+
     private void SpawnEnemy()
     {
+        GameObject enemyPrefab = ChooseEnemyPrefab();
+
         if (enemyPrefab == null || spawnPoints.Length == 0)
         {
-            Debug.LogWarning("WaveManager is missing enemy prefab or spawn points.");
+            Debug.LogWarning("WaveManager is missing enemy prefabs or spawn points.");
             return;
         }
 

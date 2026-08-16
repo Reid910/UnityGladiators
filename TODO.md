@@ -158,20 +158,46 @@ breaks and finishers, not a slow tank-and-spank.
       to `DealDamage()` whenever it's wanted.
 
 ## M5 — Content pass (make waves feel different, not just numerous)
-- [ ] At least 2-3 gladiator-themed enemy variants by extending or subclassing
-      `EnemyController.cs` — right now there's only one. Theme gives concrete
-      starting points instead of generic archetypes, e.g.:
-      - Retiarius (net/trident) — fast, low-hp, maybe briefly roots the player
-      - Heavily-armored legionary type — slow, high-damage, high stagger resistance
-      - Beast or ranged variant — the tougher/rarer encounter
-- [ ] Assign each variant a tier (T1/T2/T3) that drives both its stats (health/
-      damage scaling) and its loot table (see M3) — e.g. retiarius = T1, legionary =
-      T2, beast/ranged = T3. Wave composition can then mix tiers instead of just
-      adding more of the same enemy.
+- [ ] At least 2-3 gladiator-themed enemy variants — as it turns out this needs
+      little to no new code: `EnemyController`'s existing fields already produce
+      distinct archetypes just by tuning values per prefab (see `SETUP.md`):
+      - Retiarius — fast `movementSpeed`, low `Health.maxHealth`, high
+        `attackHitstunDuration` (reads as a brief "root" even though it's just
+        an extended hitstun, no new system needed)
+      - Heavily-armored legionary — slow `movementSpeed`, high `maxHealth`,
+        high `attackDamage`, high `Stagger.maxStagger` (stagger-resistant)
+      - Ranged/beast — a large `stoppingDistance` already produces an
+        instant-hit "ranged" attacker with the existing code (no projectile
+        visual yet, would need real Editor/animation work to add one — noted
+        as a later polish item, not blocking)
+- [x] Tier now lives on `EnemyController` (`Tier` property, new field) instead
+      of being duplicated on `LootableCorpse`, which now reads it via
+      `GetComponent<EnemyController>()` — one source of truth per prefab, drives
+      both loot rarity (see M3) and is a label for tuning that prefab's stats
+      (tier doesn't auto-scale stats itself, each prefab's fields do).
+- [x] `WaveManager.cs` now spawns from an `enemyPrefabs[]` array instead of a
+      single prefab (`ChooseEnemyPrefab()`), gated by tier: T1 always eligible,
+      T2 eligible from `t2UnlockWave` (default wave 2), T3 from `t3UnlockWave`
+      (default wave 3) — so composition actually shifts over time instead of
+      just adding more of the same enemy. Needs the actual prefab variants
+      created to have any effect (see `SETUP.md`).
+- [x] Endless mode: new `WaveManager.endlessMode` bool (default true) — when
+      set, waves keep scaling past `totalWaves` forever instead of calling
+      `WinGame()`. Fits the farming loop much better than a hard win-at-wave-3
+      cap, since the loot/tier system assumes ongoing play. `CurrentWave` is
+      already exposed for a "highest wave reached" score display (M6).
 - [ ] Enough affix variety (5-8 stat types) and rarity color coding that loot
-      decisions feel meaningful.
-- [ ] Tune `WaveManager.cs` scaling (`enemiesAddedPerWave`, `totalWaves`) against the
-      new combat/loot power curve — this only makes sense after M1-M4 exist.
+      decisions feel meaningful. Affix variety is already covered (6 `StatType`s
+      from M2); rarity color coding is still unbuilt (see M3's `SETUP.md` note).
+- [ ] Tune `WaveManager.cs` scaling (`enemiesAddedPerWave`, `t2UnlockWave`,
+      `t3UnlockWave`) against the actual combat/loot power curve — genuinely
+      needs playtesting, can't be tuned further from code alone.
+- [ ] Dodge with brief i-frames and telegraphed enemy attacks (a wind-up tell
+      before each swing) were discussed as good additions — dodge, but boots
+      already grew into the dash serving that defensive-mobility role, so a
+      separate dodge may be redundant now (worth revisiting once dash is
+      playtested). Telegraphs are real Animator/timing work tied to whatever
+      attack animations each enemy variant gets — not started.
 
 ## M6 — UI/feedback
 - [ ] `GameUI.cs`: show currently equipped item per slot (icon + rarity color) and

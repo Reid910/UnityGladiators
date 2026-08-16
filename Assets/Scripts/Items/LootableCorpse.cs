@@ -4,9 +4,9 @@ using UnityEngine;
 // attack the corpse (see PlayerCombat's corpse-layer check in DealDamage) to
 // pop the item out. Corpses/pickups themselves are cleaned up by WaveManager
 // on wave transitions, not by a timer.
+[RequireComponent(typeof(EnemyController))]
 public class LootableCorpse : MonoBehaviour
 {
-    [SerializeField] private EnemyTier tier = EnemyTier.T1;
     [Range(0f, 1f)]
     [SerializeField] private float dropChance = 0.5f;
     [Tooltip("Chance a T3 corpse's drop rolls SuperRare instead of Rare.")]
@@ -15,7 +15,13 @@ public class LootableCorpse : MonoBehaviour
     [SerializeField] private ItemDefinition[] possibleItems;
     [SerializeField] private GameObject itemPickupPrefab;
 
+    private EnemyController enemyController;
     private bool looted;
+
+    private void Awake()
+    {
+        enemyController = GetComponent<EnemyController>();
+    }
 
     // Returns true if this attack actually popped loot (used for feedback hooks later).
     public bool TryLoot()
@@ -32,6 +38,7 @@ public class LootableCorpse : MonoBehaviour
             return false;
         }
 
+        EnemyTier tier = enemyController != null ? enemyController.Tier : EnemyTier.T1;
         ItemDefinition chosenDefinition = possibleItems[Random.Range(0, possibleItems.Length)];
         ItemRarity rarity = RollRarity(tier, t3SuperRareChance);
         EquippedItem rolledItem = ItemRoller.Roll(chosenDefinition, rarity);
