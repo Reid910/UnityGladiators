@@ -17,6 +17,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Health health;
     [SerializeField] private Stagger stagger;
     [SerializeField] private Hitstun hitstun;
+    [SerializeField] private PlayerStats playerStats;
 
     private CharacterController characterController;
     private InputSystem_Actions inputSystemActions;
@@ -56,6 +57,11 @@ public class PlayerController : MonoBehaviour
         if (hitstun == null)
         {
             hitstun = GetComponent<Hitstun>();
+        }
+
+        if (playerStats == null)
+        {
+            playerStats = GetComponent<PlayerStats>();
         }
 
         if (Camera.main != null)
@@ -117,8 +123,12 @@ public class PlayerController : MonoBehaviour
             // Normalize movement so diagonal movement is not faster.
             movementDirection.Normalize();
 
+            // Move Speed affix (Pants-flavored, see TODO.md) is a fractional
+            // bonus on top of the base speed.
+            float moveSpeedMultiplier = 1f + (playerStats != null ? playerStats.GetStat(StatType.MoveSpeed) : 0f);
+
             characterController.Move(
-                movementDirection * movementSpeed * Time.deltaTime
+                movementDirection * movementSpeed * moveSpeedMultiplier * Time.deltaTime
             );
 
             Quaternion targetRotation = Quaternion.LookRotation(movementDirection);

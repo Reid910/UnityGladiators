@@ -130,3 +130,22 @@ actual scene/prefab objects, not just component references.
 6. **`WaveManager`** needs no new references — cleanup is automatic once the
    above prefabs exist, since `LootableCorpse` finds it via
    `FindFirstObjectByType<WaveManager>()`.
+
+## Stats integration — M4, done, one required component add
+
+1. **Add a `PlayerStats` component to the Player prefab.** Like
+   `PlayerEquipment`, it needs no Inspector wiring (`equipment`/`health` both
+   auto-fill via `GetComponent` on Awake) — just **Add Component →
+   PlayerStats**. Without it, `PlayerCombat`/`PlayerController`'s stat lookups
+   all no-op to 0, so combat/movement still work, just with zero gear bonus.
+2. **`PlayerCombat`'s old `Ability Cooldown`/`Dash Distance`/`Dash Cooldown`
+   Inspector fields are gone** — they're fully replaced by whatever
+   `AbilityDefinition`/`DashDefinition` the equipped Weapon/Boots reference
+   (see the M2/M3 steps above for creating those assets). This means the
+   player now has **no ability and no dash until you equip a Weapon/Boots
+   item** — either drop one in the scene for the player to walk over, or
+   temporarily pre-populate `PlayerEquipment` for testing (there's no
+   in-Inspector way to pre-equip yet, would need a small test-only script or
+   waiting for actual pickups to exist in the scene).
+3. **Crit Chance affix does nothing yet** — it rolls and aggregates fine, just
+   isn't consumed by any damage math. Not blocking, noted in TODO.md.

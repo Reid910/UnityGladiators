@@ -24,9 +24,33 @@ public class Health : MonoBehaviour
     [Tooltip("Optional. Enabled on death so a corpse can still be hit for looting (see LootableCorpse) even though objectCollider gets disabled.")]
     [SerializeField] private Collider corpseHitbox;
 
+    private int maxHealthBonus;
+
     public int CurrentHealth { get; private set; }
-    public int MaxHealth => maxHealth;
+    public int MaxHealth => maxHealth + maxHealthBonus;
     public bool IsDead => CurrentHealth <= 0;
+
+    // Called by PlayerStats when equipped gear's MaxHealth affix total changes.
+    // Preserves the player's current health rather than clamping it down/up
+    // arbitrarily: gaining max HP heals through by the delta, losing max HP
+    // only clamps current health down if it would now exceed the new max.
+    public void SetMaxHealthBonus(int bonus)
+    {
+        int previousMax = MaxHealth;
+        maxHealthBonus = bonus;
+        int delta = MaxHealth - previousMax;
+
+        if (delta > 0)
+        {
+            CurrentHealth += delta;
+        }
+        else if (CurrentHealth > MaxHealth)
+        {
+            CurrentHealth = MaxHealth;
+        }
+
+        UpdateHealthText();
+    }
 
     private void Awake()
     {
@@ -94,7 +118,7 @@ public class Health : MonoBehaviour
             return;
         }
 
-        healthText.text = CurrentHealth + " / " + maxHealth;
+        healthText.text = CurrentHealth + " / " + MaxHealth;
     }
 
     private void Die()
