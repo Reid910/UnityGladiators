@@ -106,6 +106,9 @@ GameObject:
   - component: {fileID: 1279479018962228576}
   - component: {fileID: 1044487991819981202}
   - component: {fileID: 8192296093957660327}
+  - component: {fileID: 3876596872729763323}
+  - component: {fileID: 8831477279848598167}
+  - component: {fileID: 7300000000000004}
   m_Layer: 6
   m_Name: Enemy
   m_TagString: Untagged
@@ -130,6 +133,7 @@ Transform:
   - {fileID: 688732429723390208}
   - {fileID: 1895826343677092757}
   - {fileID: 5492010573465141074}
+  - {fileID: 7300000000000002}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!95 &7060844365437421465
@@ -193,12 +197,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   maxHealth: 100
   healthText: {fileID: 7772536656465544302}
-  destroyOnDeath: 1
+  destroyOnDeath: 0
   destroyDelay: 2.5
-  disableObjectOnDeath: 1
+  disableObjectOnDeath: 0
   animator: {fileID: 7060844365437421465}
   characterController: {fileID: 1279479018962228576}
   objectCollider: {fileID: 1279479018962228576}
+  corpseHitbox: {fileID: 7300000000000003}
 --- !u!114 &8192296093957660327
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -211,14 +216,117 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a85ca023534bab46b3d2db6ff6ac5f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
+  tier: 0
   movementSpeed: 3
   rotationSpeed: 10
   stoppingDistance: 1.5
   gravity: -20
   attackDamage: 10
+  attackStaggerAmount: 15
+  attackHitstunDuration: 0.2
   attackCooldown: 1.2
   target: {fileID: 0}
   animator: {fileID: 0}
+--- !u!114 &3876596872729763323
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 220380476386467884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1c61828244915b4c942a0a0ce5671ed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Stagger
+  maxStagger: 100
+  decayPerSecond: 15
+  decayDelayAfterHit: 1.5
+  brokenDuration: 2
+--- !u!114 &8831477279848598167
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 220380476386467884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: de9bc7c5eeca84047894d6800bd778df, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::Hitstun
+--- !u!114 &7300000000000004
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 220380476386467884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1153c59b8bf72b24ba016212eb6db8f3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::LootableCorpse
+  dropChance: 0.5
+  t3SuperRareChance: 0.3
+  possibleItems:
+  - {fileID: 11400000, guid: f5c9123f4bd6223478f83c2f3c7c6b8f, type: 2}
+  itemPickupPrefab: {fileID: 100000000000000001, guid: 676b791a24394f17a2c02e237bd930ed, type: 3}
+--- !u!1 &7300000000000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7300000000000002}
+  - component: {fileID: 7300000000000003}
+  m_Layer: 7
+  m_Name: CorpseHitbox
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7300000000000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 1, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1647170192315269418}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!136 &7300000000000003
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000001}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 0
+  m_IsTrigger: 0
+  m_Direction: 1
+  serializedVersion: 3
+  m_Center: {x: 0, y: 0, z: 0}
+  m_Radius: 0.4
+  m_Height: 2
 --- !u!1 &228283524083917811
 GameObject:
   m_ObjectHideFlags: 0

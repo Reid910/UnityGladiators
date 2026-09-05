@@ -11,9 +11,12 @@ public class GameUI : MonoBehaviour
     [SerializeField] private Health playerHealth;
     [SerializeField] private PlayerCombat playerCombat;
     [SerializeField] private PlayerEquipment playerEquipment;
+    [SerializeField] private Stagger playerStagger;
 
     [Header("HUD")]
     [SerializeField] private TextMeshProUGUI playerHealthText;
+    [Tooltip("Optional. Shows the player's current stagger meter so a break feels readable coming.")]
+    [SerializeField] private TextMeshProUGUI staggerText;
     [SerializeField] private TextMeshProUGUI waveText;
     [SerializeField] private TextMeshProUGUI enemiesRemainingText;
     [Tooltip("Optional. One line per slot, colored by rarity, e.g. 'Weapon: Rusted Blade'.")]
@@ -56,6 +59,13 @@ public class GameUI : MonoBehaviour
         if (playerHealthText != null && playerHealth != null)
         {
             playerHealthText.text = "Health: " + playerHealth.CurrentHealth + " / " + playerHealth.MaxHealth;
+        }
+
+        if (staggerText != null && playerStagger != null)
+        {
+            staggerText.text = playerStagger.IsBroken
+                ? "Stagger: BROKEN"
+                : "Stagger: " + Mathf.RoundToInt(playerStagger.CurrentStagger) + " / " + Mathf.RoundToInt(playerStagger.MaxStagger);
         }
 
         if (waveText != null && waveManager != null)

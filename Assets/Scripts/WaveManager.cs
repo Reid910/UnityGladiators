@@ -29,8 +29,11 @@ public class WaveManager : MonoBehaviour
     [SerializeField] private int currentWave = 0;
     [SerializeField] private int enemiesAlive = 0;
 
-    private readonly List<GameObject> spawnedEnemies = new List<GameObject>();
-    private readonly List<GameObject> activePickups = new List<GameObject>();
+    private List<GameObject> spawnedEnemies = new List<GameObject>();
+    private List<GameObject> corpsesAwaitingClear = new List<GameObject>();
+    private List<GameObject> activePickups = new List<GameObject>();
+    private List<GameObject> pickupsAwaitingClear1 = new List<GameObject>();
+    private List<GameObject> pickupsAwaitingClear2 = new List<GameObject>();
     private bool isSpawningWave;
     private bool gameEnded;
 
@@ -64,9 +67,7 @@ public class WaveManager : MonoBehaviour
             return;
         }
 
-        // Corpses from the previous wave are cleared right as the next wave
-        // starts — the inter-wave gap is the last chance to loot them.
-        ClearCorpses();
+        AdvanceCorpseAndPickupGenerations();
 
         currentWave++;
 
@@ -76,38 +77,38 @@ public class WaveManager : MonoBehaviour
     }
 
     // Called by LootableCorpse when it spawns a dropped item, so WaveManager
-    // can clean it up on the same wave-boundary cadence as corpses.
+    // can clean it up later (see AdvanceCorpseAndPickupGenerations).
     public void RegisterPickup(GameObject pickupObject)
     {
         activePickups.Add(pickupObject);
     }
 
-    private void ClearCorpses()
+    // Corpses get one full wave of grace before clearing (a body from wave N
+    // survives all of wave N+1, destroyed when wave N+2 starts). Pickups get
+    // one wave more than that — a dropped item always outlives the corpse it
+    // came from, so a slow-to-notice drop isn't punished as hard as missing
+    // the body itself.
+    private void AdvanceCorpseAndPickupGenerations()
     {
-        foreach (GameObject enemyObject in spawnedEnemies)
-        {
-            if (enemyObject != null)
-            {
-                Destroy(enemyObject);
-            }
-        }
+        DestroyAll(corpsesAwaitingClear);
+        corpsesAwaitingClear = spawnedEnemies;
+        spawnedEnemies = new List<GameObject>();
 
-        spawnedEnemies.Clear();
+        DestroyAll(pickupsAwaitingClear2);
+        pickupsAwaitingClear2 = pickupsAwaitingClear1;
+        pickupsAwaitingClear1 = activePickups;
+        activePickups = new List<GameObject>();
     }
 
-    // Items get one full wave of grace before they're cleared, unlike
-    // corpses which clear at the very next wave start.
-    private void ClearPickups()
+    private static void DestroyAll(List<GameObject> objects)
     {
-        foreach (GameObject pickupObject in activePickups)
+        foreach (GameObject gameObject in objects)
         {
-            if (pickupObject != null)
+            if (gameObject != null)
             {
-                Destroy(pickupObject);
+                Destroy(gameObject);
             }
         }
-
-        activePickups.Clear();
     }
 
     private IEnumerator SpawnWave(int enemyCount)
@@ -210,8 +211,34 @@ public class WaveManager : MonoBehaviour
 
         if (enemiesAlive <= 0 && !isSpawningWave)
         {
-            ClearPickups();
+            EnableCorpseLooting();
             StartCoroutine(StartNextWaveAfterDelay(timeBetweenWaves));
+        }
+    }
+
+    // Corpses become lootable once the wave they died in fully clears, not
+    // the instant each one dies — otherwise the player could farm a body
+    // while more enemies from the same wave are still incoming.
+    private void EnableCorpseLooting()
+    {
+        foreach (GameObject enemyObject in spawnedEnemies)
+        {
+            if (enemyObject == null)
+            {
+                continue;
+            }
+
+            Health health = enemyObject.GetComponent<Health>();
+
+            if (health == null)
+            {
+                health = enemyObject.GetComponentInChildren<Health>();
+            }
+
+            if (health != null)
+            {
+                health.EnableCorpseHitbox();
+            }
         }
     }
 

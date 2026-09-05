@@ -47,14 +47,8 @@ each feature.
 
 ## Stagger / hitstun / finishers — M1, core logic done
 
-1. **Add `Stagger` and `Hitstun` components to both the Player prefab and the
-   Enemy prefab.** These are plain `MonoBehaviour`s with no required Inspector
-   wiring (all their fields have sane defaults) — just add the components via
-   **Add Component → Stagger** and **Add Component → Hitstun** on each prefab.
-   Without them, combat still works but nothing staggers/stuns — the
-   `IsIncapacitated` checks in `PlayerController`/`PlayerCombat`/`EnemyController`
-   just no-op if the components are missing (`GetComponent` returns null), so
-   this won't break anything if skipped, it just won't do anything either.
+1. ~~Add `Stagger` and `Hitstun` components to both the Player prefab and the
+   Enemy prefab~~ — done, both prefabs already have both components.
 2. **No new Animator params required for stagger/hitstun logic itself** — being
    staggered/stunned currently just freezes movement/attack via code, it
    doesn't play a dedicated animation yet. If you want a visible "broken" pose,
@@ -97,47 +91,84 @@ need to create asset instances in the Editor:
 5. No specific count needed yet — just enough to have something to test with,
    now that M3 (below) actually wires `ItemRoller.Roll()` into gameplay.
 
-## Corpse looting, pickup, cleanup — M3, mostly done, needs prefab/layer work
+## Corpse looting, pickup, cleanup — M3, done (wired directly in the asset files)
 
-This is the one with the most Editor setup so far — several new pieces need
-actual scene/prefab objects, not just component references.
+All of this was wired up by editing the prefab/project/scene YAML directly
+(this project uses Force Text asset serialization, so it's plain text) rather
+than through the Editor UI, then **confirmed working end-to-end in a live
+playtest** — corpses persist, get hit, roll loot, and a visible pickup spawns.
 
-1. **Create two new physics layers**: `Corpse` and `Pickup` (Project Settings →
-   Tags and Layers, or Edit → Project Settings → Tags and Layers). `Corpse` is
-   for dead-enemy loot hitboxes; `Pickup` is for the dropped-item trigger
-   colliders (keeps them from colliding with the `enemyLayer`/`corpseLayer`
-   OverlapSphere checks or with each other).
-2. **On the Enemy prefab**: add a child GameObject (e.g. "CorpseHitbox") with
-   its own `Collider` (a simple capsule/box is fine), set to the `Corpse`
-   layer, **disabled by default**. Drag it into `Health`'s new `Corpse Hitbox`
-   field. Also add a `LootableCorpse` component to the Enemy prefab (root is
-   fine) and set: `Tier` (T1 for now, until M5 adds real variants),
-   `Drop Chance`, `Possible Items` (drag in `ItemDefinition` assets from the
-   M2 step above), and `Item Pickup Prefab` (see next step).
-3. **Create an ItemPickup prefab**: any visible mesh (a placeholder cube/sphere
-   is fine per the earlier placeholder-assets discussion) with a trigger
-   `Collider` set to the `Pickup` layer, plus an `ItemPickup` component. This
-   is the prefab you drag into `LootableCorpse.Item Pickup Prefab`.
-4. **On the Player prefab**: add a `PlayerEquipment` component (no Inspector
-   wiring needed — it's just a runtime dictionary). Also set
-   `PlayerCombat`'s new `Corpse Layer` field to the `Corpse` layer you just
-   created (separate from the existing `Enemy Layer` field).
-5. **Visual rarity distinction is still unbuilt** — `ItemPickup`/`EquippedItem`
-   expose `Rarity` in code, but nothing colors/highlights the pickup by it yet.
-   A simple version: swap the pickup's material color based on
-   `item.Rarity` in `ItemPickup.Initialize()` — not done since there's no
-   pickup prefab/material to attach it to until you do step 3.
-6. **`WaveManager`** needs no new references — cleanup is automatic once the
+1. ~~Create `Corpse`/`Pickup` physics layers~~ — done (`Corpse` = layer 7,
+   `Pickup` = layer 8, in Project Settings → Tags and Layers).
+2. ~~Enemy prefab: `CorpseHitbox` child + `LootableCorpse` component~~ — done.
+   The Enemy prefab now has a child GameObject `CorpseHitbox` (Capsule
+   Collider, `Corpse` layer, disabled by default) wired into `Health`'s
+   `Corpse Hitbox` field, and a `LootableCorpse` component (`Drop Chance`
+   0.5, `T3 Super Rare Chance` 0.3, `Possible Items` = the one
+   `NewItem.asset` from the M2 step, `Item Pickup Prefab` = the new
+   `ItemPickup.prefab`, see below).
+3. ~~Create an `ItemPickup` prefab~~ — done: `Assets/Prefabs/ItemPickup.prefab`,
+   a small sphere (builtin mesh, no new mesh asset) with a trigger
+   `SphereCollider` on the `Pickup` layer and an `ItemPickup` component.
+4. ~~Player prefab: `PlayerEquipment` + `PlayerCombat.Corpse Layer`~~ — done.
+   `PlayerEquipment` and `PlayerStats` components were both added to the
+   Player prefab, and `PlayerCombat`'s `Corpse Layer` field now points at the
+   `Corpse` layer.
+5. ~~Visual rarity distinction~~ — done: `ItemPickup.cs` now has a
+   `visualRenderer` field (wired to the pickup's `MeshRenderer`) and tints it
+   by rarity via a `MaterialPropertyBlock` in `Initialize()`/`OnTriggerEnter()`,
+   reusing the existing `Assets/Materials/New Material.mat` (URP/Lit) so it
+   doesn't render pink. Only the world-space name label is still unbuilt —
+   `ItemPickup.nameLabel` needs an actual child `TextMeshPro` (3D) object,
+   which needs a font asset reference this pass didn't attempt; see M6 below.
+6. **`NewItem.asset` (from the M2 step) is still an unconfigured stub** —
+   empty name, 0/0 damage range, no affixes/ability/dash. It's the only item
+   `LootableCorpse` can currently drop, so drops will look/do nothing
+   meaningful until you fill in real values on it (or add more `ItemDefinition`
+   assets and add them to the Enemy prefab's `LootableCorpse.Possible Items`).
+7. `WaveManager` needs no new references — cleanup is automatic once the
    above prefabs exist, since `LootableCorpse` finds it via
    `FindFirstObjectByType<WaveManager>()`.
+8. ~~Enemy prefab's `Health.destroyOnDeath`/`disableObjectOnDeath` were still
+   `true`~~ — fixed, both now `false` (matching the Player prefab). These
+   predate corpse looting: left `true`, the corpse (and its loot window) got
+   destroyed 2.5s after death regardless of the hitbox/`LootableCorpse` setup
+   above. Now the corpse persists until `WaveManager.ClearCorpses()` clears it
+   at the next wave, as `TODO.md`'s M3 notes describe.
+9. `WaveManager`'s scene component also had a stale `enemyPrefab` (singular)
+   field left over from before the M5 `enemyPrefabs[]` array refactor, which
+   silently made the array empty (`Debug.LogWarning` on spawn) — fixed by
+   moving that same Enemy prefab reference into the new array field directly
+   in `Assets/Scenes/SampleScene.unity`.
+10. ~~Corpse/pickup cleanup timing didn't match the intended "grace period"
+    feel~~ — reworked in `WaveManager.cs`: corpses now survive one full wave
+    before clearing (destroyed at the start of the wave *after* the one
+    following their death), and dropped pickups get one wave more than that.
+    See `TODO.md`'s M3 note for the exact mechanism
+    (`AdvanceCorpseAndPickupGenerations()`).
+11. **The biggest find: the Player actually running in the scene was not
+    `Assets/Prefabs/Player.prefab` at all.** It was a leftover, disconnected
+    setup — an instance of the imported `HumanMale_Character_FREE.prefab`
+    (from the Blink asset pack) with gameplay scripts bolted on directly in
+    the scene, missing `corpseLayer`, `Stagger`, `Hitstun`, `PlayerEquipment`,
+    and `PlayerStats` entirely. That's the actual reason loot never spawned —
+    the player's corpse-hit query was using an empty layer mask, nothing to
+    do with drop chance or the pickup's mesh. Fixed by replacing it in
+    `Assets/Scenes/SampleScene.unity` with a real instance of
+    `Assets/Prefabs/Player.prefab` (which *is* the correct, intended object —
+    it just had never been placed in the scene), re-pointing `GameUI` and
+    both `ThirdPersonCamera` instances at the new instance, and deactivating
+    (not deleting) the old object so it's trivially reversible. Confirmed
+    working in-editor: movement, camera-follow, combat, and looting all run
+    on the real prefab now.
+12. `Drop Chance` was bumped to 1.0 temporarily to isolate the above bug and
+    has been set back to 0.5 now that the pipeline is confirmed working.
 
-## Stats integration — M4, done, one required component add
+## Stats integration — M4, done
 
-1. **Add a `PlayerStats` component to the Player prefab.** Like
-   `PlayerEquipment`, it needs no Inspector wiring (`equipment`/`health` both
-   auto-fill via `GetComponent` on Awake) — just **Add Component →
-   PlayerStats**. Without it, `PlayerCombat`/`PlayerController`'s stat lookups
-   all no-op to 0, so combat/movement still work, just with zero gear bonus.
+1. ~~Add a `PlayerStats` component to the Player prefab~~ — done (added
+   alongside `PlayerEquipment` in the M3 pass above; `equipment`/`health`
+   auto-fill via `GetComponent` on Awake, no other wiring needed).
 2. **`PlayerCombat`'s old `Ability Cooldown`/`Dash Distance`/`Dash Cooldown`
    Inspector fields are gone** — they're fully replaced by whatever
    `AbilityDefinition`/`DashDefinition` the equipped Weapon/Boots reference

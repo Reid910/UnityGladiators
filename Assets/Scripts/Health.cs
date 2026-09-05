@@ -111,6 +111,17 @@ public class Health : MonoBehaviour
         Die();
     }
 
+    // Called by WaveManager once the wave this enemy died in fully clears —
+    // corpses aren't lootable before then, so the player can't farm loot off
+    // a body while more enemies from the same wave are still incoming.
+    public void EnableCorpseHitbox()
+    {
+        if (corpseHitbox != null)
+        {
+            corpseHitbox.enabled = true;
+        }
+    }
+
     private void UpdateHealthText()
     {
         if (healthText == null)
@@ -160,11 +171,6 @@ public class Health : MonoBehaviour
         if (objectCollider != null)
         {
             objectCollider.enabled = false;
-        }
-
-        if (corpseHitbox != null)
-        {
-            corpseHitbox.enabled = true;
         }
 
         if (destroyOnDeath)

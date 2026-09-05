@@ -56,7 +56,9 @@ breaks and finishers, not a slow tank-and-spank.
       `EnemyController.AttackTarget()` (enemy → player).
 - [ ] Feedback for stagger: a UI bar over the enemy (or screen-space) and a visual/
       audio cue when it breaks, so the player can read "this one's about to go down."
-      Not built yet — needs a UI prefab, see `SETUP.md`/M6.
+      Player-side is partially done: `GameUI.staggerText` shows the player's own
+      live `Stagger` value (or "BROKEN") under the health readout — enemy-side
+      (a bar over each enemy, or a break cue) is still unbuilt.
 - [x] Stagger meter applies to the player too, symmetrically: `EnemyController.AttackTarget()`
       fills the player's `Stagger` on every landed hit, same as the player does to
       enemies.
@@ -100,10 +102,14 @@ breaks and finishers, not a slow tank-and-spank.
 
 ## M3 — Corpse looting, pickup & cleanup
 - [x] On enemy death, the corpse stays in the scene (default when `destroyOnDeath`
-      is false) and `Health.cs` now enables an optional `corpseHitbox` Collider on
-      death — separate from `objectCollider`, which still gets disabled — so a
-      corpse can still be hit after death. Needs an actual child hitbox object
-      created and wired per prefab, see `SETUP.md`.
+      is false) — separate from `objectCollider`, which still gets disabled, so a
+      corpse can still be hit after death via an optional `corpseHitbox` Collider.
+      That hitbox isn't enabled the instant the enemy dies, though —
+      `Health.EnableCorpseHitbox()` is called by `WaveManager` only once the wave
+      that enemy died in fully clears (`OnEnemyDied()` → `EnableCorpseLooting()`),
+      so corpses aren't lootable mid-fight while more enemies from the same wave
+      are still incoming. Needs an actual child hitbox object created and wired
+      per prefab, see `SETUP.md`.
 - [x] `LootableCorpse.cs`: tracks whether it's been looted (`TryLoot()` is a no-op
       after the first successful/attempted loot), rolls whether it has loot at all
       (`dropChance`) and which item from a per-corpse `possibleItems` pool, and
@@ -126,12 +132,17 @@ breaks and finishers, not a slow tank-and-spank.
       name label by it (`nameLabel` field — needs the actual TextMeshPro object
       created on the pickup prefab, see `SETUP.md`; no icon/outline yet, just
       the text label for now).
-- [x] Cleanup, tied to `WaveManager` instead of a timer: `StartNextWave()` now
-      destroys everything in `spawnedEnemies` (the previous wave's corpses) before
-      spawning the new wave. `OnEnemyDied()` now calls `ClearPickups()` when a wave
-      finishes, destroying anything in the new `activePickups` list (populated via
-      `WaveManager.RegisterPickup()`, called from `LootableCorpse` when it spawns a
-      drop) — gives dropped items one full wave of grace before they're cleared.
+- [x] Cleanup, tied to `WaveManager` instead of a timer, both with a grace
+      period so nothing vanishes the instant a wave ends:
+      `AdvanceCorpseAndPickupGenerations()` (called from `StartNextWave()`)
+      destroys the corpse batch from two transitions ago and the pickup batch
+      from three transitions ago, then promotes each wave's freshly-finished
+      batch to await the next one — corpses get one full wave of grace
+      (a body from wave N survives all of wave N+1, cleared when wave N+2
+      starts), pickups get one wave more than that (survives wave N+1 *and*
+      N+2, cleared when N+3 starts) — populated via
+      `WaveManager.RegisterPickup()`, called from `LootableCorpse` when it
+      spawns a drop.
 
 ## M4 — Stats integration
 - [x] `PlayerStats.cs` aggregator: sums base damage + every equipped item's
