@@ -19,19 +19,19 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] M2 (heavy): separate attack, either a single big hit or its own 2-hit chain;
       slower windup, more damage, maybe brief poise/armor while swinging. (Shipped
       as a single big hit for v1.)
-- [x] Add an `Ability` input (new action in `InputSystem_Actions`) with a cooldown —
-      input wired and firing an `AbilityCast` trigger placeholder.
-  - [ ] Elden-Ring-style weapon-granted behavior (different weapons give a
-        different skill move) — depends on the item system, moved to M4.
-- [x] Add a `Dash` input, granted by the equipped boots (Risk of Rain shift-style) —
-      input wired, does a basic forward burst via `CharacterController.Move`.
-  - [ ] Gate dash behind boots being equipped (no boots = no dash) and support
-        different dash variants (distance/speed/damaging) — depends on the item
-        system, moved to M4.
-- [ ] Animator: add params/states for combo step and ability so animations can react
-      (`AttackCombo1/2/3`, `AttackHeavy`, `AbilityCast`, `Dash` triggers already set
-      from code in `PlayerCombat.cs` — the Animator Controller states/transitions
-      for them still need to be built in the Editor, see `SETUP.md`).
+- [x] Add an `Ability` input (new action in `InputSystem_Actions`) with a cooldown.
+      Elden-Ring-style weapon-granted behavior landed in M4 — no longer a
+      placeholder, see there.
+- [x] Add a `Dash` input, granted by the equipped boots (Risk of Rain shift-style).
+      Boots-gating and per-boots dash variants landed in M4 — no longer a
+      placeholder, see there.
+- [x] Animator: rather than building new states/transitions for `AttackCombo1/2/3`,
+      `AttackHeavy`, `AbilityCast`, `Dash` (which would need real animation clips
+      the project doesn't have), light combo and heavy now reuse the existing
+      `Attack` trigger/state — every attack plays the same swing for now.
+      Ability/dash fire no animator trigger at all; both still fully function
+      mechanically. Distinct animations per move are a future polish item, not
+      required for MVP.
 - [ ] Combat feedback: hit-stop/flinch on enemies, a damage number popup or flash —
       cheap juice that makes combos feel worth building. Partial: `Health.TakeDamage()`
       now fires an animator `Hit` trigger for flinch reactions; hit-stop and damage

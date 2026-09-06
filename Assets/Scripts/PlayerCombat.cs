@@ -14,12 +14,17 @@ public class PlayerCombat : MonoBehaviour
     }
 
     [Header("Light Combo")]
+    // animatorTrigger reuses the existing "Attack" parameter (the only one the
+    // current Animator Controllers actually have) rather than distinct
+    // per-hit triggers — every light hit plays the same swing animation for
+    // now. Give each hit its own trigger name here once real animations
+    // exist and the Controllers have matching states/transitions.
     [SerializeField]
     private ComboHit[] lightComboHits =
     {
-        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "AttackCombo1" },
-        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "AttackCombo2" },
-        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, recoveryTime = 0.5f, animatorTrigger = "AttackCombo3" },
+        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, recoveryTime = 0.5f, animatorTrigger = "Attack" },
     };
     [SerializeField] private float comboWindow = 0.8f;
 
@@ -161,7 +166,9 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        DealDamage(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "AttackHeavy");
+        // Reuses "Attack" too (see lightComboHits comment) — no distinct
+        // heavy-swing animation exists yet.
+        DealDamage(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "Attack");
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
@@ -196,13 +203,11 @@ public class PlayerCombat : MonoBehaviour
         float cooldownReduction = playerStats != null ? playerStats.GetStat(StatType.AbilityCooldownReduction) : 0f;
         float effectiveCooldown = Mathf.Max(0.1f, abilityDefinition.Cooldown * (1f - cooldownReduction));
 
-        if (animator != null)
-        {
-            string trigger = string.IsNullOrEmpty(abilityDefinition.AnimatorTrigger)
-                ? "AbilityCast"
-                : abilityDefinition.AnimatorTrigger;
-            animator.SetTrigger(trigger);
-        }
+        // No animator trigger fired yet — abilityDefinition.AnimatorTrigger
+        // names a state ("AbilityCast" by default) that doesn't exist in the
+        // current Animator Controllers. The ability still functions
+        // (cooldown/effect), it just won't visibly animate until real states
+        // are built for it.
 
         nextAbilityTime = Time.time + effectiveCooldown;
     }
@@ -227,11 +232,10 @@ public class PlayerCombat : MonoBehaviour
 
         if (dashDefinition.DealsDamage)
         {
-            DealDamage(dashDefinition.Damage, 0f, 0f, "Dash");
-        }
-        else if (animator != null)
-        {
-            animator.SetTrigger("Dash");
+            // No "Dash" animator trigger exists yet (see TryUseAbility), so
+            // no animatorTrigger is passed here — damage/stagger/hitstun and
+            // corpse looting still apply.
+            DealDamage(dashDefinition.Damage, 0f, 0f, null);
         }
 
         nextDashTime = Time.time + dashDefinition.Cooldown;

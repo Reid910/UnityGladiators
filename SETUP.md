@@ -20,18 +20,16 @@ each feature.
    - `Dash` → Left Ctrl
    You can rebind these in the Input Actions editor if you'd rather use
    different keys.
-3. **Animator Controller** — `PlayerCombat.cs` now fires these trigger
-   parameters that don't exist in the Player's Animator Controller yet:
-   - `AttackCombo1`, `AttackCombo2`, `AttackCombo3` (light combo, one per hit)
-   - `AttackHeavy` (heavy attack)
-   - `AbilityCast` (ability placeholder)
-   - `Dash` (dash placeholder)
-   For each: add a `Trigger` parameter with that exact name in the Animator
-   Controller, then add a state + transition from wherever attacks currently
-   trigger (look at how the existing single `Attack` trigger/state was wired,
-   since that pattern still applies — you're just adding more of them). Until
-   these exist, the moves will function (damage/cooldowns work, dash actually
-   moves you) but won't visibly animate.
+3. ~~Animator Controller: `PlayerCombat.cs` fired trigger parameters
+   (`AttackCombo1/2/3`, `AttackHeavy`, `AbilityCast`, `Dash`) that didn't
+   exist~~ — resolved without new assets: light combo and the heavy attack now
+   all reuse the existing `Attack` trigger/state (the only one either Animator
+   Controller actually has), so every attack plays the same swing animation
+   for now instead of needing new states built. Ability and dash fire no
+   animator trigger at all — they still fully function (cooldowns, damage,
+   movement), they just don't animate yet. Give each move its own trigger
+   name in `PlayerCombat.cs` (and matching Controller states) once real
+   animations exist; not needed for MVP.
 4. **No new Inspector references needed** — `PlayerCombat` still uses the same
    `attackPoint`/`enemyLayer`/`animator`/`health` fields as before. It also now
    auto-fills a `CharacterController` reference via `GetComponent` on Awake if
@@ -40,10 +38,11 @@ each feature.
    need no action, but double check the field isn't pointing at the wrong
    object if you had one manually assigned before.
 5. **Combo/heavy numbers are placeholder starting values** (see the
-   `lightComboHits` array, `heavyDamage`, `abilityCooldown`, `dashDistance`,
-   `dashCooldown` fields in the Inspector) — these reset to script defaults
-   since the old `attackDamage`/`attackCooldown` fields were replaced. Tune to
-   taste once you can playtest.
+   `lightComboHits` array and `heavyDamage`/`heavyStaggerAmount`/
+   `heavyHitstunDuration`/`heavyRecoveryTime` fields in the Inspector) — tune
+   to taste once you can playtest. (Ability cooldown and dash distance/cooldown
+   are no longer separate fields here — they come from the equipped weapon's
+   `AbilityDefinition`/boots' `DashDefinition` instead, see M4 below.)
 
 ## Stagger / hitstun / finishers — M1, core logic done
 
