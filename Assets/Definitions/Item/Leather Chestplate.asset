@@ -10,12 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f047661a0ac1f0b4d8ea815b6a4c2b89, type: 3}
-  m_Name: NewItem
+  m_Name: Leather Chestplate
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
-  itemName: Gladius
-  slot: 4
-  minDamage: 8
-  maxDamage: 14
+  itemName: Leather Chestplate
+  slot: 1
+  minDamage: 0
+  maxDamage: 0
   possibleAffixes:
   - {fileID: 11400000, guid: 10fa113862d3ac147b8d9d42c1fef9a2, type: 2}
   - {fileID: 11400000, guid: 49481b0302fd0994badeb05c21dbc366, type: 2}
@@ -23,5 +23,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 600a1c2041223e24193e09f26577ab84, type: 2}
   - {fileID: 11400000, guid: 0b204da879d37b94288387bac388a6c8, type: 2}
   - {fileID: 11400000, guid: 2c10e674dbad42b0ae641771d65e973c, type: 2}
-  abilityDefinition: {fileID: 11400000, guid: 9cc096801927dac4b98209b4d8640196, type: 2}
+  abilityDefinition: {fileID: 0}
   dashDefinition: {fileID: 0}

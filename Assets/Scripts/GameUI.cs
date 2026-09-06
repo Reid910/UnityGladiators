@@ -122,9 +122,78 @@ public class GameUI : MonoBehaviour
             string itemLabel = item?.Definition != null ? item.Definition.ItemName : "(empty)";
 
             builder.AppendLine(slot + ": <color=#" + colorHex + ">" + itemLabel + "</color>");
+
+            if (item == null)
+            {
+                continue;
+            }
+
+            if (item.Definition?.AbilityDefinition != null)
+            {
+                builder.AppendLine("  Ability: " + item.Definition.AbilityDefinition.AbilityName);
+            }
+
+            if (item.Definition?.DashDefinition != null)
+            {
+                builder.AppendLine("  Dash: " + item.Definition.DashDefinition.DashName);
+            }
+
+            if (item.RolledDamage > 0)
+            {
+                builder.AppendLine("  +" + item.RolledDamage + " Damage");
+            }
+
+            foreach (RolledAffix affix in item.Affixes)
+            {
+                if (affix.definition == null)
+                {
+                    continue;
+                }
+
+                builder.AppendLine("  " + FormatAffix(affix));
+            }
         }
 
         equippedItemsText.text = builder.ToString();
+    }
+
+    // Fractional stats (attack speed, crit, cooldown reduction, move speed)
+    // read as percentages; flat stats (max health, armor) read as plain points.
+    private static string FormatAffix(RolledAffix affix)
+    {
+        StatType statType = affix.definition.StatType;
+        string statName = FormatStatName(statType);
+
+        bool isFractional =
+            statType == StatType.AttackSpeed ||
+            statType == StatType.CritChance ||
+            statType == StatType.AbilityCooldownReduction ||
+            statType == StatType.MoveSpeed;
+
+        return isFractional
+            ? "+" + Mathf.RoundToInt(affix.rolledValue * 100f) + "% " + statName
+            : "+" + Mathf.RoundToInt(affix.rolledValue) + " " + statName;
+    }
+
+    private static string FormatStatName(StatType statType)
+    {
+        switch (statType)
+        {
+            case StatType.AttackSpeed:
+                return "Attack Speed";
+            case StatType.CritChance:
+                return "Crit Chance";
+            case StatType.AbilityCooldownReduction:
+                return "Ability Cooldown Reduction";
+            case StatType.MoveSpeed:
+                return "Move Speed";
+            case StatType.MaxHealth:
+                return "Max Health";
+            case StatType.Armor:
+                return "Armor";
+            default:
+                return statType.ToString();
+        }
     }
 
     private void OnPlayerDied(Health health)

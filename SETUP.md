@@ -113,18 +113,33 @@ playtest** — corpses persist, get hit, roll loot, and a visible pickup spawns.
    `PlayerEquipment` and `PlayerStats` components were both added to the
    Player prefab, and `PlayerCombat`'s `Corpse Layer` field now points at the
    `Corpse` layer.
-5. ~~Visual rarity distinction~~ — done: `ItemPickup.cs` now has a
-   `visualRenderer` field (wired to the pickup's `MeshRenderer`) and tints it
-   by rarity via a `MaterialPropertyBlock` in `Initialize()`/`OnTriggerEnter()`,
-   reusing the existing `Assets/Materials/New Material.mat` (URP/Lit) so it
-   doesn't render pink. Only the world-space name label is still unbuilt —
-   `ItemPickup.nameLabel` needs an actual child `TextMeshPro` (3D) object,
-   which needs a font asset reference this pass didn't attempt; see M6 below.
-6. **`NewItem.asset` (from the M2 step) is still an unconfigured stub** —
-   empty name, 0/0 damage range, no affixes/ability/dash. It's the only item
-   `LootableCorpse` can currently drop, so drops will look/do nothing
-   meaningful until you fill in real values on it (or add more `ItemDefinition`
-   assets and add them to the Enemy prefab's `LootableCorpse.Possible Items`).
+5. ~~Visual rarity distinction~~ — done: `ItemPickup.cs` has a `visualRenderer`
+   field (wired to the pickup's `MeshRenderer`) tinted by rarity via a
+   `MaterialPropertyBlock`, plus a world-space name label (`nameLabel`) —
+   `ItemPickup.prefab` now has a child `NameLabel` object (3D `TextMeshPro`,
+   reusing the same `LiberationSans SDF` font and `FaceCamera` billboard
+   pattern already used by the Enemy's health text) floating above the pickup,
+   colored/text-set by `ItemPickup.Initialize()`/`OnTriggerEnter()`.
+6. ~~`NewItem.asset` unconfigured stub~~ — resolved: it's now "Gladius" (a real
+   Weapon item, 8-14 damage, references `NewAbility.asset`). Four more
+   `ItemDefinition` assets were added — "Worn Sandals" (Boots, references
+   `NewDash.asset`), "Leather Cap" (Head), "Leather Chestplate" (Chest),
+   "Leather Greaves" (Pants) — all five wired into the Enemy prefab's
+   `LootableCorpse.Possible Items`, so drops now cover every slot and equipping
+   one actually swaps something visible. `NewAbility`/`NewDash` were given
+   display names ("Reserved Strike" / "Sprint Step") but still don't do
+   anything mechanically — equipping different weapons/boots just changes
+   which named-but-inert ability/dash you're nominally carrying, as intended
+   for this pass.
+7. **Found and fixed a real bug while wiring this up**: four of the five
+   `AffixDefinition` assets (`Cooldown Reduction`, `Critical Hit Chance`,
+   `Max Health`, `Movement Speed`) had `statType: 0` regardless of their name
+   — i.e. they were all secretly "Attack Speed" affixes — and every affix had
+   `minValue`/`maxValue` both `0`, so every roll would've been worth nothing.
+   Fixed all four `statType` indices to match their names, gave all five (plus
+   a newly-created sixth, `Armor.asset` — `StatType.Armor` had no asset at
+   all) real roll ranges. All six now also explicitly declare `eligibleSlots`
+   as empty (any slot) rather than leaving the field ambiguous.
 7. `WaveManager` needs no new references — cleanup is automatic once the
    above prefabs exist, since `LootableCorpse` finds it via
    `FindFirstObjectByType<WaveManager>()`.

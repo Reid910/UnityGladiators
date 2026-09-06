@@ -271,6 +271,10 @@ MonoBehaviour:
   t3SuperRareChance: 0.3
   possibleItems:
   - {fileID: 11400000, guid: f5c9123f4bd6223478f83c2f3c7c6b8f, type: 2}
+  - {fileID: 11400000, guid: 9e0f787c59db41ed97680ffe87fbe1b2, type: 2}
+  - {fileID: 11400000, guid: b893d6d751e04ca3ba4a0c75688618ff, type: 2}
+  - {fileID: 11400000, guid: 6e8c0d3c4c4d475a86ad6ea0b94a5c99, type: 2}
+  - {fileID: 11400000, guid: 78785496b7b443b1aecbb7a31055f3fd, type: 2}
   itemPickupPrefab: {fileID: 100000000000000001, guid: 676b791a24394f17a2c02e237bd930ed, type: 3}
 --- !u!1 &7300000000000001
 GameObject:

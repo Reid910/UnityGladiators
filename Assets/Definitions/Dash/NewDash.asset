@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b46806a1f6af224e868f25819c65fe7, type: 3}
   m_Name: NewDash
   m_EditorClassIdentifier: Assembly-CSharp::DashDefinition
-  dashName: 
+  dashName: Sprint Step
   distance: 4
   cooldown: 1.5
   dealsDamage: 0

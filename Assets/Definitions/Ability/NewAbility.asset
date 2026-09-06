@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3b1f46a138e7d1f4486a0f151f038e34, type: 3}
   m_Name: NewAbility
   m_EditorClassIdentifier: Assembly-CSharp::AbilityDefinition
-  abilityName: 
+  abilityName: Reserved Strike
   cooldown: 5
   animatorTrigger: AbilityCast

@@ -128,10 +128,10 @@ breaks and finishers, not a slow tank-and-spank.
       itself (slot was empty) or becomes the previously-equipped item (drops it in
       the same spot) — the Fortnite-style instant swap, no menu step.
 - [x] Visual distinction by rarity: new `RarityColor.cs` maps rarity to a color
-      (white/blue/orange), and `ItemPickup.cs` optionally colors a world-space
-      name label by it (`nameLabel` field — needs the actual TextMeshPro object
-      created on the pickup prefab, see `SETUP.md`; no icon/outline yet, just
-      the text label for now).
+      (white/blue/orange), and `ItemPickup.cs` colors both its mesh (via
+      `MaterialPropertyBlock`) and a world-space name label by it — the
+      `nameLabel` TextMeshPro child object now exists on `ItemPickup.prefab`.
+      No icon/outline yet, just mesh tint + text label.
 - [x] Cleanup, tied to `WaveManager` instead of a timer, both with a grace
       period so nothing vanishes the instant a wave ends:
       `AdvanceCorpseAndPickupGenerations()` (called from `StartNextWave()`)
@@ -216,8 +216,18 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] `GameUI.cs`: shows currently equipped item per slot, text-colored by
       rarity (`UpdateEquippedItemsText()` — text only, no icons yet, would need
       actual item icon assets), ability cooldown, and dash cooldown (added
-      since dash is now a real gated resource, not always-available).
+      since dash is now a real gated resource, not always-available). Now also
+      shows each equipped item's actual stats underneath its name — rolled
+      damage, every affix formatted by type (percentages for Attack Speed/
+      Crit Chance/Ability Cooldown Reduction/Move Speed, flat points for Max
+      Health/Armor), and the weapon's/boots' ability/dash name if it has one.
 - [x] Combo counter readout (`comboText`, shows `PlayerCombat.ComboStep`).
+- [x] Stagger readout (`staggerText`, shows the player's own `Stagger` value or
+      "BROKEN" — added alongside the health readout).
+- [x] World-space pickup name label (`ItemPickup.nameLabel`) is wired up — see
+      M3's `SETUP.md` notes. Name only, no stats on the world label itself
+      (kept the HUD as the place for stat detail, a floating label showing a
+      full affix list would be visually cramped).
 - [ ] "Press E to pick up..." prompt — **dropped, not just unbuilt**: this
       doesn't fit the design anymore. Pickup is instant-on-touch
       (Fortnite-style, decided earlier), not a button-press interaction, so

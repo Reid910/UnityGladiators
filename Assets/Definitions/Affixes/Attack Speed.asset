@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: Attack Speed
   m_EditorClassIdentifier: Assembly-CSharp::AffixDefinition
   statType: 0
-  minValue: 0
-  maxValue: 0
-  eligibleSlots: 
+  minValue: 0.05
+  maxValue: 0.2
+  eligibleSlots: []
