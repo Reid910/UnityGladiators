@@ -177,6 +177,15 @@ playtest** — corpses persist, get hit, roll loot, and a visible pickup spawns.
     on the real prefab now.
 12. `Drop Chance` was bumped to 1.0 temporarily to isolate the above bug and
     has been set back to 0.5 now that the pipeline is confirmed working.
+13. **Found and fixed a real bug via live playtesting**: `CorpseHitbox`'s
+    `CapsuleCollider` had `Is Trigger` unchecked. `Health.EnableCorpseHitbox()`
+    just re-enables the collider once a wave clears — with `Is Trigger` off,
+    that made a solid capsule that physically blocked the player from walking
+    past/through cleared corpses instead of just being loot-hittable. Fixed by
+    setting `m_IsTrigger: 1` on `Assets/Prefabs/Enemy.prefab`'s `CorpseHitbox`
+    directly in the prefab YAML. Doesn't affect loot-hitting, since
+    `PlayerCombat.LootCorpses()` already uses `Physics.OverlapSphere`, which
+    detects trigger colliders fine.
 
 ## Stats integration — M4, done
 
@@ -224,25 +233,31 @@ The existing Enemy prefab has an `EnemyController` with a new `Tier` field
    just keeps scaling. Uncheck it on `WaveManager` if you want the old
    win-at-wave-3 behavior back for testing.
 
-## UI/feedback — M6, needs Canvas/TextMeshProUGUI creation
+## UI/feedback — M6, done (wired directly in the scene YAML)
 
-`GameUI.cs` has new optional fields — none are required (all null-checked), so
-existing HUD keeps working untouched if you skip this. To actually see the new
-info:
+Same approach as the M3 corpse-looting pass: edited `Assets/Scenes/SampleScene.unity`
+directly (Force Text serialization) rather than through the Editor UI.
 
-1. **On the GameUI object**: assign `Player Combat` and `Player Equipment`
-   (drag the Player object in) — needed for the new readouts below.
-2. **Create new TextMeshProUGUI elements** on your HUD Canvas (duplicate an
-   existing HUD text element and reposition, same as how `Wave Text`/
-   `Enemies Remaining Text` were presumably set up) for whichever of these you
-   want, then assign them on `GameUI`:
-   - `Equipped Items Text` — multi-line, shows all 5 slots colored by rarity
-     (uses TextMeshPro's `<color>` rich text tag, so make sure Rich Text is
-     enabled on that text object, which is the TMP default).
-   - `Ability Cooldown Text`, `Dash Cooldown Text` — simple "Ready" / "Xs"
-     readouts.
-   - `Combo Text` — shows current combo chain step.
-3. **`ItemPickup`'s new `Name Label` field** (on the pickup prefab from the M3
-   step): add a child `TextMeshPro` (3D, not UGUI — it's a floating
-   world-space label, not screen-space) above the pickup mesh, assign it.
-   Without it, pickups still work, they just don't show a name/rarity label.
+1. ~~On the GameUI object: assign `Player Combat` and `Player Equipment`~~ —
+   done. Added stripped `MonoBehaviour` references (fileIDs `700000005`/
+   `700000006`) into the existing Player `PrefabInstance` block and wired them
+   into `GameUI`'s `Player Combat`/`Player Equipment` fields.
+2. ~~Create new TextMeshProUGUI elements for Equipped Items Text, Ability
+   Cooldown Text, Dash Cooldown Text, Combo Text~~ — done, all four created
+   under the `HUD` RectTransform and assigned on `GameUI`:
+   - `Equipped Items Text` — anchored bottom-left (unlike the other HUD
+     readouts, which are top-left), smaller font (24pt) to fit multi-line
+     per-slot detail without overflowing.
+   - `Ability Cooldown Text`, `Dash Cooldown Text`, `Combo Text` — same
+     top-left column as the existing readouts, stacked below them.
+3. **Found and fixed a real bug while wiring this up**: the existing top-left
+   readouts (`PlayerHealthText`, `WaveText`, `EnemiesRemainingText`,
+   `StaggerText`) had never been given distinct Y positions —
+   `StaggerText` was anchored at the same `y: -50` as `WaveText`, so the two
+   overlapped. Respaced the whole top-left column to `0, -50, -100, -150,
+   -200, -250, -300` (Health, Wave, Enemies, Stagger, Ability, Dash, Combo).
+4. ~~`ItemPickup`'s new `Name Label` field~~ — already done, see M3 notes above.
+
+No manual Editor steps remain for M6. As always, open the project in Unity
+once after a direct-YAML pass like this to let it re-serialize and confirm
+nothing reports a missing reference before playtesting.
