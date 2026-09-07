@@ -32,10 +32,21 @@ breaks and finishers, not a slow tank-and-spank.
       (`AttackCombo1/2/3`, `AttackHeavy`, `AbilityCast`, `Dash` triggers already set
       from code in `PlayerCombat.cs` — the Animator Controller states/transitions
       for them still need to be built in the Editor, see `SETUP.md`).
-- [ ] Combat feedback: hit-stop/flinch on enemies, a damage number popup or flash —
-      cheap juice that makes combos feel worth building. Partial: `Health.TakeDamage()`
-      now fires an animator `Hit` trigger for flinch reactions; hit-stop and damage
-      number popups still pending (popup likely belongs with M6 UI work).
+- [x] Combat feedback: hit-stop and damage number popups now both land in
+      `Health.cs`, the single choke point every hit already passes through
+      (`TakeDamage()`/`Execute()`), so this covers player-dealt and
+      enemy-dealt damage in one place rather than duplicating it in
+      `PlayerCombat.cs` and `EnemyController.cs`:
+      - `DamageNumber.cs` (new): a floating `TextMeshPro` that rises and
+        fades out over its lifetime, spawned via a new
+        `Assets/Prefabs/DamageNumber.prefab`. Finishers show whatever health
+        remained as the "damage" number.
+      - `HitStop.cs` (new): a brief global `Time.timeScale` freeze
+        (`HitStop.Trigger(duration)`) on every landed hit — no scene wiring
+        needed, it lazily spins up its own persistent runner object.
+        Finishers hold the freeze twice as long as a normal hit.
+      - `Health.TakeDamage()` still also fires the animator `Hit` trigger for
+        flinch reactions, unchanged.
 - [x] Hitstun: new `Hitstun.cs` component (`ApplyStun(duration)` / `IsStunned`),
       distinct from the stagger meter — this is what lets a combo actually chain,
       both player-on-enemy and enemy-on-player, since the target can't act while

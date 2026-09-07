@@ -201,3 +201,28 @@ info:
    step): add a child `TextMeshPro` (3D, not UGUI — it's a floating
    world-space label, not screen-space) above the pickup mesh, assign it.
    Without it, pickups still work, they just don't show a name/rarity label.
+
+## Damage numbers and hit-stop — M1 follow-up, done for Enemy, pending for Player
+
+New `Assets/Prefabs/DamageNumber.prefab` (world-space `TextMeshPro`, same
+font/billboard setup as the enemy health text — reuses the existing
+`FaceCamera.cs`) plus two new scripts, `DamageNumber.cs` and `HitStop.cs`.
+Both are wired into `Health.cs` itself (`TakeDamage()`/`Execute()`), so they
+cover player-dealt and enemy-dealt damage from one place — nothing new to
+wire in `PlayerCombat.cs` or `EnemyController.cs`.
+
+1. ~~`Enemy.prefab`'s `Health` component: `Damage Number Prefab`~~ — done,
+   wired directly in the prefab YAML, pointing at the new
+   `DamageNumber.prefab`. `Damage Number Color` defaults to white, `Hit Stop
+   Duration` to 0.05s (0.1s on a finisher) — tune both to taste.
+2. **Player-side wiring still needed, but `Player.prefab` doesn't exist on
+   this branch** — it was only ever created on the still-unmerged
+   `chore/m1-m5-setup-and-fixes` branch (this branch is based on `main`,
+   which still has the old broken inline-player scene setup that branch
+   replaced). Once the branches come together: on the Player's `Health`
+   component, assign `Damage Number Prefab` to
+   `Assets/Prefabs/DamageNumber.prefab` (same as the enemy step above), and
+   consider a different `Damage Number Color` (e.g. red) so damage taken
+   reads differently from damage dealt.
+3. **No Editor steps needed for `HitStop`** — it has no Inspector fields and
+   creates its own runner object on first use.
