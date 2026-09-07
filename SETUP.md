@@ -306,3 +306,23 @@ collider as before). Pressing Interact calls
   trigger collider doesn't grow along with the scale-up. Leaving it
   unassigned is safe — the label-only feedback still works, it just won't
   scale.
+
+## Damage numbers and hit-stop — M1 follow-up
+
+New `Assets/Prefabs/DamageNumber.prefab` (world-space `TextMeshPro`, same
+font/billboard setup as the enemy health text — reuses the existing
+`FaceCamera.cs`) plus two new scripts, `DamageNumber.cs` and `HitStop.cs`.
+Both are wired into `Health.cs` itself (`TakeDamage()`/`Execute()`), so they
+cover player-dealt and enemy-dealt damage from one place — nothing new to
+wire in `PlayerCombat.cs` or `EnemyController.cs`.
+
+1. ~~`Enemy.prefab`'s `Health` component: `Damage Number Prefab`~~ — done,
+   wired directly in the prefab YAML, pointing at the new
+   `DamageNumber.prefab`. `Damage Number Color` defaults to white, `Hit Stop
+   Duration` to 0.05s (0.1s on a finisher) — tune both to taste.
+2. ~~`Player.prefab`'s `Health` component: same wiring~~ — done now that
+   this branch has `Player.prefab` (merged in from
+   `chore/m1-m5-setup-and-fixes`). `Damage Number Color` set to red on the
+   Player so damage taken reads differently from damage dealt.
+3. **No Editor steps needed for `HitStop`** — it has no Inspector fields and
+   creates its own runner object on first use.

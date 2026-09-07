@@ -1932,6 +1932,10 @@ MonoBehaviour:
   characterController: {fileID: 5133888403426230031}
   objectCollider: {fileID: 5133888403426230031}
   corpseHitbox: {fileID: 0}
+  damageNumberPrefab: {fileID: 100000000000000001, guid: c40f6fe30b3124ac19f51330d979dee5, type: 3}
+  damageNumberSpawnOffset: {x: 0, y: 2, z: 0}
+  damageNumberColor: {r: 1, g: 0.15, b: 0.15, a: 1}
+  hitStopDuration: 0.05
 --- !u!114 &1655791083341687734
 MonoBehaviour:
   m_ObjectHideFlags: 0
