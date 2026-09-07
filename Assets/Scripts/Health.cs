@@ -25,6 +25,7 @@ public class Health : MonoBehaviour
     [SerializeField] private Collider corpseHitbox;
 
     private int maxHealthBonus;
+    private float armor;
 
     public int CurrentHealth { get; private set; }
     public int MaxHealth => maxHealth + maxHealthBonus;
@@ -50,6 +51,14 @@ public class Health : MonoBehaviour
         }
 
         UpdateHealthText();
+    }
+
+    // Called by PlayerStats when equipped gear's Armor affix total changes.
+    // Armor affix values are flat points (see GameUI.FormatAffix), so it's a
+    // flat reduction here too, not a percentage.
+    public void SetArmor(float armorValue)
+    {
+        armor = armorValue;
     }
 
     private void Awake()
@@ -81,7 +90,11 @@ public class Health : MonoBehaviour
             return;
         }
 
-        CurrentHealth -= damageAmount;
+        // Armor reduces incoming damage by a flat amount but never below 1,
+        // so a heavily-armored player can't become fully unkillable.
+        int mitigatedDamage = Mathf.Max(1, damageAmount - Mathf.RoundToInt(armor));
+
+        CurrentHealth -= mitigatedDamage;
         CurrentHealth = Mathf.Max(CurrentHealth, 0);
 
         UpdateHealthText();

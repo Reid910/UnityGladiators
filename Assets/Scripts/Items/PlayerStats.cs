@@ -94,6 +94,7 @@ public class PlayerStats : MonoBehaviour
         if (health != null)
         {
             health.SetMaxHealthBonus(Mathf.RoundToInt(GetStat(StatType.MaxHealth)));
+            health.SetArmor(GetStat(StatType.Armor));
         }
     }
 }

@@ -261,3 +261,48 @@ directly (Force Text serialization) rather than through the Editor UI.
 No manual Editor steps remain for M6. As always, open the project in Unity
 once after a direct-YAML pass like this to let it re-serialize and confirm
 nothing reports a missing reference before playtesting.
+
+## Crit Chance and Armor stats — M4 follow-up, no Editor steps needed
+
+Both affixes already rolled and displayed correctly (M2/M6) but neither
+affected gameplay. Now wired in code only:
+
+- Crit Chance: `PlayerCombat.DealDamage()` rolls it once per swing and
+  multiplies total damage by the new `Crit Damage Multiplier` field (Attack
+  header, defaults to 1.5x — tune to taste once you can playtest).
+- Armor: `Health.SetArmor()`, called by `PlayerStats` alongside the existing
+  `SetMaxHealthBonus()`, and `TakeDamage()` subtracts it as a flat reduction
+  (floored at 1 damage).
+
+No new Inspector references required — both read from the same
+`PlayerStats`/`Health` wiring already in place from M4. Open the project once
+so Unity picks up the new `critDamageMultiplier` serialized field with its
+default value.
+
+## Item swap now button-triggered, not instant-on-touch — no Editor steps needed
+
+Standing near an `ItemPickup` no longer auto-equips it — it just marks itself
+as the player's nearby pickup (`OnTriggerEnter`/`OnTriggerExit`, same trigger
+collider as before). Pressing Interact calls
+`PlayerEquipment.TrySwapWithNearby()` to actually swap it in.
+
+- Reused the stock `Interact` action that already existed in
+  `InputSystem_Actions.inputactions` (bound to `E` / gamepad North) but
+  wasn't used anywhere — changed its interaction from `Hold` to a plain
+  press (edited both the `.inputactions` asset and the matching embedded
+  JSON in the generated `InputSystem_Actions.cs`, so no Unity regeneration
+  step is needed, same as the direct-edit approach used for
+  Heavy/Ability/Dash).
+- No new prefab/Inspector wiring — `ItemPickup` and `PlayerEquipment` are
+  the same components already on `Player.prefab`/`ItemPickup.prefab`.
+- **Swap-target feedback added**: `ItemPickup.nameLabel` now shows `[E] <item
+  name>` plus a smaller `swaps <currently equipped item name>` second line
+  while it's the player's active swap target, reverting to the plain name
+  when it isn't. There's also an optional `Visual Transform` field that
+  scales up (1.25x default, `Targeted Scale Multiplier`) while targeted, so
+  it visually pops if several pickups are near each other.
+- **`Visual Transform` still needs wiring on `ItemPickup.prefab`** — assign
+  it to the mesh's own child transform, *not* the prefab root, so the
+  trigger collider doesn't grow along with the scale-up. Leaving it
+  unassigned is safe — the label-only feedback still works, it just won't
+  scale.
