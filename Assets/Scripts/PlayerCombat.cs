@@ -33,6 +33,8 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private Transform attackPoint;
     [SerializeField] private float attackRange = 1.5f;
     [SerializeField] private LayerMask enemyLayer;
+    [Tooltip("Damage multiplier applied on a crit (see Crit Chance affix, StatType.CritChance).")]
+    [SerializeField] private float critDamageMultiplier = 1.5f;
     [Tooltip("Separate from enemyLayer — dead enemies' corpse hitboxes (see Health.corpseHitbox) live here so attacks can loot them instead of dealing damage.")]
     [SerializeField] private LayerMask corpseLayer;
 
@@ -113,6 +115,7 @@ public class PlayerCombat : MonoBehaviour
         inputSystemActions.Player.Heavy.performed += OnHeavyPerformed;
         inputSystemActions.Player.Ability.performed += OnAbilityPerformed;
         inputSystemActions.Player.Dash.performed += OnDashPerformed;
+        inputSystemActions.Player.Interact.performed += OnInteractPerformed;
     }
 
     private void OnDisable()
@@ -121,6 +124,7 @@ public class PlayerCombat : MonoBehaviour
         inputSystemActions.Player.Heavy.performed -= OnHeavyPerformed;
         inputSystemActions.Player.Ability.performed -= OnAbilityPerformed;
         inputSystemActions.Player.Dash.performed -= OnDashPerformed;
+        inputSystemActions.Player.Interact.performed -= OnInteractPerformed;
         inputSystemActions.Player.Disable();
     }
 
@@ -131,6 +135,11 @@ public class PlayerCombat : MonoBehaviour
     private void OnAbilityPerformed(InputAction.CallbackContext context) => TryUseAbility();
 
     private void OnDashPerformed(InputAction.CallbackContext context) => TryDash();
+
+    // No inventory: swaps whatever's in the nearby ItemPickup's slot with
+    // the player's currently equipped item there (see
+    // PlayerEquipment.TrySwapWithNearby). No-ops if nothing's in range.
+    private void OnInteractPerformed(InputAction.CallbackContext context) => equipment?.TrySwapWithNearby();
 
     private void TryLightAttack()
     {
@@ -247,6 +256,15 @@ public class PlayerCombat : MonoBehaviour
         // Combo/heavy/dash damage is a base move value; gear (base damage +
         // every equipped item's rolled damage, see PlayerStats) adds on top.
         int totalDamage = damage + (playerStats != null ? playerStats.TotalDamage : 0);
+
+        // Crit Chance affix: one roll per swing, not per enemy hit, so every
+        // enemy caught in a single swing shares the same crit result.
+        float critChance = playerStats != null ? playerStats.GetStat(StatType.CritChance) : 0f;
+
+        if (Random.value < critChance)
+        {
+            totalDamage = Mathf.RoundToInt(totalDamage * critDamageMultiplier);
+        }
 
         Collider[] hitEnemies = Physics.OverlapSphere(
             attackPoint.position,

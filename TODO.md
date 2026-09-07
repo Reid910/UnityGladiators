@@ -1,10 +1,12 @@
 # UnityGladiators TODO
 
 Scope: keep the existing wave-survival arena loop (`WaveManager.cs`). Add combo-based
-combat (M1/M2 + ability + stagger/finishers) and Fortnite-style instant-swap ground
-loot with POE2-lite affixes. No inventory UI, no crafting, no procedural levels —
-walking over an item instantly swaps it into that slot and drops whatever was
-equipped there, no pickup/equip menu step in between.
+combat (M1/M2 + ability + stagger/finishers) and button-swap ground loot with
+POE2-lite affixes. No inventory UI, no crafting, no procedural levels — standing
+near a dropped item and pressing Interact (E) swaps it into that slot and drops
+whatever was equipped there, no pickup/equip menu step in between. (Originally
+walk-over-to-instantly-swap; changed to a button press so brushing past loot
+mid-fight can't accidentally swap out good gear — see M6.)
 
 Theme: player as a fast assassin, enemies as Roman gladiators (and whatever else
 gets thrown into the arena) — fast, blow-trading combat building toward stagger
@@ -117,10 +119,14 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] `PlayerCombat.DealDamage()` now also runs a second `OverlapSphere` against a
       new `corpseLayer` (`LootCorpses()`) and calls `TryLoot()` on anything hit —
       separate from `enemyLayer` so corpses aren't also taking live damage.
-- [x] `ItemPickup.cs`: on player trigger enter, calls `PlayerEquipment.Equip()`
-      (new — tracks which `EquippedItem` is in each slot) and either destroys
-      itself (slot was empty) or becomes the previously-equipped item (drops it in
-      the same spot) — the Fortnite-style instant swap, no menu step.
+- [x] `ItemPickup.cs`: on player trigger enter/exit, registers/unregisters
+      itself as the player's nearby pickup (`PlayerEquipment.RegisterNearby()`/
+      `UnregisterNearby()`). The actual swap happens on the Interact input via
+      `PlayerEquipment.TrySwapWithNearby()` (see M6), which calls the existing
+      `Equip()` (tracks which `EquippedItem` is in each slot) and either
+      destroys the pickup (slot was empty) or turns it into the
+      previously-equipped item (drops it in the same spot) — no menu step,
+      just a button press instead of instant-on-touch.
 - [x] Visual distinction by rarity: new `RarityColor.cs` maps rarity to a color
       (white/blue/orange), and `ItemPickup.cs` optionally colors a world-space
       name label by it (`nameLabel` field — needs the actual TextMeshPro object
@@ -154,10 +160,16 @@ breaks and finishers, not a slow tank-and-spank.
       `TryDash()` reads the equipped boots' `DashDefinition` (no boots = no
       dash) — both fields removed from `PlayerCombat`'s own Inspector, now
       fully gear-driven.
-- [ ] Crit Chance affix exists in the data model (`StatType.CritChance`) but
-      isn't consumed by any damage calculation yet — no crit roll/multiplier
-      implemented. Left for a later pass since it's a self-contained addition
-      to `DealDamage()` whenever it's wanted.
+- [x] Crit Chance now rolls in `PlayerCombat.DealDamage()` — one roll per
+      swing (not per enemy hit), multiplying total damage by
+      `critDamageMultiplier` (1.5x default) on a hit.
+- [x] Armor now mitigates incoming damage too — `Health.SetArmor()`, called
+      by `PlayerStats` alongside the existing `SetMaxHealthBonus()`, stores
+      the equipped total and `TakeDamage()` subtracts it as a flat reduction
+      (matching how the affix is already surfaced as flat points in
+      `GameUI`), floored at 1 damage so armor can't make the player
+      unkillable. This was the other affix silently unconsumed since M2 —
+      it rolled and displayed fine, it just never affected anything.
 
 ## M5 — Content pass (make waves feel different, not just numerous)
 - [ ] At least 2-3 gladiator-themed enemy variants — as it turns out this needs
@@ -207,12 +219,22 @@ breaks and finishers, not a slow tank-and-spank.
       actual item icon assets), ability cooldown, and dash cooldown (added
       since dash is now a real gated resource, not always-available).
 - [x] Combo counter readout (`comboText`, shows `PlayerCombat.ComboStep`).
-- [ ] "Press E to pick up..." prompt — **dropped, not just unbuilt**: this
-      doesn't fit the design anymore. Pickup is instant-on-touch
-      (Fortnite-style, decided earlier), not a button-press interaction, so
-      there's no "press E" moment. The floating rarity-colored name label on
-      `ItemPickup` (see M3) is the replacement — it tells you what's there
-      without requiring a prompt or a keypress.
+- [x] Swap-on-touch was replaced with swap-on-Interact: standing in an
+      `ItemPickup`'s trigger no longer auto-equips it, it just marks it as
+      the player's nearby pickup; pressing Interact (`E`, reusing the
+      previously-unused stock `Interact` action — see
+      `InputSystem_Actions.inputactions`) calls
+      `PlayerEquipment.TrySwapWithNearby()` to actually swap it in. Reverses
+      the earlier "press E is dropped, doesn't fit the design" call — walking
+      past loot mid-fight no longer risks swapping out good gear for trash.
+- [x] "Press E to swap" feedback added, on the world-space label rather than
+      a HUD prompt: `ItemPickup`'s floating name label shows `[E] <item>` +
+      a smaller `swaps <currently equipped item>` line while it's the
+      player's swap target (`PlayerEquipment.RegisterNearby()`/
+      `UnregisterNearby()` drive this via `ItemPickup.SetTargeted()`), and
+      reverts to the plain name otherwise. Also scales the pickup up
+      (`Visual Transform` + `Targeted Scale Multiplier`, optional) so the
+      active target stands out if more than one pickup is nearby.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
