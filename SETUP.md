@@ -326,3 +326,22 @@ wire in `PlayerCombat.cs` or `EnemyController.cs`.
    Player so damage taken reads differently from damage dealt.
 3. **No Editor steps needed for `HitStop`** — it has no Inspector fields and
    creates its own runner object on first use.
+
+## Mouse-look camera and Input System migration — no Editor steps needed
+
+`ThirdPersonCamera.cs` was rewritten in code only — no new Inspector fields,
+no `.inputactions` changes (it reuses the `Look` action that already existed
+and was already bound to mouse delta, just never read anywhere), no
+regeneration needed. `ProjectSettings.asset`'s Active Input Handling was
+switched to "Input System Package (New)" only.
+
+1. **Open the project once after pulling** so Unity re-reads the changed
+   Active Input Handling setting — this one, like Tags & Layers, is read at
+   Editor/Player startup, not through the normal asset-reimport pipeline.
+2. **Tune `mouseSensitivity`** on the camera object once you can playtest —
+   `0.12` is a rough starting guess for raw pointer-delta scale, not measured
+   against real play.
+3. **Hold Left or Right Alt** to free the cursor; release to re-lock and
+   resume camera control. No settings menu or pause state yet — this is just
+   a raw escape hatch so the cursor isn't trapped if you need to click
+   elsewhere.

@@ -267,6 +267,30 @@ breaks and finishers, not a slow tank-and-spank.
       (`Visual Transform` + `Targeted Scale Multiplier`, optional) so the
       active target stands out if more than one pickup is nearby.
 
+## Mouse-look camera and full Input System migration — combat-feel follow-up
+- [x] `ThirdPersonCamera.cs` no longer uses the legacy Input Manager
+      (`Input.GetAxis("Mouse X"/"Mouse Y")` — it was the only script left doing
+      so, everything else already used the new Input System). It now reads the
+      existing `Look` action (already bound to `<Pointer>/delta` in
+      `InputSystem_Actions`, just never consumed anywhere before) via its own
+      `InputSystem_Actions` instance, same pattern as `PlayerController`/
+      `PlayerCombat`.
+- [x] Cursor is locked and hidden by default so the mouse directly drives
+      camera yaw/pitch instead of a free OS cursor wandering off the game
+      window. Holding **Left or Right Alt** frees the cursor (`Cursor.lockState
+      = None`, visible) and stops applying mouse movement to the camera while
+      held — checked directly via `Keyboard.current`, no new input action
+      needed for this part.
+- [x] `ProjectSettings.asset`'s `activeInputHandler` switched from `2` (Both)
+      to `1` (Input System Package only) — confirmed nothing else in the
+      project (including third-party asset-pack scripts) still calls the
+      legacy `Input.*` API, so this fully retires the old system and should
+      clear the "Input Manager deprecation" Console warning for good.
+- [ ] `mouseSensitivity` default (`0.12`) is a rough guess — raw pointer delta
+      (pixels/frame) is a very different scale than the old Input Manager's
+      smoothed axis value, so this needs real playtesting to tune, not just
+      code review.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
