@@ -398,6 +398,42 @@ breaks and finishers, not a slow tank-and-spank.
 - [ ] `0.2s` is a first guess — needs playtesting to know if that's generous
       enough to reward a well-timed dash through a windup, or too forgiving.
 
+## Real combo/ability animations — combat-feel follow-up
+- [x] Discovered the project already owns an unused Blink asset pack
+      (`Assets/Blink/Art/Animations/Animations_Starter_Pack/`) built for the
+      exact same rig the Player and Enemy models already share
+      (`HumanMale_Character.fbx` — Enemy just layers armor meshes on top), so
+      these clips need zero retargeting work.
+- [x] Wired 3 new states/triggers directly into
+      `LowPolyHumanAnimator.controller` (Player's Animator Controller) by
+      hand-editing the asset YAML (same technique used elsewhere in this
+      project) rather than through the Editor: `AttackComboLeft` (`PunchLeft`
+      clip), `AttackComboRight` (`PunchRight`), `AbilityCast` (`SpellCast`).
+      Each is a plain Any State → state → exit-to-Locomotion transition,
+      cloned from the existing working `Attack` state's pattern. Verified by
+      parsing the resulting file back with PyYAML and checking every
+      fileID/GUID cross-reference resolves — didn't just eyeball it.
+- [x] `PlayerCombat.cs`'s light combo now alternates `AttackComboLeft`/
+      `AttackComboRight`/`AttackComboLeft` instead of all 3 hits sharing the
+      generic `Attack` trigger — each combo hit now visually reads as
+      distinct. Heavy deliberately keeps using the pre-existing `Attack`
+      state (already `MeleeAttack_OneHanded`), which is already a bigger,
+      different motion from either punch, so it needed no new state.
+      `AbilityCast` was already being fired by `TryUseAbility()` (see the
+      ability follow-up above) — it just went from a safe no-op to an
+      actually-playing, deliberately different-looking cast motion the
+      moment a real state existed for it.
+- [ ] `PunchLeft`/`PunchRight`/`SpellCast`/`MeleeAttack_OneHanded` are the
+      same filler clips noted earlier as having Console import warnings —
+      not diagnosed, worth checking Animation Import Settings in the Editor.
+- [ ] Weapon visual gap is still open and deliberately deferred (per
+      discussion) — these are bare-handed animations, so combat will look
+      unarmed even with a Weapon equipped until a model is attached to the
+      hand, real or filler.
+- [ ] Enemy Animator Controller untouched — enemies only ever fire the one
+      generic `Attack` trigger (no combo/ability concept), so there was
+      nothing to distinguish for them in this pass.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

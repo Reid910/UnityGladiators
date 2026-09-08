@@ -345,3 +345,30 @@ switched to "Input System Package (New)" only.
    resume camera control. No settings menu or pause state yet — this is just
    a raw escape hatch so the cursor isn't trapped if you need to click
    elsewhere.
+
+## Real combo/ability animations — verify before trusting
+
+No new Inspector fields or asset assignment needed — `LowPolyHumanAnimator.controller`
+was edited directly to add the new states/transitions/parameters, and
+`PlayerCombat.cs` already fires the matching trigger names. That said, this is
+the most complex hand-edited asset in the project so far (way more
+interdependent fields than something like `TagManager.asset`), so please
+actually verify it rather than assuming it's right:
+
+1. **Open the project and open `LowPolyHumanAnimator.controller`** in the
+   Animator window — you should see 3 new states (`AttackComboLeft`,
+   `AttackComboRight`, `AbilityCast`) with arrows in from "Any State" and out
+   to the Locomotion blend tree, same shape as the existing `Attack` state.
+2. **Play and check the Console** for any Animator-related errors on the
+   Player specifically (separate from the pre-existing, unrelated animation
+   import warnings on `RollRight`/`RunLeft`/etc. — those aren't from this
+   change).
+3. **Try light combo, heavy, and the ability in play mode** — you should see
+   3 different-looking motions now: alternating punches for the combo,
+   `MeleeAttack_OneHanded` for heavy, `SpellCast` for the ability.
+4. If anything looks wrong (T-pose flash, snapping, a state stuck), that's a
+   sign something in the hand-edit doesn't match what the Editor would have
+   produced — flag it rather than trying to hand-fix the controller further;
+   easiest recovery is redoing the 3 states through the Editor UI directly
+   using the same clips (`PunchLeft`/`PunchRight`/`SpellCast`) referenced in
+   `TODO.md`.
