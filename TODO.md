@@ -291,6 +291,26 @@ breaks and finishers, not a slow tank-and-spank.
       smoothed axis value, so this needs real playtesting to tune, not just
       code review.
 
+## Player poise/hyperarmor — combat-feel follow-up
+- [x] Problem: any single enemy hit applies `Hitstun` to the player, and while
+      stunned the player can't move or act at all (`IsIncapacitated`). With
+      multiple enemies attacking on staggered cooldowns, this could chain into
+      an unrecoverable stunlock just from standing near a few enemies — the
+      player never gets to "win" the exchange through aggression.
+- [x] Fix: `PlayerCombat.IsAttacking` (true while mid-swing, same window as
+      the existing attack-recovery gate) grants poise/hyperarmor against
+      hitstun specifically — `EnemyController.AttackTarget()` now skips
+      calling `Hitstun.ApplyStun()` on the player while `IsAttacking` is true.
+      Damage and Stagger still apply normally either way, so pressing forward
+      recklessly can still get the player broken and finished (the real
+      risk/consequence stays intact) — it just can't be chain-interrupted by
+      every graze while already committed to a swing.
+- [ ] Deliberately one-sided: enemies don't get equivalent poise against the
+      player's hits — the player's stagger/hitstun/finisher tool against
+      enemies is the intended asymmetry (player is the aggressor, gladiators
+      are the ones meant to be broken). Revisit if a tougher (T2/T3) enemy
+      ever needs its own poise resistance beyond a higher `Stagger.maxStagger`.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

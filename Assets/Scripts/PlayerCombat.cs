@@ -64,6 +64,14 @@ public class PlayerCombat : MonoBehaviour
     public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
     public float DashCooldownRemaining => Mathf.Max(0f, nextDashTime - Time.time);
 
+    // Poise/hyperarmor window: true while mid-swing (light or heavy),
+    // covering the same window as nextAttackTime. EnemyController checks
+    // this to skip applying Hitstun to the player while it's true — damage
+    // and Stagger still apply normally, so pressing the attack recklessly
+    // can still get you broken and finished, but a single graze from a
+    // nearby enemy can't flinch you out of your own combo. See TODO.md.
+    public bool IsAttacking => Time.time < nextAttackTime;
+
     private bool IsDead => health != null && health.IsDead;
 
     // The player can't act while stunned from a hit or broken from stagger —
