@@ -193,6 +193,15 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
+        // True i-frames from a dash (DashDefinition.InvulnerabilityDuration):
+        // a correctly-timed dodge takes nothing at all, not even a finisher
+        // on an already-broken player — unlike poise, which only blocks
+        // hitstun and still lets damage/Stagger land.
+        if (targetCombat != null && targetCombat.IsInvulnerable)
+        {
+            return;
+        }
+
         // Attacking an already-broken target is a finisher — instant kill.
         if (targetStagger != null && targetStagger.IsBroken)
         {

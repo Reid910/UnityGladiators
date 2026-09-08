@@ -71,6 +71,7 @@ public class PlayerCombat : MonoBehaviour
     private float nextAttackTime;
     private float nextAbilityTime;
     private float nextDashTime;
+    private float invulnerableUntilTime;
 
     public int ComboStep => comboStep;
     public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
@@ -82,6 +83,11 @@ public class PlayerCombat : MonoBehaviour
     // damage/Stagger still land normally, so this only stops a routine hit
     // from flinching the player out of a swing they've already committed to.
     public bool IsAttacking => Time.time < nextAttackTime;
+
+    // True i-frames from dashing (see DashDefinition.InvulnerabilityDuration)
+    // — unlike poise, this blocks damage/stagger/finishers entirely, not just
+    // hitstun. EnemyController checks this before resolving a hit at all.
+    public bool IsInvulnerable => Time.time < invulnerableUntilTime;
 
     private bool IsDead => health != null && health.IsDead;
 
@@ -337,6 +343,7 @@ public class PlayerCombat : MonoBehaviour
         }
 
         characterController.Move(transform.forward * dashDefinition.Distance);
+        invulnerableUntilTime = Time.time + dashDefinition.InvulnerabilityDuration;
 
         if (dashDefinition.DealsDamage)
         {

@@ -222,9 +222,10 @@ breaks and finishers, not a slow tank-and-spank.
       `WinGame()`. Fits the farming loop much better than a hard win-at-wave-3
       cap, since the loot/tier system assumes ongoing play. `CurrentWave` is
       already exposed for a "highest wave reached" score display (M6).
-- [ ] Enough affix variety (5-8 stat types) and rarity color coding that loot
-      decisions feel meaningful. Affix variety is already covered (6 `StatType`s
-      from M2); rarity color coding is still unbuilt (see M3's `SETUP.md` note).
+- [x] Enough affix variety (5-8 stat types) and rarity color coding that loot
+      decisions feel meaningful — both done: 6 `StatType`s (M2), and
+      `RarityColor.cs` colors both the pickup mesh and its name label (M3),
+      plus the equipped-items HUD readout (M6).
 - [ ] Tune `WaveManager.cs` scaling (`enemiesAddedPerWave`, `t2UnlockWave`,
       `t3UnlockWave`) against the actual combat/loot power curve — genuinely
       needs playtesting, can't be tuned further from code alone.
@@ -376,6 +377,26 @@ breaks and finishers, not a slow tank-and-spank.
 - [ ] Default ability numbers (30 damage, 25 stagger, 2.5 range) are a first
       guess with nothing to anchor to — needs playtesting like the rest of
       the windup follow-up above.
+
+## Dash i-frames — combat-feel follow-up
+- [x] `DashDefinition` gained `Invulnerability Duration` (default 0.2s) —
+      `PlayerCombat.TryDash()` sets a new `invulnerableUntilTime` window when
+      dashing, exposed as `IsInvulnerable`.
+- [x] Deliberately stronger than poise: `EnemyController.ResolveHit()` checks
+      `IsInvulnerable` first, before even the already-broken/finisher check —
+      a correctly-timed dash blocks damage, Stagger, hitstun, and finishers
+      entirely, not just the flinch like poise does. Missing an attack
+      because the target dashed through it should always mean nothing
+      happens, not "reduced consequences."
+- [x] Deliberately scoped to dash only, not a separate dodge move — no boots
+      equipped still means no dash and no i-frames, consistent with boots
+      already being the sole source of that defensive-mobility option.
+      Explicitly deferred: more dash *variants* (differing invulnerability
+      windows, distances, etc.) until there's a visual to distinguish them by
+      — a second dash that's mechanically different but looks identical
+      wouldn't read as a real choice.
+- [ ] `0.2s` is a first guess — needs playtesting to know if that's generous
+      enough to reward a well-timed dash through a windup, or too forgiving.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
