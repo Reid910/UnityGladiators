@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,6 +11,10 @@ public class PlayerCombat : MonoBehaviour
         public int damage;
         public float staggerAmount;
         public float hitstunDuration;
+        [Tooltip("Telegraph delay before the hitbox becomes active — gives an opponent (or the player, when an enemy swings) a real window to react/dodge instead of an instant hit.")]
+        public float windup;
+        [Tooltip("How long after the windup the hitbox stays checkable. A target only needs to be in range at some point during this window, not at the exact instant the button was pressed.")]
+        public float activeDuration;
         public float recoveryTime;
         public string animatorTrigger;
     }
@@ -19,12 +25,15 @@ public class PlayerCombat : MonoBehaviour
     // per-hit triggers — every light hit plays the same swing animation for
     // now. Give each hit its own trigger name here once real animations
     // exist and the Controllers have matching states/transitions.
+    // windup+activeDuration+recoveryTime sums match the original single
+    // recoveryTime values, so overall combo pacing is unchanged — this just
+    // carves out an explicit telegraph + hit window instead of an instant hit.
     [SerializeField]
     private ComboHit[] lightComboHits =
     {
-        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
-        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
-        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, recoveryTime = 0.5f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, windup = 0.12f, activeDuration = 0.1f, recoveryTime = 0.28f, animatorTrigger = "Attack" },
     };
     [SerializeField] private float comboWindow = 0.8f;
 
@@ -32,7 +41,9 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private int heavyDamage = 40;
     [SerializeField] private float heavyStaggerAmount = 35f;
     [SerializeField] private float heavyHitstunDuration = 0.35f;
-    [SerializeField] private float heavyRecoveryTime = 0.9f;
+    [SerializeField] private float heavyWindup = 0.35f;
+    [SerializeField] private float heavyActiveDuration = 0.15f;
+    [SerializeField] private float heavyRecoveryTime = 0.4f;
 
     [Header("Attack")]
     [SerializeField] private Transform attackPoint;
@@ -53,6 +64,7 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private PlayerEquipment equipment;
 
     private InputSystem_Actions inputSystemActions;
+    private Coroutine attackCoroutine;
 
     private int comboStep;
     private float comboResetTime;
@@ -64,12 +76,11 @@ public class PlayerCombat : MonoBehaviour
     public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
     public float DashCooldownRemaining => Mathf.Max(0f, nextDashTime - Time.time);
 
-    // Poise/hyperarmor window: true while mid-swing (light or heavy),
-    // covering the same window as nextAttackTime. EnemyController checks
-    // this to skip applying Hitstun to the player while it's true — damage
-    // and Stagger still apply normally, so pressing the attack recklessly
-    // can still get you broken and finished, but a single graze from a
-    // nearby enemy can't flinch you out of your own combo. See TODO.md.
+    // Poise/hyperarmor window: true from the moment an attack starts (windup)
+    // until its full recovery ends — the same window nextAttackTime already
+    // gates. EnemyController checks this to skip applying Hitstun while true;
+    // damage/Stagger still land normally, so this only stops a routine hit
+    // from flinching the player out of a swing they've already committed to.
     public bool IsAttacking => Time.time < nextAttackTime;
 
     private bool IsDead => health != null && health.IsDead;
@@ -168,11 +179,10 @@ public class PlayerCombat : MonoBehaviour
 
         int hitIndex = comboStep % lightComboHits.Length;
         ComboHit hit = lightComboHits[hitIndex];
-
-        DealDamage(hit.damage, hit.staggerAmount, hit.hitstunDuration, hit.animatorTrigger);
-
         comboStep++;
-        nextAttackTime = Time.time + ApplyAttackSpeed(hit.recoveryTime);
+
+        BeginAttack(hit.damage, hit.staggerAmount, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime);
+
         comboResetTime = nextAttackTime + comboWindow;
     }
 
@@ -185,19 +195,84 @@ public class PlayerCombat : MonoBehaviour
 
         // Reuses "Attack" too (see lightComboHits comment) — no distinct
         // heavy-swing animation exists yet.
-        DealDamage(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "Attack");
+        BeginAttack(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "Attack", heavyWindup, heavyActiveDuration, heavyRecoveryTime);
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
-        nextAttackTime = Time.time + ApplyAttackSpeed(heavyRecoveryTime);
         comboResetTime = nextAttackTime;
     }
 
     // Attack Speed affix (Head-flavored, see TODO.md) shortens recovery time.
-    private float ApplyAttackSpeed(float recoveryTime)
+    private float ApplyAttackSpeed(float duration)
     {
         float attackSpeedMultiplier = 1f + (playerStats != null ? playerStats.GetStat(StatType.AttackSpeed) : 0f);
-        return recoveryTime / Mathf.Max(0.1f, attackSpeedMultiplier);
+        return duration / Mathf.Max(0.1f, attackSpeedMultiplier);
+    }
+
+    private void BeginAttack(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime)
+    {
+        float scaledWindup = ApplyAttackSpeed(windup);
+        float scaledActiveDuration = ApplyAttackSpeed(activeDuration);
+        float scaledRecoveryTime = ApplyAttackSpeed(recoveryTime);
+
+        nextAttackTime = Time.time + scaledWindup + scaledActiveDuration + scaledRecoveryTime;
+
+        if (attackCoroutine != null)
+        {
+            StopCoroutine(attackCoroutine);
+        }
+
+        attackCoroutine = StartCoroutine(PerformAttack(damage, staggerAmount, hitstunDuration, animatorTrigger, scaledWindup, scaledActiveDuration));
+    }
+
+    private IEnumerator PerformAttack(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger, float windup, float activeDuration)
+    {
+        if (animator != null && !string.IsNullOrEmpty(animatorTrigger))
+        {
+            animator.SetTrigger(animatorTrigger);
+        }
+
+        if (windup > 0f)
+        {
+            yield return new WaitForSeconds(windup);
+        }
+
+        // Getting broken (not just hitstunned, poise covers that) mid-windup
+        // cancels the hit — a fully-interrupted swing shouldn't still land.
+        if (IsIncapacitated)
+        {
+            yield break;
+        }
+
+        int totalDamage = RollDamage(damage);
+
+        LootCorpses();
+
+        HashSet<Health> hitTargets = new HashSet<Health>();
+        float activeEndTime = Time.time + Mathf.Max(activeDuration, Time.deltaTime);
+
+        do
+        {
+            CheckHit(totalDamage, staggerAmount, hitstunDuration, hitTargets);
+            yield return null;
+        }
+        while (Time.time < activeEndTime);
+    }
+
+    // Crit Chance affix: one roll per swing, not per enemy hit, so every
+    // enemy caught in a single swing (or a swing's whole active window)
+    // shares the same crit result.
+    private int RollDamage(int baseDamage)
+    {
+        int totalDamage = baseDamage + (playerStats != null ? playerStats.TotalDamage : 0);
+        float critChance = playerStats != null ? playerStats.GetStat(StatType.CritChance) : 0f;
+
+        if (Random.value < critChance)
+        {
+            totalDamage = Mathf.RoundToInt(totalDamage * critDamageMultiplier);
+        }
+
+        return totalDamage;
     }
 
     private void TryUseAbility()
@@ -249,35 +324,19 @@ public class PlayerCombat : MonoBehaviour
 
         if (dashDefinition.DealsDamage)
         {
-            // No "Dash" animator trigger exists yet (see TryUseAbility), so
-            // no animatorTrigger is passed here — damage/stagger/hitstun and
-            // corpse looting still apply.
-            DealDamage(dashDefinition.Damage, 0f, 0f, null);
+            // Dash's own movement is the telegraph, so this hits instantly
+            // rather than going through the windup/active-window pipeline —
+            // no "Dash" animator trigger exists yet either (see TryUseAbility).
+            int totalDamage = RollDamage(dashDefinition.Damage);
+            CheckHit(totalDamage, 0f, 0f, new HashSet<Health>());
+            LootCorpses();
         }
 
         nextDashTime = Time.time + dashDefinition.Cooldown;
     }
 
-    private void DealDamage(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger)
+    private void CheckHit(int totalDamage, float staggerAmount, float hitstunDuration, HashSet<Health> alreadyHit)
     {
-        if (animator != null && !string.IsNullOrEmpty(animatorTrigger))
-        {
-            animator.SetTrigger(animatorTrigger);
-        }
-
-        // Combo/heavy/dash damage is a base move value; gear (base damage +
-        // every equipped item's rolled damage, see PlayerStats) adds on top.
-        int totalDamage = damage + (playerStats != null ? playerStats.TotalDamage : 0);
-
-        // Crit Chance affix: one roll per swing, not per enemy hit, so every
-        // enemy caught in a single swing shares the same crit result.
-        float critChance = playerStats != null ? playerStats.GetStat(StatType.CritChance) : 0f;
-
-        if (Random.value < critChance)
-        {
-            totalDamage = Mathf.RoundToInt(totalDamage * critDamageMultiplier);
-        }
-
         Collider[] hitEnemies = Physics.OverlapSphere(
             attackPoint.position,
             attackRange,
@@ -288,10 +347,12 @@ public class PlayerCombat : MonoBehaviour
         {
             Health enemyHealth = enemyCollider.GetComponentInParent<Health>();
 
-            if (enemyHealth == null || enemyHealth.IsDead)
+            if (enemyHealth == null || enemyHealth.IsDead || alreadyHit.Contains(enemyHealth))
             {
                 continue;
             }
+
+            alreadyHit.Add(enemyHealth);
 
             Stagger enemyStagger = enemyCollider.GetComponentInParent<Stagger>();
 
@@ -316,8 +377,6 @@ public class PlayerCombat : MonoBehaviour
                 enemyHitstun.ApplyStun(hitstunDuration);
             }
         }
-
-        LootCorpses();
     }
 
     private void LootCorpses()
