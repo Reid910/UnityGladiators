@@ -267,6 +267,41 @@ breaks and finishers, not a slow tank-and-spank.
       (`Visual Transform` + `Targeted Scale Multiplier`, optional) so the
       active target stands out if more than one pickup is nearby.
 
+## Attack windup + active-hitbox windows — combat-feel follow-up
+- [x] Problem: every attack (player and enemy) resolved instantly the moment
+      it was triggered — no telegraph, so there was nothing to actually dodge.
+      Getting hit was purely about positioning at input time, not reaction.
+- [x] `PlayerCombat`'s light combo and heavy attack now run through a real
+      windup → active-hitbox-window → recovery sequence (`BeginAttack()` /
+      `PerformAttack()` coroutine) instead of hitting on the same frame the
+      button is pressed. The hit query (`CheckHit()`, still the existing
+      `Physics.OverlapSphere` — there's no animated weapon collider without
+      real character assets, so this is a time-gated approximation of a Souls
+      hitbox, not a literal one) runs every frame across the active window
+      rather than once, so a target only needs to be in range at some point
+      during that window, not the exact instant the swing started. A
+      `HashSet<Health>` prevents hitting the same target more than once per
+      swing. windup+active+recovery sums match the old flat recovery values,
+      so overall combo pacing is unchanged — this only carves out an explicit
+      telegraph instead of an instant hit.
+- [x] `EnemyController.AttackTarget()` gets the same treatment — a
+      configurable `Attack Windup` (default 0.4s) before the hit is even
+      checked, then an `Attack Active Duration` (0.15s) window checking
+      `Attack Range` (separate from `Stopping Distance`, which only decides
+      when the enemy stops closing in to swing). The enemy fully commits
+      during this sequence (`isAttacking` freezes movement/re-triggering,
+      mirroring how the player can't cancel their own combo mid-swing) — this
+      is the actual dodging mechanic: see the tell, move out of `Attack
+      Range` before the active window ends, take nothing.
+- [x] Getting broken (`Stagger.IsBroken`) mid-windup cancels the attack for
+      both sides — a fully-interrupted swing shouldn't still land. Plain
+      hitstun doesn't cancel it (see the poise/hyperarmor follow-up above/
+      below, whichever merges first — they touch the same methods).
+- [ ] All new windup/active/range numbers are first-pass guesses tuned only
+      to preserve old total attack duration where a prior number existed —
+      genuinely needs real playtesting, especially `EnemyController`'s new
+      `Attack Windup`/`Attack Range`, which have no prior value to anchor to.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

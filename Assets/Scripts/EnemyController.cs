@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class EnemyController : MonoBehaviour
@@ -16,6 +17,12 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private int attackDamage = 10;
     [SerializeField] private float attackStaggerAmount = 15f;
     [SerializeField] private float attackHitstunDuration = 0.2f;
+    [Tooltip("Telegraph delay before the hit registers — gives the player a real window to see the tell and dodge/reposition before impact, instead of an instant hit the moment the enemy is in range.")]
+    [SerializeField] private float attackWindup = 0.4f;
+    [Tooltip("How long after the windup the hit stays checkable. The target must still be within Attack Range at some point during this window, not just when the windup started — dodging away during the windup avoids it.")]
+    [SerializeField] private float attackActiveDuration = 0.15f;
+    [Tooltip("Distance the target must be within when the active window checks — separate from Stopping Distance, which only decides when the enemy stops closing in to swing.")]
+    [SerializeField] private float attackRange = 1.8f;
     [SerializeField] private float attackCooldown = 1.25f;
 
     [Header("References")]
@@ -30,9 +37,11 @@ public class EnemyController : MonoBehaviour
     private Health targetHealth;
     private Stagger targetStagger;
     private Hitstun targetHitstun;
+    private PlayerCombat targetCombat;
 
     private Vector3 verticalVelocity;
     private float nextAttackTime;
+    private bool isAttacking;
 
     public EnemyTier Tier => tier;
 
@@ -63,6 +72,7 @@ public class EnemyController : MonoBehaviour
             targetHealth = playerObject.GetComponent<Health>();
             targetStagger = playerObject.GetComponent<Stagger>();
             targetHitstun = playerObject.GetComponent<Hitstun>();
+            targetCombat = playerObject.GetComponent<PlayerCombat>();
         }
     }
 
@@ -75,7 +85,10 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
-        if (IsIncapacitated)
+        // isAttacking freezes the enemy in place for the whole windup/active
+        // sequence — it's committed once it starts swinging, same as the
+        // player isn't free to cancel their own combo mid-hit.
+        if (IsIncapacitated || isAttacking)
         {
             SetMoving(false);
             ApplyGravity();
@@ -128,35 +141,82 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
+        nextAttackTime = Time.time + attackWindup + attackActiveDuration + attackCooldown;
+        StartCoroutine(PerformAttack());
+    }
+
+    private IEnumerator PerformAttack()
+    {
+        isAttacking = true;
+
         if (animator != null)
         {
             animator.SetTrigger("Attack");
         }
 
-        if (targetHealth != null && !targetHealth.IsDead)
+        if (attackWindup > 0f)
         {
-            // Attacking an already-broken target is a finisher — instant kill.
-            if (targetStagger != null && targetStagger.IsBroken)
-            {
-                targetHealth.Execute();
-            }
-            else
-            {
-                targetHealth.TakeDamage(attackDamage);
-
-                if (targetStagger != null)
-                {
-                    targetStagger.AddStagger(attackStaggerAmount);
-                }
-
-                if (targetHitstun != null)
-                {
-                    targetHitstun.ApplyStun(attackHitstunDuration);
-                }
-            }
+            yield return new WaitForSeconds(attackWindup);
         }
 
-        nextAttackTime = Time.time + attackCooldown;
+        // Getting broken mid-windup cancels the swing, same rule as the player's.
+        if (!IsIncapacitated)
+        {
+            bool hasHit = false;
+            float activeEndTime = Time.time + Mathf.Max(attackActiveDuration, Time.deltaTime);
+
+            do
+            {
+                if (!hasHit && IsTargetInRange())
+                {
+                    ResolveHit();
+                    hasHit = true;
+                }
+
+                yield return null;
+            }
+            while (Time.time < activeEndTime);
+        }
+
+        isAttacking = false;
+    }
+
+    private bool IsTargetInRange()
+    {
+        return target != null && Vector3.Distance(transform.position, target.position) <= attackRange;
+    }
+
+    private void ResolveHit()
+    {
+        if (targetHealth == null || targetHealth.IsDead)
+        {
+            return;
+        }
+
+        // Attacking an already-broken target is a finisher — instant kill.
+        if (targetStagger != null && targetStagger.IsBroken)
+        {
+            targetHealth.Execute();
+            return;
+        }
+
+        targetHealth.TakeDamage(attackDamage);
+
+        if (targetStagger != null)
+        {
+            targetStagger.AddStagger(attackStaggerAmount);
+        }
+
+        // Poise/hyperarmor: a player mid-swing isn't flinched by a routine
+        // hit — damage and Stagger still land normally, so reckless
+        // aggression can still get them broken and finished, it just can't
+        // be chain-interrupted by every graze. See PlayerCombat.IsAttacking.
+        bool targetHasPoise = targetCombat != null && targetCombat.IsAttacking;
+
+        if (targetHitstun != null && !targetHasPoise)
+        {
+            targetHitstun.ApplyStun(attackHitstunDuration);
+        }
     }
 
     private void ApplyGravity()
