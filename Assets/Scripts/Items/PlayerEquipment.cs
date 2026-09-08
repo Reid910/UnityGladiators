@@ -12,9 +12,21 @@ public class PlayerEquipment : MonoBehaviour
     public event Action<ItemSlot, EquippedItem> ItemEquipped;
 
     private readonly Dictionary<ItemSlot, EquippedItem> equippedItems = new Dictionary<ItemSlot, EquippedItem>();
-    private ItemPickup nearbyPickup;
+    private readonly List<ItemPickup> nearbyPickups = new List<ItemPickup>();
+    private ItemPickup targetedPickup;
 
-    public bool HasNearbyPickup => nearbyPickup != null;
+    public bool HasNearbyPickup => targetedPickup != null;
+
+    // Only worth re-checking every frame while more than one pickup
+    // overlaps — with 0 or 1 in range the target can't change without an
+    // enter/exit event, which already triggers a refresh on its own.
+    private void Update()
+    {
+        if (nearbyPickups.Count > 1)
+        {
+            RefreshTarget();
+        }
+    }
 
     public EquippedItem GetEquipped(ItemSlot slot)
     {
@@ -39,62 +51,97 @@ public class PlayerEquipment : MonoBehaviour
         return previousItem;
     }
 
-    // Called by ItemPickup while the player stands in its trigger — the most
-    // recently entered pickup wins if more than one overlaps at once, and
-    // the one it displaces has its targeted feedback cleared so only one
-    // pickup ever shows as the swap target at a time.
+    // Called by ItemPickup while the player stands in its trigger. Doesn't
+    // pick the target itself — just joins the candidate pool, then
+    // RefreshTarget() picks whichever candidate is actually closest.
     public void RegisterNearby(ItemPickup pickup)
     {
-        if (pickup == null || pickup.Item?.Definition == null)
+        if (pickup == null || pickup.Item?.Definition == null || nearbyPickups.Contains(pickup))
         {
             return;
         }
 
-        if (nearbyPickup != null && nearbyPickup != pickup)
-        {
-            nearbyPickup.SetTargeted(false, null);
-        }
-
-        nearbyPickup = pickup;
-        pickup.SetTargeted(true, GetEquipped(pickup.Item.Definition.Slot));
+        nearbyPickups.Add(pickup);
+        RefreshTarget();
     }
 
-    // Only clears if it's still the one that registered — an exit event from
-    // a pickup that already lost the "nearby" slot to another one shouldn't
-    // clear the newer reference.
     public void UnregisterNearby(ItemPickup pickup)
     {
-        if (nearbyPickup != pickup)
+        if (!nearbyPickups.Remove(pickup))
         {
             return;
         }
 
-        nearbyPickup = null;
-        pickup.SetTargeted(false, null);
+        RefreshTarget();
     }
 
-    // Swaps whatever's currently in the nearby pickup's slot with the
+    // Re-picks the closest pickup among everything currently in range.
+    // Called whenever the candidate set changes (enter/exit) and, while
+    // more than one pickup overlaps, every frame (see Update()) so the
+    // target stays correct as the player moves between them.
+    private void RefreshTarget()
+    {
+        ItemPickup closest = null;
+        float closestSqrDistance = float.MaxValue;
+
+        foreach (ItemPickup pickup in nearbyPickups)
+        {
+            if (pickup == null)
+            {
+                continue;
+            }
+
+            float sqrDistance = (pickup.transform.position - transform.position).sqrMagnitude;
+
+            if (sqrDistance < closestSqrDistance)
+            {
+                closestSqrDistance = sqrDistance;
+                closest = pickup;
+            }
+        }
+
+        if (closest == targetedPickup)
+        {
+            return;
+        }
+
+        if (targetedPickup != null)
+        {
+            targetedPickup.SetTargeted(false, null);
+        }
+
+        targetedPickup = closest;
+
+        if (targetedPickup != null)
+        {
+            targetedPickup.SetTargeted(true, GetEquipped(targetedPickup.Item.Definition.Slot));
+        }
+    }
+
+    // Swaps whatever's currently in the targeted pickup's slot with the
     // player's equipped item there. Returns false if nothing's in range.
     public bool TrySwapWithNearby()
     {
-        if (nearbyPickup == null || nearbyPickup.Item == null)
+        if (targetedPickup == null || targetedPickup.Item == null)
         {
             return false;
         }
 
-        ItemPickup pickup = nearbyPickup;
+        ItemPickup pickup = targetedPickup;
         EquippedItem previousItem = Equip(pickup.Item);
 
         if (previousItem == null)
         {
-            nearbyPickup = null;
+            nearbyPickups.Remove(pickup);
+            targetedPickup = null;
             Destroy(pickup.gameObject);
+            RefreshTarget();
         }
         else
         {
             // Same world object becomes the previously-equipped item instead
             // of spawning a new pickup — keeps this a straight swap in place.
-            // Still the nearby target, so refresh its targeted feedback too.
+            // Still the targeted pickup, so refresh its targeted feedback too.
             pickup.Initialize(previousItem);
             pickup.SetTargeted(true, GetEquipped(previousItem.Definition.Slot));
         }
