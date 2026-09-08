@@ -434,6 +434,27 @@ breaks and finishers, not a slow tank-and-spank.
       generic `Attack` trigger (no combo/ability concept), so there was
       nothing to distinguish for them in this pass.
 
+## Broken/stagger visual (StunnedLoop) — combat-feel follow-up
+- [x] Problem: `Stagger.IsBroken` had zero visual tell besides the player's
+      own HUD bar — an enemy (or the player, to an onlooker) about to be
+      finished looked identical to normal.
+- [x] `Stagger.cs` now drives a `Broken` bool on its own `Animator` every
+      frame (`IsBroken`, auto-filled via `GetComponentInChildren` like the
+      rest of this project's optional-Animator components) — self-correcting
+      on both the rising and falling edge, no need to hook the existing
+      (still otherwise-unused) `Broken` C# event.
+- [x] Wired a `StunnedLoop` state (same Blink filler pack) into both
+      `LowPolyHumanAnimator.controller` and `EnemyAnimatorController.controller`
+      — Any State → StunnedLoop while `Broken == true`, back to Locomotion/
+      Idle while `Broken == false`. Both hand-edited and verified the same way
+      as the combo/ability pass (parsed back with PyYAML, checked every
+      cross-reference resolves) — see `SETUP.md` for the same
+      verify-before-trusting checklist, now covering this too.
+- [ ] Since this is shared by `Stagger.cs` (one component, used by both
+      Player and Enemy prefabs), it applies to enemies automatically the
+      moment they have both a `Stagger` and an `Animator` — no separate
+      enemy-specific work needed, but not yet confirmed in play.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

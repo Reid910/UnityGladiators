@@ -372,3 +372,19 @@ actually verify it rather than assuming it's right:
    easiest recovery is redoing the 3 states through the Editor UI directly
    using the same clips (`PunchLeft`/`PunchRight`/`SpellCast`) referenced in
    `TODO.md`.
+
+## Broken/stagger animation (StunnedLoop) — verify before trusting, same as above
+
+Same hand-edit technique, same "please actually check it" caveat — this one
+touched **both** `LowPolyHumanAnimator.controller` and
+`EnemyAnimatorController.controller` (a new `Broken` bool + `StunnedLoop`
+state in each), plus `Stagger.cs` (no new required field — its `Animator`
+reference auto-fills via `GetComponentInChildren`, same as `Health`/`Hitstun`
+already do). No Inspector wiring needed on either prefab.
+
+1. Get an enemy (or yourself) staggered to full in play mode and confirm it
+   visibly plays a stunned pose instead of just freezing mid-animation.
+2. Confirm it snaps back to normal movement/idle when the broken window ends,
+   not stuck in the pose.
+3. Same red flags as the combo/ability check above (T-pose flash, stuck
+   state) mean something doesn't match what the Editor would have produced.
