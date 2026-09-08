@@ -494,6 +494,33 @@ breaks and finishers, not a slow tank-and-spank.
       lower multiplier here (harder to stagger relative to damage taken)
       instead of just a higher flat `maxStagger`.
 
+## Generic combo trigger names + dedicated Heavy state — combat-feel follow-up
+- [x] Renamed the light combo's Animator trigger parameters from
+      `AttackComboLeft`/`AttackComboRight` to generic `AttackCombo1`/
+      `AttackCombo2`/`AttackCombo3`. Reasoning: the current clips (Blink pack
+      `MeleeAttack_OneHanded`/`PunchLeft`/`PunchRight`) are filler that only
+      exists to prove 3 visually distinct combo hits — they were never a
+      deliberate "attack left then right" mechanic. Once real character
+      animations arrive they'll most likely all be forward swings, not
+      handed, so the permanent trigger-name interface (`PlayerCombat.cs`'s
+      `lightComboHits[].animatorTrigger`) shouldn't be tied to that temporary
+      left/right content.
+- [x] Remapped which clip each combo step plays: `AttackCombo1` now uses the
+      old `Attack` state's clip (`MeleeAttack_OneHanded`), `AttackCombo2` =
+      `PunchLeft`, `AttackCombo3` = `PunchRight`.
+- [x] Since Combo1 claimed the old `Attack`/`MeleeAttack_OneHanded` state,
+      Heavy needed its own distinct clip: added a new `AttackHeavy` state/
+      trigger using `MeleeAttack_TwoHanded`, so Heavy still reads as visually
+      bigger/different from any combo hit. `TryHeavyAttack()` now fires
+      `"AttackHeavy"` instead of the old `"Attack"` string.
+- [x] Removed the now-unused `Attack` Animator parameter (fully replaced by
+      `AttackCombo1`). Verified all fileID/parameter cross-references in
+      `LowPolyHumanAnimator.controller` with the same PyYAML script used for
+      prior hand-edits.
+- [x] Updated `Player.prefab`'s serialized `lightComboHits` override (was
+      still baked with the old `AttackComboLeft`/`AttackComboRight` trigger
+      names) to match.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

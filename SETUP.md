@@ -356,22 +356,29 @@ interdependent fields than something like `TagManager.asset`), so please
 actually verify it rather than assuming it's right:
 
 1. **Open the project and open `LowPolyHumanAnimator.controller`** in the
-   Animator window — you should see 3 new states (`AttackComboLeft`,
-   `AttackComboRight`, `AbilityCast`) with arrows in from "Any State" and out
-   to the Locomotion blend tree, same shape as the existing `Attack` state.
+   Animator window — you should see states `AttackCombo1` (MeleeAttack_OneHanded),
+   `AttackCombo2` (PunchLeft), `AttackCombo3` (PunchRight), `AttackHeavy`
+   (MeleeAttack_TwoHanded), and `AbilityCast` (SpellCast), each with an arrow
+   in from "Any State" (on its own like-named Trigger parameter) and out to
+   the Locomotion blend tree.
 2. **Play and check the Console** for any Animator-related errors on the
    Player specifically (separate from the pre-existing, unrelated animation
    import warnings on `RollRight`/`RunLeft`/etc. — those aren't from this
    change).
-3. **Try light combo, heavy, and the ability in play mode** — you should see
-   3 different-looking motions now: alternating punches for the combo,
-   `MeleeAttack_OneHanded` for heavy, `SpellCast` for the ability.
+3. **Try light combo (3 hits), heavy, and the ability in play mode** — you
+   should see 4 different-looking motions: `MeleeAttack_OneHanded` then
+   `PunchLeft` then `PunchRight` for the 3 combo hits, `MeleeAttack_TwoHanded`
+   for heavy, `SpellCast` for the ability.
 4. If anything looks wrong (T-pose flash, snapping, a state stuck), that's a
    sign something in the hand-edit doesn't match what the Editor would have
    produced — flag it rather than trying to hand-fix the controller further;
-   easiest recovery is redoing the 3 states through the Editor UI directly
-   using the same clips (`PunchLeft`/`PunchRight`/`SpellCast`) referenced in
-   `TODO.md`.
+   easiest recovery is redoing the affected states through the Editor UI
+   directly using the same clips (`MeleeAttack_OneHanded`/`PunchLeft`/
+   `PunchRight`/`MeleeAttack_TwoHanded`/`SpellCast`) referenced in `TODO.md`.
+5. Trigger names are deliberately generic (`AttackCombo1/2/3`, not
+   left/right-specific) since the current clips are filler — when real combo
+   animations replace them, only the clip assigned to each existing state
+   needs to change, not `PlayerCombat.cs` or any trigger name.
 
 ## Broken/stagger animation (StunnedLoop) — verify before trusting, same as above
 

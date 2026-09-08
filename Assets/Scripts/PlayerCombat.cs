@@ -19,12 +19,12 @@ public class PlayerCombat : MonoBehaviour
     }
 
     [Header("Light Combo")]
-    // animatorTrigger alternates PunchLeft/PunchRight (AttackComboLeft/Right
-    // in the Animator Controllers, filler animations from the Blink pack
-    // already in the project) so each hit visually reads as distinct instead
-    // of every hit sharing the same swing. Heavy still reuses the existing
-    // "Attack" state (already wired to MeleeAttack_OneHanded), which is a
-    // deliberately bigger/different motion than either punch.
+    // animatorTrigger names (AttackCombo1/2/3) are generic on purpose — they're
+    // a permanent interface, while the clips they currently point to (the
+    // Blink pack's MeleeAttack_OneHanded, PunchLeft, PunchRight) are disposable
+    // filler that just needs to look like 3 distinct hits. Heavy gets its own
+    // dedicated AttackHeavy state/clip (MeleeAttack_TwoHanded) so it stays
+    // visually distinct from combo hit 1.
     // windup+activeDuration+recoveryTime sums match the original single
     // recoveryTime values, so overall combo pacing is unchanged — this just
     // carves out an explicit telegraph + hit window instead of an instant hit.
@@ -33,9 +33,9 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField]
     private ComboHit[] lightComboHits =
     {
-        new ComboHit { damage = 15, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "AttackComboLeft" },
-        new ComboHit { damage = 18, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "AttackComboRight" },
-        new ComboHit { damage = 28, hitstunDuration = 0.25f, windup = 0.12f, activeDuration = 0.1f, recoveryTime = 0.28f, animatorTrigger = "AttackComboLeft" },
+        new ComboHit { damage = 15, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "AttackCombo1" },
+        new ComboHit { damage = 18, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "AttackCombo2" },
+        new ComboHit { damage = 28, hitstunDuration = 0.25f, windup = 0.12f, activeDuration = 0.1f, recoveryTime = 0.28f, animatorTrigger = "AttackCombo3" },
     };
     [SerializeField] private float comboWindow = 0.8f;
 
@@ -201,10 +201,9 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        // Uses the pre-existing "Attack" state (MeleeAttack_OneHanded) — a
-        // bigger, different motion from either combo punch, so heavy already
-        // reads as distinct without needing a new state.
-        BeginAttack(heavyDamage, heavyHitstunDuration, "Attack", heavyWindup, heavyActiveDuration, heavyRecoveryTime);
+        // Dedicated AttackHeavy state (MeleeAttack_TwoHanded) — a bigger,
+        // different motion from any combo hit.
+        BeginAttack(heavyDamage, heavyHitstunDuration, "AttackHeavy", heavyWindup, heavyActiveDuration, heavyRecoveryTime);
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;

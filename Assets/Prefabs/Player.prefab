@@ -1954,19 +1954,19 @@ MonoBehaviour:
     windup: 0.08
     activeDuration: 0.08
     recoveryTime: 0.19
-    animatorTrigger: AttackComboLeft
+    animatorTrigger: AttackCombo1
   - damage: 18
     hitstunDuration: 0.2
     windup: 0.08
     activeDuration: 0.08
     recoveryTime: 0.19
-    animatorTrigger: AttackComboRight
+    animatorTrigger: AttackCombo2
   - damage: 28
     hitstunDuration: 0.25
     windup: 0.12
     activeDuration: 0.1
     recoveryTime: 0.28
-    animatorTrigger: AttackComboLeft
+    animatorTrigger: AttackCombo3
   comboWindow: 0.8
   heavyDamage: 40
   heavyHitstunDuration: 0.35
