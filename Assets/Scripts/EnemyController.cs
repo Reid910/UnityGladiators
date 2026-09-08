@@ -30,6 +30,7 @@ public class EnemyController : MonoBehaviour
     private Health targetHealth;
     private Stagger targetStagger;
     private Hitstun targetHitstun;
+    private PlayerCombat targetCombat;
 
     private Vector3 verticalVelocity;
     private float nextAttackTime;
@@ -63,6 +64,7 @@ public class EnemyController : MonoBehaviour
             targetHealth = playerObject.GetComponent<Health>();
             targetStagger = playerObject.GetComponent<Stagger>();
             targetHitstun = playerObject.GetComponent<Hitstun>();
+            targetCombat = playerObject.GetComponent<PlayerCombat>();
         }
     }
 
@@ -149,7 +151,14 @@ public class EnemyController : MonoBehaviour
                     targetStagger.AddStagger(attackStaggerAmount);
                 }
 
-                if (targetHitstun != null)
+                // Poise/hyperarmor: a player mid-swing isn't flinched by a
+                // routine hit — damage and Stagger still land normally, so
+                // reckless aggression can still get them broken and finished,
+                // it just can't be chain-interrupted by every graze. See
+                // PlayerCombat.IsAttacking and TODO.md.
+                bool targetHasPoise = targetCombat != null && targetCombat.IsAttacking;
+
+                if (targetHitstun != null && !targetHasPoise)
                 {
                     targetHitstun.ApplyStun(attackHitstunDuration);
                 }
