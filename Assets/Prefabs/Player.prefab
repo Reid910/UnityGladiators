@@ -1950,27 +1950,32 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   lightComboHits:
   - damage: 15
-    staggerAmount: 12
     hitstunDuration: 0.2
-    recoveryTime: 0.35
-    animatorTrigger: AttackCombo1
+    windup: 0.08
+    activeDuration: 0.08
+    recoveryTime: 0.19
+    animatorTrigger: AttackComboLeft
   - damage: 18
-    staggerAmount: 12
     hitstunDuration: 0.2
-    recoveryTime: 0.35
-    animatorTrigger: AttackCombo2
+    windup: 0.08
+    activeDuration: 0.08
+    recoveryTime: 0.19
+    animatorTrigger: AttackComboRight
   - damage: 28
-    staggerAmount: 18
     hitstunDuration: 0.25
-    recoveryTime: 0.5
-    animatorTrigger: AttackCombo3
+    windup: 0.12
+    activeDuration: 0.1
+    recoveryTime: 0.28
+    animatorTrigger: AttackComboLeft
   comboWindow: 0.8
   heavyDamage: 40
-  heavyStaggerAmount: 35
   heavyHitstunDuration: 0.35
-  heavyRecoveryTime: 0.9
+  heavyWindup: 0.35
+  heavyActiveDuration: 0.15
+  heavyRecoveryTime: 0.4
   attackPoint: {fileID: 7513508204290518943}
   attackRange: 1.5
+  critDamageMultiplier: 1.5
   enemyLayer:
     serializedVersion: 2
     m_Bits: 64
@@ -1997,9 +2002,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Stagger
   maxStagger: 200
-  decayPerSecond: 15
-  decayDelayAfterHit: 1.5
+  decayPerSecond: 5
   brokenDuration: 2
+  damageToStaggerMultiplier: 1
 --- !u!114 &-5497824766274923756
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -1715,9 +1715,9 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::Stagger
   maxStagger: 100
-  decayPerSecond: 15
-  decayDelayAfterHit: 1.5
+  decayPerSecond: 5
   brokenDuration: 2
+  damageToStaggerMultiplier: 1
 --- !u!114 &563330201
 MonoBehaviour:
   m_ObjectHideFlags: 0

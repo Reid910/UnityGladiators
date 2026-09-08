@@ -15,7 +15,6 @@ public class EnemyController : MonoBehaviour
 
     [Header("Combat")]
     [SerializeField] private int attackDamage = 10;
-    [SerializeField] private float attackStaggerAmount = 15f;
     [SerializeField] private float attackHitstunDuration = 0.2f;
     [Tooltip("Telegraph delay before the hit registers — gives the player a real window to see the tell and dodge/reposition before impact, instead of an instant hit the moment the enemy is in range.")]
     [SerializeField] private float attackWindup = 0.4f;
@@ -195,8 +194,8 @@ public class EnemyController : MonoBehaviour
 
         // True i-frames from a dash (DashDefinition.InvulnerabilityDuration):
         // a correctly-timed dodge takes nothing at all, not even a finisher
-        // on an already-broken player — unlike poise, which only blocks
-        // hitstun and still lets damage/Stagger land.
+        // on an already-broken player — unlike hyper armor, which only
+        // blocks hitstun and still lets damage/Stagger land.
         if (targetCombat != null && targetCombat.IsInvulnerable)
         {
             return;
@@ -213,16 +212,16 @@ public class EnemyController : MonoBehaviour
 
         if (targetStagger != null)
         {
-            targetStagger.AddStagger(attackStaggerAmount);
+            targetStagger.AddStaggerFromDamage(attackDamage, targetHealth.MaxHealth);
         }
 
-        // Poise/hyperarmor: a player mid-swing isn't flinched by a routine
-        // hit — damage and Stagger still land normally, so reckless
-        // aggression can still get them broken and finished, it just can't
-        // be chain-interrupted by every graze. See PlayerCombat.IsAttacking.
-        bool targetHasPoise = targetCombat != null && targetCombat.IsAttacking;
+        // Hyper armor: a player mid-swing isn't flinched by a routine hit —
+        // damage and Stagger still land normally, so reckless aggression can
+        // still get them broken and finished, it just can't be
+        // chain-interrupted by every graze. See PlayerCombat.IsAttacking.
+        bool targetHasHyperArmor = targetCombat != null && targetCombat.IsAttacking;
 
-        if (targetHitstun != null && !targetHasPoise)
+        if (targetHitstun != null && !targetHasHyperArmor)
         {
             targetHitstun.ApplyStun(attackHitstunDuration);
         }

@@ -12,9 +12,8 @@ public class AbilityDefinition : ScriptableObject
     [SerializeField] private string animatorTrigger = "AbilityCast";
 
     [Header("Effect")]
-    [Tooltip("A skill burst is a bigger, rarer hit than a normal swing — higher damage/stagger, wider radius, on a real cooldown.")]
+    [Tooltip("A skill burst is a bigger, rarer hit than a normal swing — higher damage, wider radius, on a real cooldown. Stagger impact scales from Damage automatically (see Stagger.AddStaggerFromDamage), not a separate tuned value here.")]
     [SerializeField] private int damage = 30;
-    [SerializeField] private float staggerAmount = 25f;
     [SerializeField] private float hitstunDuration = 0.3f;
     [SerializeField] private float windup = 0.25f;
     [SerializeField] private float activeDuration = 0.15f;
@@ -25,7 +24,6 @@ public class AbilityDefinition : ScriptableObject
     public float Cooldown => cooldown;
     public string AnimatorTrigger => animatorTrigger;
     public int Damage => damage;
-    public float StaggerAmount => staggerAmount;
     public float HitstunDuration => hitstunDuration;
     public float Windup => windup;
     public float ActiveDuration => activeDuration;

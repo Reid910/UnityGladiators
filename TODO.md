@@ -19,7 +19,7 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] M1 (light): 3-hit chain, each hit slightly faster/weaker or building toward the
       3rd hit doing more damage / knockback / stagger.
 - [x] M2 (heavy): separate attack, either a single big hit or its own 2-hit chain;
-      slower windup, more damage, maybe brief poise/armor while swinging. (Shipped
+      slower windup, more damage, maybe brief hyper armor while swinging. (Shipped
       as a single big hit for v1.)
 - [x] Add an `Ability` input (new action in `InputSystem_Actions`) with a cooldown.
       Elden-Ring-style weapon-granted behavior landed in M4 — no longer a
@@ -292,25 +292,25 @@ breaks and finishers, not a slow tank-and-spank.
       smoothed axis value, so this needs real playtesting to tune, not just
       code review.
 
-## Player poise/hyperarmor — combat-feel follow-up
+## Player hyper armor — combat-feel follow-up
 - [x] Problem: any single enemy hit applies `Hitstun` to the player, and while
       stunned the player can't move or act at all (`IsIncapacitated`). With
       multiple enemies attacking on staggered cooldowns, this could chain into
       an unrecoverable stunlock just from standing near a few enemies — the
       player never gets to "win" the exchange through aggression.
 - [x] Fix: `PlayerCombat.IsAttacking` (true while mid-swing, same window as
-      the existing attack-recovery gate) grants poise/hyperarmor against
+      the existing attack-recovery gate) grants hyper armor against
       hitstun specifically — `EnemyController.AttackTarget()` now skips
       calling `Hitstun.ApplyStun()` on the player while `IsAttacking` is true.
       Damage and Stagger still apply normally either way, so pressing forward
       recklessly can still get the player broken and finished (the real
       risk/consequence stays intact) — it just can't be chain-interrupted by
       every graze while already committed to a swing.
-- [ ] Deliberately one-sided: enemies don't get equivalent poise against the
+- [ ] Deliberately one-sided: enemies don't get equivalent hyper armor against the
       player's hits — the player's stagger/hitstun/finisher tool against
       enemies is the intended asymmetry (player is the aggressor, gladiators
       are the ones meant to be broken). Revisit if a tougher (T2/T3) enemy
-      ever needs its own poise resistance beyond a higher `Stagger.maxStagger`.
+      ever needs its own hyper armor resistance beyond a higher `Stagger.maxStagger`.
 
 ## Attack windup + active-hitbox windows — combat-feel follow-up
 - [x] Problem: every attack (player and enemy) resolved instantly the moment
@@ -340,7 +340,7 @@ breaks and finishers, not a slow tank-and-spank.
       Range` before the active window ends, take nothing.
 - [x] Getting broken (`Stagger.IsBroken`) mid-windup cancels the attack for
       both sides — a fully-interrupted swing shouldn't still land. Plain
-      hitstun doesn't cancel it — poise (see above) already covers that case
+      hitstun doesn't cancel it — hyper armor (see above) already covers that case
       for the player.
 - [ ] All new windup/active/range numbers are first-pass guesses tuned only
       to preserve old total attack duration where a prior number existed —
@@ -382,10 +382,10 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] `DashDefinition` gained `Invulnerability Duration` (default 0.2s) —
       `PlayerCombat.TryDash()` sets a new `invulnerableUntilTime` window when
       dashing, exposed as `IsInvulnerable`.
-- [x] Deliberately stronger than poise: `EnemyController.ResolveHit()` checks
+- [x] Deliberately stronger than hyper armor: `EnemyController.ResolveHit()` checks
       `IsInvulnerable` first, before even the already-broken/finisher check —
       a correctly-timed dash blocks damage, Stagger, hitstun, and finishers
-      entirely, not just the flinch like poise does. Missing an attack
+      entirely, not just the flinch like hyper armor does. Missing an attack
       because the target dashed through it should always mean nothing
       happens, not "reduced consequences."
 - [x] Deliberately scoped to dash only, not a separate dodge move — no boots
@@ -454,6 +454,45 @@ breaks and finishers, not a slow tank-and-spank.
       Player and Enemy prefabs), it applies to enemies automatically the
       moment they have both a `Stagger` and an `Animator` — no separate
       enemy-specific work needed, but not yet confirmed in play.
+
+## Stagger redesign: damage-relative, always-decaying — combat-feel follow-up
+- [x] Terminology: "Poise" renamed to "Hyper Armor" everywhere (code comments,
+      variable names, `TODO.md`/`SETUP.md`) — no functional change, just
+      clearer naming. Confirmed via full-project grep that no other special
+      combat condition exists beyond Stagger/Broken, Hitstun, Hyper Armor, and
+      Invulnerability (i-frames) — Hyper Armor and Invulnerability are both
+      plain timers/derived checks, not meters; Stagger is the only
+      accumulating meter in the game.
+- [x] Every attack no longer carries its own hand-tuned `staggerAmount` value
+      (removed from `ComboHit`, `heavyStaggerAmount`, `AbilityDefinition`, and
+      `EnemyController.attackStaggerAmount`). `Stagger.AddStaggerFromDamage(damage,
+      targetMaxHealth)` derives the fill amount from what fraction of the
+      target's own max health the hit's damage represents — a hit worth 10%
+      of max health fills 10% of Stagger (scaled by a new per-instance
+      `Damage To Stagger Multiplier`, default 1). One number (damage) to tune
+      instead of two, and it scales sensibly across wildly different health
+      pools (player vs. any future enemy tier) automatically.
+- [x] Decay is now always active, not gated by a delay since the last hit —
+      `decayDelayAfterHit` removed entirely, `decayPerSecond` default dropped
+      from 15 to 5 to compensate (slow constant recovery instead of a
+      burst-safe grace window). Sustained pressure has to outpace a steady
+      drain now, rather than any hit resetting a countdown.
+- [x] Found and fixed real stale-data bugs while wiring this up: `Player.prefab`
+      had a serialized snapshot of `PlayerCombat`'s combo/heavy fields from
+      *before* the windup/active-window work even existed — old trigger names
+      (`AttackCombo1/2/3`, which no longer exist as Animator parameters),
+      no `windup`/`activeDuration` at all, an orphaned `heavyStaggerAmount`,
+      and `heavyRecoveryTime: 0.9` instead of the current `0.4`. Since this is
+      baked directly onto the prefab instance, it was silently shadowing
+      every code change to those defaults this whole session. Rewrote it to
+      match current values exactly. Also cleaned orphaned `attackStaggerAmount`/
+      `decayDelayAfterHit` off `Enemy.prefab`, `Player.prefab`, and one
+      leftover `Stagger` override in `SampleScene.unity`, and corrected both
+      prefabs' stale `decayPerSecond: 15` to the new `5` default.
+- [ ] `damageToStaggerMultiplier` defaults to `1` (direct 1:1) on both
+      prefabs — untuned, first guess. A future tougher enemy tier could use a
+      lower multiplier here (harder to stagger relative to damage taken)
+      instead of just a higher flat `maxStagger`.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.

@@ -388,3 +388,19 @@ already do). No Inspector wiring needed on either prefab.
    not stuck in the pose.
 3. Same red flags as the combo/ability check above (T-pose flash, stuck
    state) mean something doesn't match what the Editor would have produced.
+
+## Stagger redesign — no Editor steps needed, but a heads-up
+
+No new Inspector wiring required — `damageToStaggerMultiplier` defaults to
+`1` on both prefabs and everything else is code-side.
+
+**Worth knowing**: while wiring this up, found that `Player.prefab` had a
+serialized snapshot of `PlayerCombat`'s combo/heavy values baked in from
+*before* the windup/active-window work — meaning the actual in-game numbers
+had been silently different from whatever the script defaults said, this
+entire session, without any error or warning. It's fixed now, but it's worth
+occasionally spot-checking a prefab's Inspector values against the script
+defaults if a number ever seems to not match what a `TODO.md` note says it
+should be — Unity prefabs freeze field values at the time they're saved, and
+a hand-edited script default only take effect for *new* instances or fields
+that never existed on the prefab before.
