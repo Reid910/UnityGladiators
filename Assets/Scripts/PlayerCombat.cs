@@ -14,12 +14,17 @@ public class PlayerCombat : MonoBehaviour
     }
 
     [Header("Light Combo")]
+    // animatorTrigger reuses the existing "Attack" parameter (the only one the
+    // current Animator Controllers actually have) rather than distinct
+    // per-hit triggers — every light hit plays the same swing animation for
+    // now. Give each hit its own trigger name here once real animations
+    // exist and the Controllers have matching states/transitions.
     [SerializeField]
     private ComboHit[] lightComboHits =
     {
-        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "AttackCombo1" },
-        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "AttackCombo2" },
-        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, recoveryTime = 0.5f, animatorTrigger = "AttackCombo3" },
+        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, recoveryTime = 0.5f, animatorTrigger = "Attack" },
     };
     [SerializeField] private float comboWindow = 0.8f;
 
@@ -33,6 +38,8 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private Transform attackPoint;
     [SerializeField] private float attackRange = 1.5f;
     [SerializeField] private LayerMask enemyLayer;
+    [Tooltip("Damage multiplier applied on a crit (see Crit Chance affix, StatType.CritChance).")]
+    [SerializeField] private float critDamageMultiplier = 1.5f;
     [Tooltip("Separate from enemyLayer — dead enemies' corpse hitboxes (see Health.corpseHitbox) live here so attacks can loot them instead of dealing damage.")]
     [SerializeField] private LayerMask corpseLayer;
 
@@ -113,6 +120,7 @@ public class PlayerCombat : MonoBehaviour
         inputSystemActions.Player.Heavy.performed += OnHeavyPerformed;
         inputSystemActions.Player.Ability.performed += OnAbilityPerformed;
         inputSystemActions.Player.Dash.performed += OnDashPerformed;
+        inputSystemActions.Player.Interact.performed += OnInteractPerformed;
     }
 
     private void OnDisable()
@@ -121,6 +129,7 @@ public class PlayerCombat : MonoBehaviour
         inputSystemActions.Player.Heavy.performed -= OnHeavyPerformed;
         inputSystemActions.Player.Ability.performed -= OnAbilityPerformed;
         inputSystemActions.Player.Dash.performed -= OnDashPerformed;
+        inputSystemActions.Player.Interact.performed -= OnInteractPerformed;
         inputSystemActions.Player.Disable();
     }
 
@@ -131,6 +140,11 @@ public class PlayerCombat : MonoBehaviour
     private void OnAbilityPerformed(InputAction.CallbackContext context) => TryUseAbility();
 
     private void OnDashPerformed(InputAction.CallbackContext context) => TryDash();
+
+    // No inventory: swaps whatever's in the nearby ItemPickup's slot with
+    // the player's currently equipped item there (see
+    // PlayerEquipment.TrySwapWithNearby). No-ops if nothing's in range.
+    private void OnInteractPerformed(InputAction.CallbackContext context) => equipment?.TrySwapWithNearby();
 
     private void TryLightAttack()
     {
@@ -161,7 +175,9 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        DealDamage(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "AttackHeavy");
+        // Reuses "Attack" too (see lightComboHits comment) — no distinct
+        // heavy-swing animation exists yet.
+        DealDamage(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "Attack");
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
@@ -196,13 +212,11 @@ public class PlayerCombat : MonoBehaviour
         float cooldownReduction = playerStats != null ? playerStats.GetStat(StatType.AbilityCooldownReduction) : 0f;
         float effectiveCooldown = Mathf.Max(0.1f, abilityDefinition.Cooldown * (1f - cooldownReduction));
 
-        if (animator != null)
-        {
-            string trigger = string.IsNullOrEmpty(abilityDefinition.AnimatorTrigger)
-                ? "AbilityCast"
-                : abilityDefinition.AnimatorTrigger;
-            animator.SetTrigger(trigger);
-        }
+        // No animator trigger fired yet — abilityDefinition.AnimatorTrigger
+        // names a state ("AbilityCast" by default) that doesn't exist in the
+        // current Animator Controllers. The ability still functions
+        // (cooldown/effect), it just won't visibly animate until real states
+        // are built for it.
 
         nextAbilityTime = Time.time + effectiveCooldown;
     }
@@ -227,11 +241,10 @@ public class PlayerCombat : MonoBehaviour
 
         if (dashDefinition.DealsDamage)
         {
-            DealDamage(dashDefinition.Damage, 0f, 0f, "Dash");
-        }
-        else if (animator != null)
-        {
-            animator.SetTrigger("Dash");
+            // No "Dash" animator trigger exists yet (see TryUseAbility), so
+            // no animatorTrigger is passed here — damage/stagger/hitstun and
+            // corpse looting still apply.
+            DealDamage(dashDefinition.Damage, 0f, 0f, null);
         }
 
         nextDashTime = Time.time + dashDefinition.Cooldown;
@@ -247,6 +260,15 @@ public class PlayerCombat : MonoBehaviour
         // Combo/heavy/dash damage is a base move value; gear (base damage +
         // every equipped item's rolled damage, see PlayerStats) adds on top.
         int totalDamage = damage + (playerStats != null ? playerStats.TotalDamage : 0);
+
+        // Crit Chance affix: one roll per swing, not per enemy hit, so every
+        // enemy caught in a single swing shares the same crit result.
+        float critChance = playerStats != null ? playerStats.GetStat(StatType.CritChance) : 0f;
+
+        if (Random.value < critChance)
+        {
+            totalDamage = Mathf.RoundToInt(totalDamage * critDamageMultiplier);
+        }
 
         Collider[] hitEnemies = Physics.OverlapSphere(
             attackPoint.position,

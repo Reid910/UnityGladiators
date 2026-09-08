@@ -1,10 +1,12 @@
 # UnityGladiators TODO
 
 Scope: keep the existing wave-survival arena loop (`WaveManager.cs`). Add combo-based
-combat (M1/M2 + ability + stagger/finishers) and Fortnite-style instant-swap ground
-loot with POE2-lite affixes. No inventory UI, no crafting, no procedural levels —
-walking over an item instantly swaps it into that slot and drops whatever was
-equipped there, no pickup/equip menu step in between.
+combat (M1/M2 + ability + stagger/finishers) and button-swap ground loot with
+POE2-lite affixes. No inventory UI, no crafting, no procedural levels — standing
+near a dropped item and pressing Interact (E) swaps it into that slot and drops
+whatever was equipped there, no pickup/equip menu step in between. (Originally
+walk-over-to-instantly-swap; changed to a button press so brushing past loot
+mid-fight can't accidentally swap out good gear — see M6.)
 
 Theme: player as a fast assassin, enemies as Roman gladiators (and whatever else
 gets thrown into the arena) — fast, blow-trading combat building toward stagger
@@ -19,23 +21,34 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] M2 (heavy): separate attack, either a single big hit or its own 2-hit chain;
       slower windup, more damage, maybe brief poise/armor while swinging. (Shipped
       as a single big hit for v1.)
-- [x] Add an `Ability` input (new action in `InputSystem_Actions`) with a cooldown —
-      input wired and firing an `AbilityCast` trigger placeholder.
-  - [ ] Elden-Ring-style weapon-granted behavior (different weapons give a
-        different skill move) — depends on the item system, moved to M4.
-- [x] Add a `Dash` input, granted by the equipped boots (Risk of Rain shift-style) —
-      input wired, does a basic forward burst via `CharacterController.Move`.
-  - [ ] Gate dash behind boots being equipped (no boots = no dash) and support
-        different dash variants (distance/speed/damaging) — depends on the item
-        system, moved to M4.
-- [ ] Animator: add params/states for combo step and ability so animations can react
-      (`AttackCombo1/2/3`, `AttackHeavy`, `AbilityCast`, `Dash` triggers already set
-      from code in `PlayerCombat.cs` — the Animator Controller states/transitions
-      for them still need to be built in the Editor, see `SETUP.md`).
-- [ ] Combat feedback: hit-stop/flinch on enemies, a damage number popup or flash —
-      cheap juice that makes combos feel worth building. Partial: `Health.TakeDamage()`
-      now fires an animator `Hit` trigger for flinch reactions; hit-stop and damage
-      number popups still pending (popup likely belongs with M6 UI work).
+- [x] Add an `Ability` input (new action in `InputSystem_Actions`) with a cooldown.
+      Elden-Ring-style weapon-granted behavior landed in M4 — no longer a
+      placeholder, see there.
+- [x] Add a `Dash` input, granted by the equipped boots (Risk of Rain shift-style).
+      Boots-gating and per-boots dash variants landed in M4 — no longer a
+      placeholder, see there.
+- [x] Animator: rather than building new states/transitions for `AttackCombo1/2/3`,
+      `AttackHeavy`, `AbilityCast`, `Dash` (which would need real animation clips
+      the project doesn't have), light combo and heavy now reuse the existing
+      `Attack` trigger/state — every attack plays the same swing for now.
+      Ability/dash fire no animator trigger at all; both still fully function
+      mechanically. Distinct animations per move are a future polish item, not
+      required for MVP.
+- [x] Combat feedback: hit-stop and damage number popups now both land in
+      `Health.cs`, the single choke point every hit already passes through
+      (`TakeDamage()`/`Execute()`), so this covers player-dealt and
+      enemy-dealt damage in one place rather than duplicating it in
+      `PlayerCombat.cs` and `EnemyController.cs`:
+      - `DamageNumber.cs` (new): a floating `TextMeshPro` that rises and
+        fades out over its lifetime, spawned via a new
+        `Assets/Prefabs/DamageNumber.prefab`. Finishers show whatever health
+        remained as the "damage" number.
+      - `HitStop.cs` (new): a brief global `Time.timeScale` freeze
+        (`HitStop.Trigger(duration)`) on every landed hit — no scene wiring
+        needed, it lazily spins up its own persistent runner object.
+        Finishers hold the freeze twice as long as a normal hit.
+      - `Health.TakeDamage()` still also fires the animator `Hit` trigger for
+        flinch reactions, unchanged.
 - [x] Hitstun: new `Hitstun.cs` component (`ApplyStun(duration)` / `IsStunned`),
       distinct from the stagger meter — this is what lets a combo actually chain,
       both player-on-enemy and enemy-on-player, since the target can't act while
@@ -56,7 +69,9 @@ breaks and finishers, not a slow tank-and-spank.
       `EnemyController.AttackTarget()` (enemy → player).
 - [ ] Feedback for stagger: a UI bar over the enemy (or screen-space) and a visual/
       audio cue when it breaks, so the player can read "this one's about to go down."
-      Not built yet — needs a UI prefab, see `SETUP.md`/M6.
+      Player-side is partially done: `GameUI.staggerText` shows the player's own
+      live `Stagger` value (or "BROKEN") under the health readout — enemy-side
+      (a bar over each enemy, or a break cue) is still unbuilt.
 - [x] Stagger meter applies to the player too, symmetrically: `EnemyController.AttackTarget()`
       fills the player's `Stagger` on every landed hit, same as the player does to
       enemies.
@@ -100,10 +115,14 @@ breaks and finishers, not a slow tank-and-spank.
 
 ## M3 — Corpse looting, pickup & cleanup
 - [x] On enemy death, the corpse stays in the scene (default when `destroyOnDeath`
-      is false) and `Health.cs` now enables an optional `corpseHitbox` Collider on
-      death — separate from `objectCollider`, which still gets disabled — so a
-      corpse can still be hit after death. Needs an actual child hitbox object
-      created and wired per prefab, see `SETUP.md`.
+      is false) — separate from `objectCollider`, which still gets disabled, so a
+      corpse can still be hit after death via an optional `corpseHitbox` Collider.
+      That hitbox isn't enabled the instant the enemy dies, though —
+      `Health.EnableCorpseHitbox()` is called by `WaveManager` only once the wave
+      that enemy died in fully clears (`OnEnemyDied()` → `EnableCorpseLooting()`),
+      so corpses aren't lootable mid-fight while more enemies from the same wave
+      are still incoming. Needs an actual child hitbox object created and wired
+      per prefab, see `SETUP.md`.
 - [x] `LootableCorpse.cs`: tracks whether it's been looted (`TryLoot()` is a no-op
       after the first successful/attempted loot), rolls whether it has loot at all
       (`dropChance`) and which item from a per-corpse `possibleItems` pool, and
@@ -117,21 +136,30 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] `PlayerCombat.DealDamage()` now also runs a second `OverlapSphere` against a
       new `corpseLayer` (`LootCorpses()`) and calls `TryLoot()` on anything hit —
       separate from `enemyLayer` so corpses aren't also taking live damage.
-- [x] `ItemPickup.cs`: on player trigger enter, calls `PlayerEquipment.Equip()`
-      (new — tracks which `EquippedItem` is in each slot) and either destroys
-      itself (slot was empty) or becomes the previously-equipped item (drops it in
-      the same spot) — the Fortnite-style instant swap, no menu step.
+- [x] `ItemPickup.cs`: on player trigger enter/exit, registers/unregisters
+      itself as the player's nearby pickup (`PlayerEquipment.RegisterNearby()`/
+      `UnregisterNearby()`). The actual swap happens on the Interact input via
+      `PlayerEquipment.TrySwapWithNearby()` (see M6), which calls the existing
+      `Equip()` (tracks which `EquippedItem` is in each slot) and either
+      destroys the pickup (slot was empty) or turns it into the
+      previously-equipped item (drops it in the same spot) — no menu step,
+      just a button press instead of instant-on-touch.
 - [x] Visual distinction by rarity: new `RarityColor.cs` maps rarity to a color
-      (white/blue/orange), and `ItemPickup.cs` optionally colors a world-space
-      name label by it (`nameLabel` field — needs the actual TextMeshPro object
-      created on the pickup prefab, see `SETUP.md`; no icon/outline yet, just
-      the text label for now).
-- [x] Cleanup, tied to `WaveManager` instead of a timer: `StartNextWave()` now
-      destroys everything in `spawnedEnemies` (the previous wave's corpses) before
-      spawning the new wave. `OnEnemyDied()` now calls `ClearPickups()` when a wave
-      finishes, destroying anything in the new `activePickups` list (populated via
-      `WaveManager.RegisterPickup()`, called from `LootableCorpse` when it spawns a
-      drop) — gives dropped items one full wave of grace before they're cleared.
+      (white/blue/orange), and `ItemPickup.cs` colors both its mesh (via
+      `MaterialPropertyBlock`) and a world-space name label by it — the
+      `nameLabel` TextMeshPro child object now exists on `ItemPickup.prefab`.
+      No icon/outline yet, just mesh tint + text label.
+- [x] Cleanup, tied to `WaveManager` instead of a timer, both with a grace
+      period so nothing vanishes the instant a wave ends:
+      `AdvanceCorpseAndPickupGenerations()` (called from `StartNextWave()`)
+      destroys the corpse batch from two transitions ago and the pickup batch
+      from three transitions ago, then promotes each wave's freshly-finished
+      batch to await the next one — corpses get one full wave of grace
+      (a body from wave N survives all of wave N+1, cleared when wave N+2
+      starts), pickups get one wave more than that (survives wave N+1 *and*
+      N+2, cleared when N+3 starts) — populated via
+      `WaveManager.RegisterPickup()`, called from `LootableCorpse` when it
+      spawns a drop.
 
 ## M4 — Stats integration
 - [x] `PlayerStats.cs` aggregator: sums base damage + every equipped item's
@@ -154,10 +182,16 @@ breaks and finishers, not a slow tank-and-spank.
       `TryDash()` reads the equipped boots' `DashDefinition` (no boots = no
       dash) — both fields removed from `PlayerCombat`'s own Inspector, now
       fully gear-driven.
-- [ ] Crit Chance affix exists in the data model (`StatType.CritChance`) but
-      isn't consumed by any damage calculation yet — no crit roll/multiplier
-      implemented. Left for a later pass since it's a self-contained addition
-      to `DealDamage()` whenever it's wanted.
+- [x] Crit Chance now rolls in `PlayerCombat.DealDamage()` — one roll per
+      swing (not per enemy hit), multiplying total damage by
+      `critDamageMultiplier` (1.5x default) on a hit.
+- [x] Armor now mitigates incoming damage too — `Health.SetArmor()`, called
+      by `PlayerStats` alongside the existing `SetMaxHealthBonus()`, stores
+      the equipped total and `TakeDamage()` subtracts it as a flat reduction
+      (matching how the affix is already surfaced as flat points in
+      `GameUI`), floored at 1 damage so armor can't make the player
+      unkillable. This was the other affix silently unconsumed since M2 —
+      it rolled and displayed fine, it just never affected anything.
 
 ## M5 — Content pass (make waves feel different, not just numerous)
 - [ ] At least 2-3 gladiator-themed enemy variants — as it turns out this needs
@@ -205,14 +239,33 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] `GameUI.cs`: shows currently equipped item per slot, text-colored by
       rarity (`UpdateEquippedItemsText()` — text only, no icons yet, would need
       actual item icon assets), ability cooldown, and dash cooldown (added
-      since dash is now a real gated resource, not always-available).
+      since dash is now a real gated resource, not always-available). Now also
+      shows each equipped item's actual stats underneath its name — rolled
+      damage, every affix formatted by type (percentages for Attack Speed/
+      Crit Chance/Ability Cooldown Reduction/Move Speed, flat points for Max
+      Health/Armor), and the weapon's/boots' ability/dash name if it has one.
 - [x] Combo counter readout (`comboText`, shows `PlayerCombat.ComboStep`).
-- [ ] "Press E to pick up..." prompt — **dropped, not just unbuilt**: this
-      doesn't fit the design anymore. Pickup is instant-on-touch
-      (Fortnite-style, decided earlier), not a button-press interaction, so
-      there's no "press E" moment. The floating rarity-colored name label on
-      `ItemPickup` (see M3) is the replacement — it tells you what's there
-      without requiring a prompt or a keypress.
+- [x] Stagger readout (`staggerText`, shows the player's own `Stagger` value or
+      "BROKEN" — added alongside the health readout).
+- [x] World-space pickup name label (`ItemPickup.nameLabel`) is wired up — see
+      M3's `SETUP.md` notes. Now also doubles as the swap-target prompt (see
+      below) when the player's in range.
+- [x] Swap-on-touch was replaced with swap-on-Interact: standing in an
+      `ItemPickup`'s trigger no longer auto-equips it, it just marks it as
+      the player's nearby pickup; pressing Interact (`E`, reusing the
+      previously-unused stock `Interact` action — see
+      `InputSystem_Actions.inputactions`) calls
+      `PlayerEquipment.TrySwapWithNearby()` to actually swap it in. Reverses
+      the earlier "press E is dropped, doesn't fit the design" call — walking
+      past loot mid-fight no longer risks swapping out good gear for trash.
+- [x] "Press E to swap" feedback added, on the world-space label rather than
+      a HUD prompt: `ItemPickup`'s floating name label shows `[E] <item>` +
+      a smaller `swaps <currently equipped item>` line while it's the
+      player's swap target (`PlayerEquipment.RegisterNearby()`/
+      `UnregisterNearby()` drive this via `ItemPickup.SetTargeted()`), and
+      reverts to the plain name otherwise. Also scales the pickup up
+      (`Visual Transform` + `Targeted Scale Multiplier`, optional) so the
+      active target stands out if more than one pickup is nearby.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.

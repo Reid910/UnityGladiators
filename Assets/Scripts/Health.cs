@@ -24,7 +24,16 @@ public class Health : MonoBehaviour
     [Tooltip("Optional. Enabled on death so a corpse can still be hit for looting (see LootableCorpse) even though objectCollider gets disabled.")]
     [SerializeField] private Collider corpseHitbox;
 
+    [Header("Combat Feedback")]
+    [Tooltip("Optional. Spawned above this object on every hit that lands (see DamageNumber.cs). Leave unset to skip.")]
+    [SerializeField] private DamageNumber damageNumberPrefab;
+    [SerializeField] private Vector3 damageNumberSpawnOffset = new Vector3(0f, 2f, 0f);
+    [SerializeField] private Color damageNumberColor = Color.white;
+    [Tooltip("Brief global freeze-frame applied on every hit that lands (see HitStop.cs). 0 disables it.")]
+    [SerializeField] private float hitStopDuration = 0.05f;
+
     private int maxHealthBonus;
+    private float armor;
 
     public int CurrentHealth { get; private set; }
     public int MaxHealth => maxHealth + maxHealthBonus;
@@ -50,6 +59,14 @@ public class Health : MonoBehaviour
         }
 
         UpdateHealthText();
+    }
+
+    // Called by PlayerStats when equipped gear's Armor affix total changes.
+    // Armor affix values are flat points (see GameUI.FormatAffix), so it's a
+    // flat reduction here too, not a percentage.
+    public void SetArmor(float armorValue)
+    {
+        armor = armorValue;
     }
 
     private void Awake()
@@ -81,10 +98,16 @@ public class Health : MonoBehaviour
             return;
         }
 
-        CurrentHealth -= damageAmount;
+        // Armor reduces incoming damage by a flat amount but never below 1,
+        // so a heavily-armored player can't become fully unkillable.
+        int mitigatedDamage = Mathf.Max(1, damageAmount - Mathf.RoundToInt(armor));
+
+        CurrentHealth -= mitigatedDamage;
         CurrentHealth = Mathf.Max(CurrentHealth, 0);
 
         UpdateHealthText();
+        SpawnDamageNumber(mitigatedDamage);
+        HitStop.Trigger(hitStopDuration);
 
         if (animator != null && !IsDead)
         {
@@ -106,9 +129,37 @@ public class Health : MonoBehaviour
             return;
         }
 
+        // Show whatever health remained as the "damage" dealt, and hold the
+        // freeze a beat longer than a normal hit — a finisher should read as
+        // more impactful than a regular combo tick.
+        SpawnDamageNumber(CurrentHealth);
+        HitStop.Trigger(hitStopDuration * 2f);
+
         CurrentHealth = 0;
         UpdateHealthText();
         Die();
+    }
+
+    // Called by WaveManager once the wave this enemy died in fully clears —
+    // corpses aren't lootable before then, so the player can't farm loot off
+    // a body while more enemies from the same wave are still incoming.
+    public void EnableCorpseHitbox()
+    {
+        if (corpseHitbox != null)
+        {
+            corpseHitbox.enabled = true;
+        }
+    }
+
+    private void SpawnDamageNumber(int amount)
+    {
+        if (damageNumberPrefab == null || amount <= 0)
+        {
+            return;
+        }
+
+        DamageNumber instance = Instantiate(damageNumberPrefab, transform.position + damageNumberSpawnOffset, Quaternion.identity);
+        instance.Initialize(amount, damageNumberColor);
     }
 
     private void UpdateHealthText()
@@ -160,11 +211,6 @@ public class Health : MonoBehaviour
         if (objectCollider != null)
         {
             objectCollider.enabled = false;
-        }
-
-        if (corpseHitbox != null)
-        {
-            corpseHitbox.enabled = true;
         }
 
         if (destroyOnDeath)

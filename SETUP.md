@@ -20,18 +20,16 @@ each feature.
    - `Dash` → Left Ctrl
    You can rebind these in the Input Actions editor if you'd rather use
    different keys.
-3. **Animator Controller** — `PlayerCombat.cs` now fires these trigger
-   parameters that don't exist in the Player's Animator Controller yet:
-   - `AttackCombo1`, `AttackCombo2`, `AttackCombo3` (light combo, one per hit)
-   - `AttackHeavy` (heavy attack)
-   - `AbilityCast` (ability placeholder)
-   - `Dash` (dash placeholder)
-   For each: add a `Trigger` parameter with that exact name in the Animator
-   Controller, then add a state + transition from wherever attacks currently
-   trigger (look at how the existing single `Attack` trigger/state was wired,
-   since that pattern still applies — you're just adding more of them). Until
-   these exist, the moves will function (damage/cooldowns work, dash actually
-   moves you) but won't visibly animate.
+3. ~~Animator Controller: `PlayerCombat.cs` fired trigger parameters
+   (`AttackCombo1/2/3`, `AttackHeavy`, `AbilityCast`, `Dash`) that didn't
+   exist~~ — resolved without new assets: light combo and the heavy attack now
+   all reuse the existing `Attack` trigger/state (the only one either Animator
+   Controller actually has), so every attack plays the same swing animation
+   for now instead of needing new states built. Ability and dash fire no
+   animator trigger at all — they still fully function (cooldowns, damage,
+   movement), they just don't animate yet. Give each move its own trigger
+   name in `PlayerCombat.cs` (and matching Controller states) once real
+   animations exist; not needed for MVP.
 4. **No new Inspector references needed** — `PlayerCombat` still uses the same
    `attackPoint`/`enemyLayer`/`animator`/`health` fields as before. It also now
    auto-fills a `CharacterController` reference via `GetComponent` on Awake if
@@ -40,21 +38,16 @@ each feature.
    need no action, but double check the field isn't pointing at the wrong
    object if you had one manually assigned before.
 5. **Combo/heavy numbers are placeholder starting values** (see the
-   `lightComboHits` array, `heavyDamage`, `abilityCooldown`, `dashDistance`,
-   `dashCooldown` fields in the Inspector) — these reset to script defaults
-   since the old `attackDamage`/`attackCooldown` fields were replaced. Tune to
-   taste once you can playtest.
+   `lightComboHits` array and `heavyDamage`/`heavyStaggerAmount`/
+   `heavyHitstunDuration`/`heavyRecoveryTime` fields in the Inspector) — tune
+   to taste once you can playtest. (Ability cooldown and dash distance/cooldown
+   are no longer separate fields here — they come from the equipped weapon's
+   `AbilityDefinition`/boots' `DashDefinition` instead, see M4 below.)
 
 ## Stagger / hitstun / finishers — M1, core logic done
 
-1. **Add `Stagger` and `Hitstun` components to both the Player prefab and the
-   Enemy prefab.** These are plain `MonoBehaviour`s with no required Inspector
-   wiring (all their fields have sane defaults) — just add the components via
-   **Add Component → Stagger** and **Add Component → Hitstun** on each prefab.
-   Without them, combat still works but nothing staggers/stuns — the
-   `IsIncapacitated` checks in `PlayerController`/`PlayerCombat`/`EnemyController`
-   just no-op if the components are missing (`GetComponent` returns null), so
-   this won't break anything if skipped, it just won't do anything either.
+1. ~~Add `Stagger` and `Hitstun` components to both the Player prefab and the
+   Enemy prefab~~ — done, both prefabs already have both components.
 2. **No new Animator params required for stagger/hitstun logic itself** — being
    staggered/stunned currently just freezes movement/attack via code, it
    doesn't play a dedicated animation yet. If you want a visible "broken" pose,
@@ -97,47 +90,108 @@ need to create asset instances in the Editor:
 5. No specific count needed yet — just enough to have something to test with,
    now that M3 (below) actually wires `ItemRoller.Roll()` into gameplay.
 
-## Corpse looting, pickup, cleanup — M3, mostly done, needs prefab/layer work
+## Corpse looting, pickup, cleanup — M3, done (wired directly in the asset files)
 
-This is the one with the most Editor setup so far — several new pieces need
-actual scene/prefab objects, not just component references.
+All of this was wired up by editing the prefab/project/scene YAML directly
+(this project uses Force Text asset serialization, so it's plain text) rather
+than through the Editor UI, then **confirmed working end-to-end in a live
+playtest** — corpses persist, get hit, roll loot, and a visible pickup spawns.
 
-1. **Create two new physics layers**: `Corpse` and `Pickup` (Project Settings →
-   Tags and Layers, or Edit → Project Settings → Tags and Layers). `Corpse` is
-   for dead-enemy loot hitboxes; `Pickup` is for the dropped-item trigger
-   colliders (keeps them from colliding with the `enemyLayer`/`corpseLayer`
-   OverlapSphere checks or with each other).
-2. **On the Enemy prefab**: add a child GameObject (e.g. "CorpseHitbox") with
-   its own `Collider` (a simple capsule/box is fine), set to the `Corpse`
-   layer, **disabled by default**. Drag it into `Health`'s new `Corpse Hitbox`
-   field. Also add a `LootableCorpse` component to the Enemy prefab (root is
-   fine) and set: `Tier` (T1 for now, until M5 adds real variants),
-   `Drop Chance`, `Possible Items` (drag in `ItemDefinition` assets from the
-   M2 step above), and `Item Pickup Prefab` (see next step).
-3. **Create an ItemPickup prefab**: any visible mesh (a placeholder cube/sphere
-   is fine per the earlier placeholder-assets discussion) with a trigger
-   `Collider` set to the `Pickup` layer, plus an `ItemPickup` component. This
-   is the prefab you drag into `LootableCorpse.Item Pickup Prefab`.
-4. **On the Player prefab**: add a `PlayerEquipment` component (no Inspector
-   wiring needed — it's just a runtime dictionary). Also set
-   `PlayerCombat`'s new `Corpse Layer` field to the `Corpse` layer you just
-   created (separate from the existing `Enemy Layer` field).
-5. **Visual rarity distinction is still unbuilt** — `ItemPickup`/`EquippedItem`
-   expose `Rarity` in code, but nothing colors/highlights the pickup by it yet.
-   A simple version: swap the pickup's material color based on
-   `item.Rarity` in `ItemPickup.Initialize()` — not done since there's no
-   pickup prefab/material to attach it to until you do step 3.
-6. **`WaveManager`** needs no new references — cleanup is automatic once the
+1. ~~Create `Corpse`/`Pickup` physics layers~~ — done (`Corpse` = layer 7,
+   `Pickup` = layer 8, in Project Settings → Tags and Layers).
+2. ~~Enemy prefab: `CorpseHitbox` child + `LootableCorpse` component~~ — done.
+   The Enemy prefab now has a child GameObject `CorpseHitbox` (Capsule
+   Collider, `Corpse` layer, disabled by default) wired into `Health`'s
+   `Corpse Hitbox` field, and a `LootableCorpse` component (`Drop Chance`
+   0.5, `T3 Super Rare Chance` 0.3, `Possible Items` = the one
+   `NewItem.asset` from the M2 step, `Item Pickup Prefab` = the new
+   `ItemPickup.prefab`, see below).
+3. ~~Create an `ItemPickup` prefab~~ — done: `Assets/Prefabs/ItemPickup.prefab`,
+   a small sphere (builtin mesh, no new mesh asset) with a trigger
+   `SphereCollider` on the `Pickup` layer and an `ItemPickup` component.
+4. ~~Player prefab: `PlayerEquipment` + `PlayerCombat.Corpse Layer`~~ — done.
+   `PlayerEquipment` and `PlayerStats` components were both added to the
+   Player prefab, and `PlayerCombat`'s `Corpse Layer` field now points at the
+   `Corpse` layer.
+5. ~~Visual rarity distinction~~ — done: `ItemPickup.cs` has a `visualRenderer`
+   field (wired to the pickup's `MeshRenderer`) tinted by rarity via a
+   `MaterialPropertyBlock`, plus a world-space name label (`nameLabel`) —
+   `ItemPickup.prefab` now has a child `NameLabel` object (3D `TextMeshPro`,
+   reusing the same `LiberationSans SDF` font and `FaceCamera` billboard
+   pattern already used by the Enemy's health text) floating above the pickup,
+   colored/text-set by `ItemPickup.Initialize()`/`OnTriggerEnter()`.
+6. ~~`NewItem.asset` unconfigured stub~~ — resolved: it's now "Gladius" (a real
+   Weapon item, 8-14 damage, references `NewAbility.asset`). Four more
+   `ItemDefinition` assets were added — "Worn Sandals" (Boots, references
+   `NewDash.asset`), "Leather Cap" (Head), "Leather Chestplate" (Chest),
+   "Leather Greaves" (Pants) — all five wired into the Enemy prefab's
+   `LootableCorpse.Possible Items`, so drops now cover every slot and equipping
+   one actually swaps something visible. `NewAbility`/`NewDash` were given
+   display names ("Reserved Strike" / "Sprint Step") but still don't do
+   anything mechanically — equipping different weapons/boots just changes
+   which named-but-inert ability/dash you're nominally carrying, as intended
+   for this pass.
+7. **Found and fixed a real bug while wiring this up**: four of the five
+   `AffixDefinition` assets (`Cooldown Reduction`, `Critical Hit Chance`,
+   `Max Health`, `Movement Speed`) had `statType: 0` regardless of their name
+   — i.e. they were all secretly "Attack Speed" affixes — and every affix had
+   `minValue`/`maxValue` both `0`, so every roll would've been worth nothing.
+   Fixed all four `statType` indices to match their names, gave all five (plus
+   a newly-created sixth, `Armor.asset` — `StatType.Armor` had no asset at
+   all) real roll ranges. All six now also explicitly declare `eligibleSlots`
+   as empty (any slot) rather than leaving the field ambiguous.
+7. `WaveManager` needs no new references — cleanup is automatic once the
    above prefabs exist, since `LootableCorpse` finds it via
    `FindFirstObjectByType<WaveManager>()`.
+8. ~~Enemy prefab's `Health.destroyOnDeath`/`disableObjectOnDeath` were still
+   `true`~~ — fixed, both now `false` (matching the Player prefab). These
+   predate corpse looting: left `true`, the corpse (and its loot window) got
+   destroyed 2.5s after death regardless of the hitbox/`LootableCorpse` setup
+   above. Now the corpse persists until `WaveManager.ClearCorpses()` clears it
+   at the next wave, as `TODO.md`'s M3 notes describe.
+9. `WaveManager`'s scene component also had a stale `enemyPrefab` (singular)
+   field left over from before the M5 `enemyPrefabs[]` array refactor, which
+   silently made the array empty (`Debug.LogWarning` on spawn) — fixed by
+   moving that same Enemy prefab reference into the new array field directly
+   in `Assets/Scenes/SampleScene.unity`.
+10. ~~Corpse/pickup cleanup timing didn't match the intended "grace period"
+    feel~~ — reworked in `WaveManager.cs`: corpses now survive one full wave
+    before clearing (destroyed at the start of the wave *after* the one
+    following their death), and dropped pickups get one wave more than that.
+    See `TODO.md`'s M3 note for the exact mechanism
+    (`AdvanceCorpseAndPickupGenerations()`).
+11. **The biggest find: the Player actually running in the scene was not
+    `Assets/Prefabs/Player.prefab` at all.** It was a leftover, disconnected
+    setup — an instance of the imported `HumanMale_Character_FREE.prefab`
+    (from the Blink asset pack) with gameplay scripts bolted on directly in
+    the scene, missing `corpseLayer`, `Stagger`, `Hitstun`, `PlayerEquipment`,
+    and `PlayerStats` entirely. That's the actual reason loot never spawned —
+    the player's corpse-hit query was using an empty layer mask, nothing to
+    do with drop chance or the pickup's mesh. Fixed by replacing it in
+    `Assets/Scenes/SampleScene.unity` with a real instance of
+    `Assets/Prefabs/Player.prefab` (which *is* the correct, intended object —
+    it just had never been placed in the scene), re-pointing `GameUI` and
+    both `ThirdPersonCamera` instances at the new instance, and deactivating
+    (not deleting) the old object so it's trivially reversible. Confirmed
+    working in-editor: movement, camera-follow, combat, and looting all run
+    on the real prefab now.
+12. `Drop Chance` was bumped to 1.0 temporarily to isolate the above bug and
+    has been set back to 0.5 now that the pipeline is confirmed working.
+13. **Found and fixed a real bug via live playtesting**: `CorpseHitbox`'s
+    `CapsuleCollider` had `Is Trigger` unchecked. `Health.EnableCorpseHitbox()`
+    just re-enables the collider once a wave clears — with `Is Trigger` off,
+    that made a solid capsule that physically blocked the player from walking
+    past/through cleared corpses instead of just being loot-hittable. Fixed by
+    setting `m_IsTrigger: 1` on `Assets/Prefabs/Enemy.prefab`'s `CorpseHitbox`
+    directly in the prefab YAML. Doesn't affect loot-hitting, since
+    `PlayerCombat.LootCorpses()` already uses `Physics.OverlapSphere`, which
+    detects trigger colliders fine.
 
-## Stats integration — M4, done, one required component add
+## Stats integration — M4, done
 
-1. **Add a `PlayerStats` component to the Player prefab.** Like
-   `PlayerEquipment`, it needs no Inspector wiring (`equipment`/`health` both
-   auto-fill via `GetComponent` on Awake) — just **Add Component →
-   PlayerStats**. Without it, `PlayerCombat`/`PlayerController`'s stat lookups
-   all no-op to 0, so combat/movement still work, just with zero gear bonus.
+1. ~~Add a `PlayerStats` component to the Player prefab~~ — done (added
+   alongside `PlayerEquipment` in the M3 pass above; `equipment`/`health`
+   auto-fill via `GetComponent` on Awake, no other wiring needed).
 2. **`PlayerCombat`'s old `Ability Cooldown`/`Dash Distance`/`Dash Cooldown`
    Inspector fields are gone** — they're fully replaced by whatever
    `AbilityDefinition`/`DashDefinition` the equipped Weapon/Boots reference
@@ -179,25 +233,96 @@ The existing Enemy prefab has an `EnemyController` with a new `Tier` field
    just keeps scaling. Uncheck it on `WaveManager` if you want the old
    win-at-wave-3 behavior back for testing.
 
-## UI/feedback — M6, needs Canvas/TextMeshProUGUI creation
+## UI/feedback — M6, done (wired directly in the scene YAML)
 
-`GameUI.cs` has new optional fields — none are required (all null-checked), so
-existing HUD keeps working untouched if you skip this. To actually see the new
-info:
+Same approach as the M3 corpse-looting pass: edited `Assets/Scenes/SampleScene.unity`
+directly (Force Text serialization) rather than through the Editor UI.
 
-1. **On the GameUI object**: assign `Player Combat` and `Player Equipment`
-   (drag the Player object in) — needed for the new readouts below.
-2. **Create new TextMeshProUGUI elements** on your HUD Canvas (duplicate an
-   existing HUD text element and reposition, same as how `Wave Text`/
-   `Enemies Remaining Text` were presumably set up) for whichever of these you
-   want, then assign them on `GameUI`:
-   - `Equipped Items Text` — multi-line, shows all 5 slots colored by rarity
-     (uses TextMeshPro's `<color>` rich text tag, so make sure Rich Text is
-     enabled on that text object, which is the TMP default).
-   - `Ability Cooldown Text`, `Dash Cooldown Text` — simple "Ready" / "Xs"
-     readouts.
-   - `Combo Text` — shows current combo chain step.
-3. **`ItemPickup`'s new `Name Label` field** (on the pickup prefab from the M3
-   step): add a child `TextMeshPro` (3D, not UGUI — it's a floating
-   world-space label, not screen-space) above the pickup mesh, assign it.
-   Without it, pickups still work, they just don't show a name/rarity label.
+1. ~~On the GameUI object: assign `Player Combat` and `Player Equipment`~~ —
+   done. Added stripped `MonoBehaviour` references (fileIDs `700000005`/
+   `700000006`) into the existing Player `PrefabInstance` block and wired them
+   into `GameUI`'s `Player Combat`/`Player Equipment` fields.
+2. ~~Create new TextMeshProUGUI elements for Equipped Items Text, Ability
+   Cooldown Text, Dash Cooldown Text, Combo Text~~ — done, all four created
+   under the `HUD` RectTransform and assigned on `GameUI`:
+   - `Equipped Items Text` — anchored bottom-left (unlike the other HUD
+     readouts, which are top-left), smaller font (24pt) to fit multi-line
+     per-slot detail without overflowing.
+   - `Ability Cooldown Text`, `Dash Cooldown Text`, `Combo Text` — same
+     top-left column as the existing readouts, stacked below them.
+3. **Found and fixed a real bug while wiring this up**: the existing top-left
+   readouts (`PlayerHealthText`, `WaveText`, `EnemiesRemainingText`,
+   `StaggerText`) had never been given distinct Y positions —
+   `StaggerText` was anchored at the same `y: -50` as `WaveText`, so the two
+   overlapped. Respaced the whole top-left column to `0, -50, -100, -150,
+   -200, -250, -300` (Health, Wave, Enemies, Stagger, Ability, Dash, Combo).
+4. ~~`ItemPickup`'s new `Name Label` field~~ — already done, see M3 notes above.
+
+No manual Editor steps remain for M6. As always, open the project in Unity
+once after a direct-YAML pass like this to let it re-serialize and confirm
+nothing reports a missing reference before playtesting.
+
+## Crit Chance and Armor stats — M4 follow-up, no Editor steps needed
+
+Both affixes already rolled and displayed correctly (M2/M6) but neither
+affected gameplay. Now wired in code only:
+
+- Crit Chance: `PlayerCombat.DealDamage()` rolls it once per swing and
+  multiplies total damage by the new `Crit Damage Multiplier` field (Attack
+  header, defaults to 1.5x — tune to taste once you can playtest).
+- Armor: `Health.SetArmor()`, called by `PlayerStats` alongside the existing
+  `SetMaxHealthBonus()`, and `TakeDamage()` subtracts it as a flat reduction
+  (floored at 1 damage).
+
+No new Inspector references required — both read from the same
+`PlayerStats`/`Health` wiring already in place from M4. Open the project once
+so Unity picks up the new `critDamageMultiplier` serialized field with its
+default value.
+
+## Item swap now button-triggered, not instant-on-touch — no Editor steps needed
+
+Standing near an `ItemPickup` no longer auto-equips it — it just marks itself
+as the player's nearby pickup (`OnTriggerEnter`/`OnTriggerExit`, same trigger
+collider as before). Pressing Interact calls
+`PlayerEquipment.TrySwapWithNearby()` to actually swap it in.
+
+- Reused the stock `Interact` action that already existed in
+  `InputSystem_Actions.inputactions` (bound to `E` / gamepad North) but
+  wasn't used anywhere — changed its interaction from `Hold` to a plain
+  press (edited both the `.inputactions` asset and the matching embedded
+  JSON in the generated `InputSystem_Actions.cs`, so no Unity regeneration
+  step is needed, same as the direct-edit approach used for
+  Heavy/Ability/Dash).
+- No new prefab/Inspector wiring — `ItemPickup` and `PlayerEquipment` are
+  the same components already on `Player.prefab`/`ItemPickup.prefab`.
+- **Swap-target feedback added**: `ItemPickup.nameLabel` now shows `[E] <item
+  name>` plus a smaller `swaps <currently equipped item name>` second line
+  while it's the player's active swap target, reverting to the plain name
+  when it isn't. There's also an optional `Visual Transform` field that
+  scales up (1.25x default, `Targeted Scale Multiplier`) while targeted, so
+  it visually pops if several pickups are near each other.
+- **`Visual Transform` still needs wiring on `ItemPickup.prefab`** — assign
+  it to the mesh's own child transform, *not* the prefab root, so the
+  trigger collider doesn't grow along with the scale-up. Leaving it
+  unassigned is safe — the label-only feedback still works, it just won't
+  scale.
+
+## Damage numbers and hit-stop — M1 follow-up
+
+New `Assets/Prefabs/DamageNumber.prefab` (world-space `TextMeshPro`, same
+font/billboard setup as the enemy health text — reuses the existing
+`FaceCamera.cs`) plus two new scripts, `DamageNumber.cs` and `HitStop.cs`.
+Both are wired into `Health.cs` itself (`TakeDamage()`/`Execute()`), so they
+cover player-dealt and enemy-dealt damage from one place — nothing new to
+wire in `PlayerCombat.cs` or `EnemyController.cs`.
+
+1. ~~`Enemy.prefab`'s `Health` component: `Damage Number Prefab`~~ — done,
+   wired directly in the prefab YAML, pointing at the new
+   `DamageNumber.prefab`. `Damage Number Color` defaults to white, `Hit Stop
+   Duration` to 0.05s (0.1s on a finisher) — tune both to taste.
+2. ~~`Player.prefab`'s `Health` component: same wiring~~ — done now that
+   this branch has `Player.prefab` (merged in from
+   `chore/m1-m5-setup-and-fixes`). `Damage Number Color` set to red on the
+   Player so damage taken reads differently from damage dealt.
+3. **No Editor steps needed for `HitStop`** — it has no Inspector fields and
+   creates its own runner object on first use.

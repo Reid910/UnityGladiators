@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f047661a0ac1f0b4d8ea815b6a4c2b89, type: 3}
+  m_Name: NewItem
+  m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
+  itemName: Gladius
+  slot: 4
+  minDamage: 8
+  maxDamage: 14
+  possibleAffixes:
+  - {fileID: 11400000, guid: 10fa113862d3ac147b8d9d42c1fef9a2, type: 2}
+  - {fileID: 11400000, guid: 49481b0302fd0994badeb05c21dbc366, type: 2}
+  - {fileID: 11400000, guid: 307a524591b1b9c47bfb5354d1efb3df, type: 2}
+  - {fileID: 11400000, guid: 600a1c2041223e24193e09f26577ab84, type: 2}
+  - {fileID: 11400000, guid: 0b204da879d37b94288387bac388a6c8, type: 2}
+  - {fileID: 11400000, guid: 2c10e674dbad42b0ae641771d65e973c, type: 2}
+  abilityDefinition: {fileID: 11400000, guid: 9cc096801927dac4b98209b4d8640196, type: 2}
+  dashDefinition: {fileID: 0}
