@@ -346,6 +346,37 @@ breaks and finishers, not a slow tank-and-spank.
       genuinely needs real playtesting, especially `EnemyController`'s new
       `Attack Windup`/`Attack Range`, which have no prior value to anchor to.
 
+## Weapon ability now does something — combat-feel follow-up
+- [x] Problem: pressing the `Ability` button just started a cooldown timer —
+      no damage, no effect, nothing. Item types had it as a deliberate blank
+      stub (see M2), but with real combat feel now the focus, an inert button
+      was wasted design space.
+- [x] `AbilityDefinition` (`Assets/Scripts/Items/AbilityDefinition.cs`) gained
+      real effect fields: `Damage`, `Stagger Amount`, `Hitstun Duration`,
+      `Windup`, `Active Duration`, `Range` — an ability is modeled as a
+      bigger, rarer hit than a normal swing, not a bespoke new system.
+- [x] `PlayerCombat.TryUseAbility()` now fires the shared `PerformAttack()`
+      windup/active-window coroutine (same one light/heavy/attack windows
+      use — see the windup follow-up above) with the equipped weapon's
+      `AbilityDefinition` values. `BeginAttack()`/`PerformAttack()`/
+      `CheckHit()` all gained an optional/threaded `range` parameter so an
+      ability's hit radius can differ from the weapon's normal `attackRange`
+      (defaults to a wider 2.5, vs. 1.5 for a regular swing).
+- [x] Deliberately independent of the light/heavy combo state: the ability
+      doesn't touch `nextAttackTime`/`comboStep`, and runs on its own
+      untracked coroutine rather than the shared `attackCoroutine` field — so
+      it can be weaved between combo hits instead of interrupting/resetting
+      the chain, gated only by its own cooldown (`nextAbilityTime`).
+- [x] `AbilityDefinition.AnimatorTrigger` (`AbilityCast` by default) is now
+      actually fired via the shared pipeline — previously deliberately
+      skipped. `Animator.SetTrigger` on a parameter that doesn't exist in the
+      Controller is a silent no-op (confirmed safe, unlike playing a missing
+      state by name), so this is harmless now and will just start animating
+      once a matching state exists.
+- [ ] Default ability numbers (30 damage, 25 stagger, 2.5 range) are a first
+      guess with nothing to anchor to — needs playtesting like the rest of
+      the windup follow-up above.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

@@ -209,11 +209,12 @@ public class PlayerCombat : MonoBehaviour
         return duration / Mathf.Max(0.1f, attackSpeedMultiplier);
     }
 
-    private void BeginAttack(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime)
+    private void BeginAttack(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime, float range = -1f)
     {
         float scaledWindup = ApplyAttackSpeed(windup);
         float scaledActiveDuration = ApplyAttackSpeed(activeDuration);
         float scaledRecoveryTime = ApplyAttackSpeed(recoveryTime);
+        float hitRange = range > 0f ? range : attackRange;
 
         nextAttackTime = Time.time + scaledWindup + scaledActiveDuration + scaledRecoveryTime;
 
@@ -222,10 +223,10 @@ public class PlayerCombat : MonoBehaviour
             StopCoroutine(attackCoroutine);
         }
 
-        attackCoroutine = StartCoroutine(PerformAttack(damage, staggerAmount, hitstunDuration, animatorTrigger, scaledWindup, scaledActiveDuration));
+        attackCoroutine = StartCoroutine(PerformAttack(damage, staggerAmount, hitstunDuration, animatorTrigger, scaledWindup, scaledActiveDuration, hitRange));
     }
 
-    private IEnumerator PerformAttack(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger, float windup, float activeDuration)
+    private IEnumerator PerformAttack(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float range)
     {
         if (animator != null && !string.IsNullOrEmpty(animatorTrigger))
         {
@@ -253,7 +254,7 @@ public class PlayerCombat : MonoBehaviour
 
         do
         {
-            CheckHit(totalDamage, staggerAmount, hitstunDuration, hitTargets);
+            CheckHit(totalDamage, staggerAmount, hitstunDuration, hitTargets, range);
             yield return null;
         }
         while (Time.time < activeEndTime);
@@ -277,6 +278,10 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryUseAbility()
     {
+        // Deliberately not gated by IsIncapacitated/IsAttacking or nextAttackTime
+        // the way light/heavy are — the ability has its own independent
+        // cooldown (nextAbilityTime) and can be weaved between combo hits.
+        // It's still blocked while dead/stunned/broken via IsIncapacitated below.
         if (IsIncapacitated || Time.time < nextAbilityTime)
         {
             return;
@@ -294,14 +299,25 @@ public class PlayerCombat : MonoBehaviour
 
         float cooldownReduction = playerStats != null ? playerStats.GetStat(StatType.AbilityCooldownReduction) : 0f;
         float effectiveCooldown = Mathf.Max(0.1f, abilityDefinition.Cooldown * (1f - cooldownReduction));
-
-        // No animator trigger fired yet — abilityDefinition.AnimatorTrigger
-        // names a state ("AbilityCast" by default) that doesn't exist in the
-        // current Animator Controllers. The ability still functions
-        // (cooldown/effect), it just won't visibly animate until real states
-        // are built for it.
-
         nextAbilityTime = Time.time + effectiveCooldown;
+
+        // An ability is a bigger, rarer hit than a normal swing — same
+        // windup/active-window pipeline as combo/heavy, just with its own
+        // damage/stagger/range from the weapon's AbilityDefinition. Doesn't
+        // touch nextAttackTime/comboStep, so it doesn't interrupt or reset
+        // the light combo chain. animatorTrigger currently names a state
+        // ("AbilityCast" by default) that doesn't exist in the Animator
+        // Controllers yet — Animator.SetTrigger silently no-ops on an
+        // unknown parameter, so this is safe to fire now and will just start
+        // working once a matching state is built.
+        StartCoroutine(PerformAttack(
+            abilityDefinition.Damage,
+            abilityDefinition.StaggerAmount,
+            abilityDefinition.HitstunDuration,
+            abilityDefinition.AnimatorTrigger,
+            ApplyAttackSpeed(abilityDefinition.Windup),
+            ApplyAttackSpeed(abilityDefinition.ActiveDuration),
+            abilityDefinition.Range));
     }
 
     private void TryDash()
@@ -328,18 +344,18 @@ public class PlayerCombat : MonoBehaviour
             // rather than going through the windup/active-window pipeline —
             // no "Dash" animator trigger exists yet either (see TryUseAbility).
             int totalDamage = RollDamage(dashDefinition.Damage);
-            CheckHit(totalDamage, 0f, 0f, new HashSet<Health>());
+            CheckHit(totalDamage, 0f, 0f, new HashSet<Health>(), attackRange);
             LootCorpses();
         }
 
         nextDashTime = Time.time + dashDefinition.Cooldown;
     }
 
-    private void CheckHit(int totalDamage, float staggerAmount, float hitstunDuration, HashSet<Health> alreadyHit)
+    private void CheckHit(int totalDamage, float staggerAmount, float hitstunDuration, HashSet<Health> alreadyHit, float range)
     {
         Collider[] hitEnemies = Physics.OverlapSphere(
             attackPoint.position,
-            attackRange,
+            range,
             enemyLayer
         );
 
