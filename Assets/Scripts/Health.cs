@@ -203,6 +203,21 @@ public class Health : MonoBehaviour
             enemyController.enabled = false;
         }
 
+        // Stops driving the "Broken" animator bool after death — otherwise a
+        // corpse that died while staggered keeps ticking Stagger.Update(),
+        // which re-fires the Any State -> StunnedLoop transition right after
+        // Death plays and, once the broken window ends, transitions back out
+        // to idle, leaving the corpse standing instead of in its death pose.
+        // The Animator Controllers also guard this directly (Broken's Any
+        // State transition now requires IsDead == false), so this is a
+        // second layer, not the only fix.
+        Stagger stagger = GetComponent<Stagger>();
+
+        if (stagger != null)
+        {
+            stagger.enabled = false;
+        }
+
         if (characterController != null)
         {
             characterController.enabled = false;
