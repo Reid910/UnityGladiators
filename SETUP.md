@@ -3,6 +3,25 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Death animation / stray camera / stale sensitivity fix — verify before trusting
+
+No Inspector wiring needed — this only touched hand-edited YAML (both Animator
+Controllers, `SampleScene.unity`) plus `Health.cs`. Verify:
+
+1. Get an enemy staggered to broken, then land the killing blow (a finisher).
+   It should play its actual `Death` pose and stay there — not flash through
+   `StunnedLoop` and end up standing at idle.
+2. Confirm no more `Parameter 'Hit' does not exist` / `Parameter 'IsDead' does
+   not exist` console errors during normal combat (light/heavy/enemy attacks,
+   any death).
+3. Mouse-look should feel normal again (`ThirdPersonCamera.mouseSensitivity`
+   was stuck at a stale `2` in `SampleScene.unity`, now `0.12` to match the
+   script default). If it's still too fast/slow for your mouse, that field is
+   the one to tune directly on the Main Camera.
+4. The Directional Light no longer has an (accidental, non-functional)
+   `ThirdPersonCamera` component on it — nothing to verify here beyond
+   confirming lighting looks unchanged.
+
 ## Combat overhaul (combo/heavy/ability/dash inputs) — M1, partial
 
 1. **Regenerate the Input Actions C# wrapper.** `InputSystem_Actions.inputactions`

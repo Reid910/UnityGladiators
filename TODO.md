@@ -521,6 +521,41 @@ breaks and finishers, not a slow tank-and-spank.
       still baked with the old `AttackComboLeft`/`AttackComboRight` trigger
       names) to match.
 
+## First real playtest fixes — combat-feel follow-up
+- [x] Fixed a real bug found in the first actual playtest: a character killed
+      while staggered (finisher) kept its `Stagger` component running after
+      death, which kept re-asserting the animator's `Broken` bool every
+      frame. Since bools (unlike triggers) don't get consumed, this re-fired
+      the Any State → `StunnedLoop` transition right after `Death` played,
+      and once the broken window ended, `StunnedLoop` → Idle left the corpse
+      standing instead of in its death pose. Fixed both in the Animator
+      Controllers (Broken's Any State transition now also requires
+      `IsDead == false`, so a dead character can never be knocked into
+      `StunnedLoop`) and in code (`Health.Die()` now disables `Stagger`
+      outright).
+- [x] Also found `Health.TakeDamage()` has called `animator.SetTrigger("Hit")`
+      on every single hit for a while, but neither Animator Controller ever
+      declared a `Hit` parameter — silently erroring on every hit landed by
+      either side. Added the parameter to both controllers (no hit-reaction
+      state/clip wired to it yet — it just stops the console error for now;
+      a real hit-reaction animation is future scope).
+- [x] `SampleScene.unity`'s Main Camera had `ThirdPersonCamera.mouseSensitivity`
+      baked in at a stale `2`, left over from before that field was tuned
+      down to the current `0.12` default — explains the camera feeling far
+      too fast in the first playtest. Also found and removed a stray,
+      non-functional `ThirdPersonCamera` component accidentally attached to
+      the Directional Light instead of the actual camera.
+- [ ] Stagger build-up/decay feel was also flagged as off in the same
+      playtest, but the numbers on both prefabs (`decayPerSecond: 5`,
+      `maxStagger`, `damageToStaggerMultiplier: 1`) match current script
+      defaults exactly — not a stale-data bug like the camera. Likely
+      explanations instead: (a) there's no per-enemy visual stagger
+      indicator, so build-up is invisible until it snaps to Broken, making
+      real progress feel like no progress; (b) isolated, spaced-out hits
+      (rather than a sustained combo) can genuinely decay back to ~0 between
+      hits at the current decay rate. Needs a real tuning pass and/or an
+      enemy-side stagger meter, not a code fix — revisit during M7 playtest.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
