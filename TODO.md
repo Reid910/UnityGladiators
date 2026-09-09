@@ -556,6 +556,16 @@ breaks and finishers, not a slow tank-and-spank.
       hits at the current decay rate. Needs a real tuning pass and/or an
       enemy-side stagger meter, not a code fix — revisit during M7 playtest.
 
+## Player health regen — combat-feel follow-up
+- [x] `Health.cs` gains an optional passive regen: `regenPerSecond` (0 = off,
+      the default — enemies stay untouched) and `regenDelayAfterHit` (an
+      out-of-combat window, default 3s, so the player can't heal through an
+      ongoing beating, only after breaking off from combat). Fractional regen
+      accumulates in a remainder each frame rather than rounding per-frame,
+      so slow rates don't get truncated to zero at high framerate.
+- [x] Enabled on `Player.prefab` only: `regenPerSecond: 2`, `regenDelayAfterHit: 3`
+      — untuned first guess, revisit during M7 playtest tuning.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

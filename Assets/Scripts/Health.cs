@@ -17,6 +17,12 @@ public class Health : MonoBehaviour
     [SerializeField] private float destroyDelay = 2.5f;
     [SerializeField] private bool disableObjectOnDeath = false;
 
+    [Header("Regen")]
+    [Tooltip("Passive health regen per second. 0 disables it entirely — leave at 0 on Enemy (only the Player prefab should set this).")]
+    [SerializeField] private float regenPerSecond = 0f;
+    [Tooltip("Seconds since the last hit taken before regen starts — an out-of-combat window rather than healing through an ongoing beating. 0 means regen is always active.")]
+    [SerializeField] private float regenDelayAfterHit = 3f;
+
     [Header("References")]
     [SerializeField] private Animator animator;
     [SerializeField] private CharacterController characterController;
@@ -34,6 +40,8 @@ public class Health : MonoBehaviour
 
     private int maxHealthBonus;
     private float armor;
+    private float lastHitTime = float.NegativeInfinity;
+    private float regenRemainder;
 
     public int CurrentHealth { get; private set; }
     public int MaxHealth => maxHealth + maxHealthBonus;
@@ -91,12 +99,42 @@ public class Health : MonoBehaviour
         UpdateHealthText();
     }
 
+    private void Update()
+    {
+        if (IsDead || regenPerSecond <= 0f || CurrentHealth >= MaxHealth)
+        {
+            return;
+        }
+
+        if (Time.time - lastHitTime < regenDelayAfterHit)
+        {
+            return;
+        }
+
+        // Accumulate fractional regen in a remainder rather than rounding
+        // every frame, so slow regen rates (e.g. 2/sec) don't get rounded
+        // away to zero at high framerate or drift high at low framerate.
+        regenRemainder += regenPerSecond * Time.deltaTime;
+        int wholeRegen = Mathf.FloorToInt(regenRemainder);
+
+        if (wholeRegen <= 0)
+        {
+            return;
+        }
+
+        regenRemainder -= wholeRegen;
+        CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + wholeRegen);
+        UpdateHealthText();
+    }
+
     public void TakeDamage(int damageAmount)
     {
         if (IsDead)
         {
             return;
         }
+
+        lastHitTime = Time.time;
 
         // Armor reduces incoming damage by a flat amount but never below 1,
         // so a heavily-armored player can't become fully unkillable.

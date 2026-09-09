@@ -3,6 +3,18 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Player health regen — verify before trusting
+
+No Inspector wiring needed — `Player.prefab`'s `Health` component was
+hand-edited directly to set `regenPerSecond: 2` and `regenDelayAfterHit: 3`
+(Enemy stays at the script default of 0, i.e. no regen). Verify:
+
+1. Take damage as the player, stop taking hits for ~3 seconds, and confirm
+   health climbs back up slowly instead of sitting still.
+2. Confirm health does NOT visibly regen while still actively being hit
+   (each hit should reset the 3-second window).
+3. Confirm it stops exactly at max health rather than overshooting.
+
 ## Death animation / stray camera / stale sensitivity fix — verify before trusting
 
 No Inspector wiring needed — this only touched hand-edited YAML (both Animator
