@@ -685,7 +685,7 @@ MonoBehaviour:
   target: {fileID: 700000002}
   offset: {x: 0, y: 3, z: -5}
   followSpeed: 10
-  mouseSensitivity: 2
+  mouseSensitivity: 0.12
 --- !u!1001 &332239308
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1204,7 +1204,6 @@ GameObject:
   - component: {fileID: 410087041}
   - component: {fileID: 410087040}
   - component: {fileID: 410087042}
-  - component: {fileID: 410087043}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -1321,22 +1320,6 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
---- !u!114 &410087043
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 410087039}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9db9f8d94295131489c46835d1a9b2cd, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: '::'
-  target: {fileID: 700000002}
-  offset: {x: 0, y: 3, z: -5}
-  followSpeed: 10
-  mouseSensitivity: 2
 --- !u!1 &478119253
 GameObject:
   m_ObjectHideFlags: 0
@@ -1715,9 +1698,9 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::Stagger
   maxStagger: 100
-  decayPerSecond: 15
-  decayDelayAfterHit: 1.5
+  decayPerSecond: 5
   brokenDuration: 2
+  damageToStaggerMultiplier: 1
 --- !u!114 &563330201
 MonoBehaviour:
   m_ObjectHideFlags: 0

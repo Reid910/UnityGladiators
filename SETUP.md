@@ -3,6 +3,36 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Player health regen — verify before trusting
+
+No Inspector wiring needed — `Player.prefab`'s `Health` component was
+hand-edited directly to set `regenPerSecond: 10` (Enemy stays at the script
+default of 0, i.e. no regen). Regen is always active, even mid-combat — same
+constant-tick model as Stagger's decay, no out-of-combat delay. Verify:
+
+1. Take damage as the player and confirm health climbs back up slowly on its
+   own, including while still taking hits, not just after a pause.
+2. Confirm it stops exactly at max health rather than overshooting.
+
+## Death animation / stray camera / stale sensitivity fix — verify before trusting
+
+No Inspector wiring needed — this only touched hand-edited YAML (both Animator
+Controllers, `SampleScene.unity`) plus `Health.cs`. Verify:
+
+1. Get an enemy staggered to broken, then land the killing blow (a finisher).
+   It should play its actual `Death` pose and stay there — not flash through
+   `StunnedLoop` and end up standing at idle.
+2. Confirm no more `Parameter 'Hit' does not exist` / `Parameter 'IsDead' does
+   not exist` console errors during normal combat (light/heavy/enemy attacks,
+   any death).
+3. Mouse-look should feel normal again (`ThirdPersonCamera.mouseSensitivity`
+   was stuck at a stale `2` in `SampleScene.unity`, now `0.12` to match the
+   script default). If it's still too fast/slow for your mouse, that field is
+   the one to tune directly on the Main Camera.
+4. The Directional Light no longer has an (accidental, non-functional)
+   `ThirdPersonCamera` component on it — nothing to verify here beyond
+   confirming lighting looks unchanged.
+
 ## Combat overhaul (combo/heavy/ability/dash inputs) — M1, partial
 
 1. **Regenerate the Input Actions C# wrapper.** `InputSystem_Actions.inputactions`
@@ -326,3 +356,88 @@ wire in `PlayerCombat.cs` or `EnemyController.cs`.
    Player so damage taken reads differently from damage dealt.
 3. **No Editor steps needed for `HitStop`** — it has no Inspector fields and
    creates its own runner object on first use.
+
+## Mouse-look camera and Input System migration — no Editor steps needed
+
+`ThirdPersonCamera.cs` was rewritten in code only — no new Inspector fields,
+no `.inputactions` changes (it reuses the `Look` action that already existed
+and was already bound to mouse delta, just never read anywhere), no
+regeneration needed. `ProjectSettings.asset`'s Active Input Handling was
+switched to "Input System Package (New)" only.
+
+1. **Open the project once after pulling** so Unity re-reads the changed
+   Active Input Handling setting — this one, like Tags & Layers, is read at
+   Editor/Player startup, not through the normal asset-reimport pipeline.
+2. **Tune `mouseSensitivity`** on the camera object once you can playtest —
+   `0.12` is a rough starting guess for raw pointer-delta scale, not measured
+   against real play.
+3. **Hold Left or Right Alt** to free the cursor; release to re-lock and
+   resume camera control. No settings menu or pause state yet — this is just
+   a raw escape hatch so the cursor isn't trapped if you need to click
+   elsewhere.
+
+## Real combo/ability animations — verify before trusting
+
+No new Inspector fields or asset assignment needed — `LowPolyHumanAnimator.controller`
+was edited directly to add the new states/transitions/parameters, and
+`PlayerCombat.cs` already fires the matching trigger names. That said, this is
+the most complex hand-edited asset in the project so far (way more
+interdependent fields than something like `TagManager.asset`), so please
+actually verify it rather than assuming it's right:
+
+1. **Open the project and open `LowPolyHumanAnimator.controller`** in the
+   Animator window — you should see states `AttackCombo1` (MeleeAttack_OneHanded),
+   `AttackCombo2` (PunchLeft), `AttackCombo3` (PunchRight), `AttackHeavy`
+   (MeleeAttack_TwoHanded), and `AbilityCast` (SpellCast), each with an arrow
+   in from "Any State" (on its own like-named Trigger parameter) and out to
+   the Locomotion blend tree.
+2. **Play and check the Console** for any Animator-related errors on the
+   Player specifically (separate from the pre-existing, unrelated animation
+   import warnings on `RollRight`/`RunLeft`/etc. — those aren't from this
+   change).
+3. **Try light combo (3 hits), heavy, and the ability in play mode** — you
+   should see 4 different-looking motions: `MeleeAttack_OneHanded` then
+   `PunchLeft` then `PunchRight` for the 3 combo hits, `MeleeAttack_TwoHanded`
+   for heavy, `SpellCast` for the ability.
+4. If anything looks wrong (T-pose flash, snapping, a state stuck), that's a
+   sign something in the hand-edit doesn't match what the Editor would have
+   produced — flag it rather than trying to hand-fix the controller further;
+   easiest recovery is redoing the affected states through the Editor UI
+   directly using the same clips (`MeleeAttack_OneHanded`/`PunchLeft`/
+   `PunchRight`/`MeleeAttack_TwoHanded`/`SpellCast`) referenced in `TODO.md`.
+5. Trigger names are deliberately generic (`AttackCombo1/2/3`, not
+   left/right-specific) since the current clips are filler — when real combo
+   animations replace them, only the clip assigned to each existing state
+   needs to change, not `PlayerCombat.cs` or any trigger name.
+
+## Broken/stagger animation (StunnedLoop) — verify before trusting, same as above
+
+Same hand-edit technique, same "please actually check it" caveat — this one
+touched **both** `LowPolyHumanAnimator.controller` and
+`EnemyAnimatorController.controller` (a new `Broken` bool + `StunnedLoop`
+state in each), plus `Stagger.cs` (no new required field — its `Animator`
+reference auto-fills via `GetComponentInChildren`, same as `Health`/`Hitstun`
+already do). No Inspector wiring needed on either prefab.
+
+1. Get an enemy (or yourself) staggered to full in play mode and confirm it
+   visibly plays a stunned pose instead of just freezing mid-animation.
+2. Confirm it snaps back to normal movement/idle when the broken window ends,
+   not stuck in the pose.
+3. Same red flags as the combo/ability check above (T-pose flash, stuck
+   state) mean something doesn't match what the Editor would have produced.
+
+## Stagger redesign — no Editor steps needed, but a heads-up
+
+No new Inspector wiring required — `damageToStaggerMultiplier` defaults to
+`1` on both prefabs and everything else is code-side.
+
+**Worth knowing**: while wiring this up, found that `Player.prefab` had a
+serialized snapshot of `PlayerCombat`'s combo/heavy values baked in from
+*before* the windup/active-window work — meaning the actual in-game numbers
+had been silently different from whatever the script defaults said, this
+entire session, without any error or warning. It's fixed now, but it's worth
+occasionally spot-checking a prefab's Inspector values against the script
+defaults if a number ever seems to not match what a `TODO.md` note says it
+should be — Unity prefabs freeze field values at the time they're saved, and
+a hand-edited script default only take effect for *new* instances or fields
+that never existed on the prefab before.

@@ -19,7 +19,7 @@ breaks and finishers, not a slow tank-and-spank.
 - [x] M1 (light): 3-hit chain, each hit slightly faster/weaker or building toward the
       3rd hit doing more damage / knockback / stagger.
 - [x] M2 (heavy): separate attack, either a single big hit or its own 2-hit chain;
-      slower windup, more damage, maybe brief poise/armor while swinging. (Shipped
+      slower windup, more damage, maybe brief hyper armor while swinging. (Shipped
       as a single big hit for v1.)
 - [x] Add an `Ability` input (new action in `InputSystem_Actions`) with a cooldown.
       Elden-Ring-style weapon-granted behavior landed in M4 — no longer a
@@ -222,9 +222,10 @@ breaks and finishers, not a slow tank-and-spank.
       `WinGame()`. Fits the farming loop much better than a hard win-at-wave-3
       cap, since the loot/tier system assumes ongoing play. `CurrentWave` is
       already exposed for a "highest wave reached" score display (M6).
-- [ ] Enough affix variety (5-8 stat types) and rarity color coding that loot
-      decisions feel meaningful. Affix variety is already covered (6 `StatType`s
-      from M2); rarity color coding is still unbuilt (see M3's `SETUP.md` note).
+- [x] Enough affix variety (5-8 stat types) and rarity color coding that loot
+      decisions feel meaningful — both done: 6 `StatType`s (M2), and
+      `RarityColor.cs` colors both the pickup mesh and its name label (M3),
+      plus the equipped-items HUD readout (M6).
 - [ ] Tune `WaveManager.cs` scaling (`enemiesAddedPerWave`, `t2UnlockWave`,
       `t3UnlockWave`) against the actual combat/loot power curve — genuinely
       needs playtesting, can't be tuned further from code alone.
@@ -266,6 +267,305 @@ breaks and finishers, not a slow tank-and-spank.
       reverts to the plain name otherwise. Also scales the pickup up
       (`Visual Transform` + `Targeted Scale Multiplier`, optional) so the
       active target stands out if more than one pickup is nearby.
+
+## Mouse-look camera and full Input System migration — combat-feel follow-up
+- [x] `ThirdPersonCamera.cs` no longer uses the legacy Input Manager
+      (`Input.GetAxis("Mouse X"/"Mouse Y")` — it was the only script left doing
+      so, everything else already used the new Input System). It now reads the
+      existing `Look` action (already bound to `<Pointer>/delta` in
+      `InputSystem_Actions`, just never consumed anywhere before) via its own
+      `InputSystem_Actions` instance, same pattern as `PlayerController`/
+      `PlayerCombat`.
+- [x] Cursor is locked and hidden by default so the mouse directly drives
+      camera yaw/pitch instead of a free OS cursor wandering off the game
+      window. Holding **Left or Right Alt** frees the cursor (`Cursor.lockState
+      = None`, visible) and stops applying mouse movement to the camera while
+      held — checked directly via `Keyboard.current`, no new input action
+      needed for this part.
+- [x] `ProjectSettings.asset`'s `activeInputHandler` switched from `2` (Both)
+      to `1` (Input System Package only) — confirmed nothing else in the
+      project (including third-party asset-pack scripts) still calls the
+      legacy `Input.*` API, so this fully retires the old system and should
+      clear the "Input Manager deprecation" Console warning for good.
+- [ ] `mouseSensitivity` default (`0.12`) is a rough guess — raw pointer delta
+      (pixels/frame) is a very different scale than the old Input Manager's
+      smoothed axis value, so this needs real playtesting to tune, not just
+      code review.
+
+## Player hyper armor — combat-feel follow-up
+- [x] Problem: any single enemy hit applies `Hitstun` to the player, and while
+      stunned the player can't move or act at all (`IsIncapacitated`). With
+      multiple enemies attacking on staggered cooldowns, this could chain into
+      an unrecoverable stunlock just from standing near a few enemies — the
+      player never gets to "win" the exchange through aggression.
+- [x] Fix: `PlayerCombat.IsAttacking` (true while mid-swing, same window as
+      the existing attack-recovery gate) grants hyper armor against
+      hitstun specifically — `EnemyController.AttackTarget()` now skips
+      calling `Hitstun.ApplyStun()` on the player while `IsAttacking` is true.
+      Damage and Stagger still apply normally either way, so pressing forward
+      recklessly can still get the player broken and finished (the real
+      risk/consequence stays intact) — it just can't be chain-interrupted by
+      every graze while already committed to a swing.
+- [ ] Deliberately one-sided: enemies don't get equivalent hyper armor against the
+      player's hits — the player's stagger/hitstun/finisher tool against
+      enemies is the intended asymmetry (player is the aggressor, gladiators
+      are the ones meant to be broken). Revisit if a tougher (T2/T3) enemy
+      ever needs its own hyper armor resistance beyond a higher `Stagger.maxStagger`.
+
+## Attack windup + active-hitbox windows — combat-feel follow-up
+- [x] Problem: every attack (player and enemy) resolved instantly the moment
+      it was triggered — no telegraph, so there was nothing to actually dodge.
+      Getting hit was purely about positioning at input time, not reaction.
+- [x] `PlayerCombat`'s light combo and heavy attack now run through a real
+      windup → active-hitbox-window → recovery sequence (`BeginAttack()` /
+      `PerformAttack()` coroutine) instead of hitting on the same frame the
+      button is pressed. The hit query (`CheckHit()`, still the existing
+      `Physics.OverlapSphere` — there's no animated weapon collider without
+      real character assets, so this is a time-gated approximation of a Souls
+      hitbox, not a literal one) runs every frame across the active window
+      rather than once, so a target only needs to be in range at some point
+      during that window, not the exact instant the swing started. A
+      `HashSet<Health>` prevents hitting the same target more than once per
+      swing. windup+active+recovery sums match the old flat recovery values,
+      so overall combo pacing is unchanged — this only carves out an explicit
+      telegraph instead of an instant hit.
+- [x] `EnemyController.AttackTarget()` gets the same treatment — a
+      configurable `Attack Windup` (default 0.4s) before the hit is even
+      checked, then an `Attack Active Duration` (0.15s) window checking
+      `Attack Range` (separate from `Stopping Distance`, which only decides
+      when the enemy stops closing in to swing). The enemy fully commits
+      during this sequence (`isAttacking` freezes movement/re-triggering,
+      mirroring how the player can't cancel their own combo mid-swing) — this
+      is the actual dodging mechanic: see the tell, move out of `Attack
+      Range` before the active window ends, take nothing.
+- [x] Getting broken (`Stagger.IsBroken`) mid-windup cancels the attack for
+      both sides — a fully-interrupted swing shouldn't still land. Plain
+      hitstun doesn't cancel it — hyper armor (see above) already covers that case
+      for the player.
+- [ ] All new windup/active/range numbers are first-pass guesses tuned only
+      to preserve old total attack duration where a prior number existed —
+      genuinely needs real playtesting, especially `EnemyController`'s new
+      `Attack Windup`/`Attack Range`, which have no prior value to anchor to.
+
+## Weapon ability now does something — combat-feel follow-up
+- [x] Problem: pressing the `Ability` button just started a cooldown timer —
+      no damage, no effect, nothing. Item types had it as a deliberate blank
+      stub (see M2), but with real combat feel now the focus, an inert button
+      was wasted design space.
+- [x] `AbilityDefinition` (`Assets/Scripts/Items/AbilityDefinition.cs`) gained
+      real effect fields: `Damage`, `Stagger Amount`, `Hitstun Duration`,
+      `Windup`, `Active Duration`, `Range` — an ability is modeled as a
+      bigger, rarer hit than a normal swing, not a bespoke new system.
+- [x] `PlayerCombat.TryUseAbility()` now fires the shared `PerformAttack()`
+      windup/active-window coroutine (same one light/heavy/attack windows
+      use — see the windup follow-up above) with the equipped weapon's
+      `AbilityDefinition` values. `BeginAttack()`/`PerformAttack()`/
+      `CheckHit()` all gained an optional/threaded `range` parameter so an
+      ability's hit radius can differ from the weapon's normal `attackRange`
+      (defaults to a wider 2.5, vs. 1.5 for a regular swing).
+- [x] Deliberately independent of the light/heavy combo state: the ability
+      doesn't touch `nextAttackTime`/`comboStep`, and runs on its own
+      untracked coroutine rather than the shared `attackCoroutine` field — so
+      it can be weaved between combo hits instead of interrupting/resetting
+      the chain, gated only by its own cooldown (`nextAbilityTime`).
+- [x] `AbilityDefinition.AnimatorTrigger` (`AbilityCast` by default) is now
+      actually fired via the shared pipeline — previously deliberately
+      skipped. `Animator.SetTrigger` on a parameter that doesn't exist in the
+      Controller is a silent no-op (confirmed safe, unlike playing a missing
+      state by name), so this is harmless now and will just start animating
+      once a matching state exists.
+- [ ] Default ability numbers (30 damage, 25 stagger, 2.5 range) are a first
+      guess with nothing to anchor to — needs playtesting like the rest of
+      the windup follow-up above.
+
+## Dash i-frames — combat-feel follow-up
+- [x] `DashDefinition` gained `Invulnerability Duration` (default 0.2s) —
+      `PlayerCombat.TryDash()` sets a new `invulnerableUntilTime` window when
+      dashing, exposed as `IsInvulnerable`.
+- [x] Deliberately stronger than hyper armor: `EnemyController.ResolveHit()` checks
+      `IsInvulnerable` first, before even the already-broken/finisher check —
+      a correctly-timed dash blocks damage, Stagger, hitstun, and finishers
+      entirely, not just the flinch like hyper armor does. Missing an attack
+      because the target dashed through it should always mean nothing
+      happens, not "reduced consequences."
+- [x] Deliberately scoped to dash only, not a separate dodge move — no boots
+      equipped still means no dash and no i-frames, consistent with boots
+      already being the sole source of that defensive-mobility option.
+      Explicitly deferred: more dash *variants* (differing invulnerability
+      windows, distances, etc.) until there's a visual to distinguish them by
+      — a second dash that's mechanically different but looks identical
+      wouldn't read as a real choice.
+- [ ] `0.2s` is a first guess — needs playtesting to know if that's generous
+      enough to reward a well-timed dash through a windup, or too forgiving.
+
+## Real combo/ability animations — combat-feel follow-up
+- [x] Discovered the project already owns an unused Blink asset pack
+      (`Assets/Blink/Art/Animations/Animations_Starter_Pack/`) built for the
+      exact same rig the Player and Enemy models already share
+      (`HumanMale_Character.fbx` — Enemy just layers armor meshes on top), so
+      these clips need zero retargeting work.
+- [x] Wired 3 new states/triggers directly into
+      `LowPolyHumanAnimator.controller` (Player's Animator Controller) by
+      hand-editing the asset YAML (same technique used elsewhere in this
+      project) rather than through the Editor: `AttackComboLeft` (`PunchLeft`
+      clip), `AttackComboRight` (`PunchRight`), `AbilityCast` (`SpellCast`).
+      Each is a plain Any State → state → exit-to-Locomotion transition,
+      cloned from the existing working `Attack` state's pattern. Verified by
+      parsing the resulting file back with PyYAML and checking every
+      fileID/GUID cross-reference resolves — didn't just eyeball it.
+- [x] `PlayerCombat.cs`'s light combo now alternates `AttackComboLeft`/
+      `AttackComboRight`/`AttackComboLeft` instead of all 3 hits sharing the
+      generic `Attack` trigger — each combo hit now visually reads as
+      distinct. Heavy deliberately keeps using the pre-existing `Attack`
+      state (already `MeleeAttack_OneHanded`), which is already a bigger,
+      different motion from either punch, so it needed no new state.
+      `AbilityCast` was already being fired by `TryUseAbility()` (see the
+      ability follow-up above) — it just went from a safe no-op to an
+      actually-playing, deliberately different-looking cast motion the
+      moment a real state existed for it.
+- [ ] `PunchLeft`/`PunchRight`/`SpellCast`/`MeleeAttack_OneHanded` are the
+      same filler clips noted earlier as having Console import warnings —
+      not diagnosed, worth checking Animation Import Settings in the Editor.
+- [ ] Weapon visual gap is still open and deliberately deferred (per
+      discussion) — these are bare-handed animations, so combat will look
+      unarmed even with a Weapon equipped until a model is attached to the
+      hand, real or filler.
+- [ ] Enemy Animator Controller untouched — enemies only ever fire the one
+      generic `Attack` trigger (no combo/ability concept), so there was
+      nothing to distinguish for them in this pass.
+
+## Broken/stagger visual (StunnedLoop) — combat-feel follow-up
+- [x] Problem: `Stagger.IsBroken` had zero visual tell besides the player's
+      own HUD bar — an enemy (or the player, to an onlooker) about to be
+      finished looked identical to normal.
+- [x] `Stagger.cs` now drives a `Broken` bool on its own `Animator` every
+      frame (`IsBroken`, auto-filled via `GetComponentInChildren` like the
+      rest of this project's optional-Animator components) — self-correcting
+      on both the rising and falling edge, no need to hook the existing
+      (still otherwise-unused) `Broken` C# event.
+- [x] Wired a `StunnedLoop` state (same Blink filler pack) into both
+      `LowPolyHumanAnimator.controller` and `EnemyAnimatorController.controller`
+      — Any State → StunnedLoop while `Broken == true`, back to Locomotion/
+      Idle while `Broken == false`. Both hand-edited and verified the same way
+      as the combo/ability pass (parsed back with PyYAML, checked every
+      cross-reference resolves) — see `SETUP.md` for the same
+      verify-before-trusting checklist, now covering this too.
+- [ ] Since this is shared by `Stagger.cs` (one component, used by both
+      Player and Enemy prefabs), it applies to enemies automatically the
+      moment they have both a `Stagger` and an `Animator` — no separate
+      enemy-specific work needed, but not yet confirmed in play.
+
+## Stagger redesign: damage-relative, always-decaying — combat-feel follow-up
+- [x] Terminology: "Poise" renamed to "Hyper Armor" everywhere (code comments,
+      variable names, `TODO.md`/`SETUP.md`) — no functional change, just
+      clearer naming. Confirmed via full-project grep that no other special
+      combat condition exists beyond Stagger/Broken, Hitstun, Hyper Armor, and
+      Invulnerability (i-frames) — Hyper Armor and Invulnerability are both
+      plain timers/derived checks, not meters; Stagger is the only
+      accumulating meter in the game.
+- [x] Every attack no longer carries its own hand-tuned `staggerAmount` value
+      (removed from `ComboHit`, `heavyStaggerAmount`, `AbilityDefinition`, and
+      `EnemyController.attackStaggerAmount`). `Stagger.AddStaggerFromDamage(damage,
+      targetMaxHealth)` derives the fill amount from what fraction of the
+      target's own max health the hit's damage represents — a hit worth 10%
+      of max health fills 10% of Stagger (scaled by a new per-instance
+      `Damage To Stagger Multiplier`, default 1). One number (damage) to tune
+      instead of two, and it scales sensibly across wildly different health
+      pools (player vs. any future enemy tier) automatically.
+- [x] Decay is now always active, not gated by a delay since the last hit —
+      `decayDelayAfterHit` removed entirely, `decayPerSecond` default dropped
+      from 15 to 5 to compensate (slow constant recovery instead of a
+      burst-safe grace window). Sustained pressure has to outpace a steady
+      drain now, rather than any hit resetting a countdown.
+- [x] Found and fixed real stale-data bugs while wiring this up: `Player.prefab`
+      had a serialized snapshot of `PlayerCombat`'s combo/heavy fields from
+      *before* the windup/active-window work even existed — old trigger names
+      (`AttackCombo1/2/3`, which no longer exist as Animator parameters),
+      no `windup`/`activeDuration` at all, an orphaned `heavyStaggerAmount`,
+      and `heavyRecoveryTime: 0.9` instead of the current `0.4`. Since this is
+      baked directly onto the prefab instance, it was silently shadowing
+      every code change to those defaults this whole session. Rewrote it to
+      match current values exactly. Also cleaned orphaned `attackStaggerAmount`/
+      `decayDelayAfterHit` off `Enemy.prefab`, `Player.prefab`, and one
+      leftover `Stagger` override in `SampleScene.unity`, and corrected both
+      prefabs' stale `decayPerSecond: 15` to the new `5` default.
+- [ ] `damageToStaggerMultiplier` defaults to `1` (direct 1:1) on both
+      prefabs — untuned, first guess. A future tougher enemy tier could use a
+      lower multiplier here (harder to stagger relative to damage taken)
+      instead of just a higher flat `maxStagger`.
+
+## Generic combo trigger names + dedicated Heavy state — combat-feel follow-up
+- [x] Renamed the light combo's Animator trigger parameters from
+      `AttackComboLeft`/`AttackComboRight` to generic `AttackCombo1`/
+      `AttackCombo2`/`AttackCombo3`. Reasoning: the current clips (Blink pack
+      `MeleeAttack_OneHanded`/`PunchLeft`/`PunchRight`) are filler that only
+      exists to prove 3 visually distinct combo hits — they were never a
+      deliberate "attack left then right" mechanic. Once real character
+      animations arrive they'll most likely all be forward swings, not
+      handed, so the permanent trigger-name interface (`PlayerCombat.cs`'s
+      `lightComboHits[].animatorTrigger`) shouldn't be tied to that temporary
+      left/right content.
+- [x] Remapped which clip each combo step plays: `AttackCombo1` now uses the
+      old `Attack` state's clip (`MeleeAttack_OneHanded`), `AttackCombo2` =
+      `PunchLeft`, `AttackCombo3` = `PunchRight`.
+- [x] Since Combo1 claimed the old `Attack`/`MeleeAttack_OneHanded` state,
+      Heavy needed its own distinct clip: added a new `AttackHeavy` state/
+      trigger using `MeleeAttack_TwoHanded`, so Heavy still reads as visually
+      bigger/different from any combo hit. `TryHeavyAttack()` now fires
+      `"AttackHeavy"` instead of the old `"Attack"` string.
+- [x] Removed the now-unused `Attack` Animator parameter (fully replaced by
+      `AttackCombo1`). Verified all fileID/parameter cross-references in
+      `LowPolyHumanAnimator.controller` with the same PyYAML script used for
+      prior hand-edits.
+- [x] Updated `Player.prefab`'s serialized `lightComboHits` override (was
+      still baked with the old `AttackComboLeft`/`AttackComboRight` trigger
+      names) to match.
+
+## First real playtest fixes — combat-feel follow-up
+- [x] Fixed a real bug found in the first actual playtest: a character killed
+      while staggered (finisher) kept its `Stagger` component running after
+      death, which kept re-asserting the animator's `Broken` bool every
+      frame. Since bools (unlike triggers) don't get consumed, this re-fired
+      the Any State → `StunnedLoop` transition right after `Death` played,
+      and once the broken window ended, `StunnedLoop` → Idle left the corpse
+      standing instead of in its death pose. Fixed both in the Animator
+      Controllers (Broken's Any State transition now also requires
+      `IsDead == false`, so a dead character can never be knocked into
+      `StunnedLoop`) and in code (`Health.Die()` now disables `Stagger`
+      outright).
+- [x] Also found `Health.TakeDamage()` has called `animator.SetTrigger("Hit")`
+      on every single hit for a while, but neither Animator Controller ever
+      declared a `Hit` parameter — silently erroring on every hit landed by
+      either side. Added the parameter to both controllers (no hit-reaction
+      state/clip wired to it yet — it just stops the console error for now;
+      a real hit-reaction animation is future scope).
+- [x] `SampleScene.unity`'s Main Camera had `ThirdPersonCamera.mouseSensitivity`
+      baked in at a stale `2`, left over from before that field was tuned
+      down to the current `0.12` default — explains the camera feeling far
+      too fast in the first playtest. Also found and removed a stray,
+      non-functional `ThirdPersonCamera` component accidentally attached to
+      the Directional Light instead of the actual camera.
+- [ ] Stagger build-up/decay feel was also flagged as off in the same
+      playtest, but the numbers on both prefabs (`decayPerSecond: 5`,
+      `maxStagger`, `damageToStaggerMultiplier: 1`) match current script
+      defaults exactly — not a stale-data bug like the camera. Likely
+      explanations instead: (a) there's no per-enemy visual stagger
+      indicator, so build-up is invisible until it snaps to Broken, making
+      real progress feel like no progress; (b) isolated, spaced-out hits
+      (rather than a sustained combo) can genuinely decay back to ~0 between
+      hits at the current decay rate. Needs a real tuning pass and/or an
+      enemy-side stagger meter, not a code fix — revisit during M7 playtest.
+
+## Player health regen — combat-feel follow-up
+- [x] `Health.cs` gains an optional passive regen: `regenPerSecond` (0 = off,
+      the default — enemies stay untouched), always active with no
+      out-of-combat delay — same constant-tick model as `Stagger`'s decay,
+      not gated by time since the last hit. Fractional regen accumulates in
+      a remainder each frame rather than rounding per-frame, so slow rates
+      don't get truncated to zero at high framerate.
+- [x] Enabled on `Player.prefab` only: `regenPerSecond: 10`. `maxHealth` also
+      moved off its 10000 debug-testing value to a real default of 500 —
+      both still untuned first guesses, revisit during M7 playtest tuning.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.

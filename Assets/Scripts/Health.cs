@@ -17,6 +17,10 @@ public class Health : MonoBehaviour
     [SerializeField] private float destroyDelay = 2.5f;
     [SerializeField] private bool disableObjectOnDeath = false;
 
+    [Header("Regen")]
+    [Tooltip("Passive health regen per second, always active (same model as Stagger's constant decay) — not gated by time since the last hit. 0 disables it entirely — leave at 0 on Enemy (only the Player prefab should set this).")]
+    [SerializeField] private float regenPerSecond = 0f;
+
     [Header("References")]
     [SerializeField] private Animator animator;
     [SerializeField] private CharacterController characterController;
@@ -34,6 +38,7 @@ public class Health : MonoBehaviour
 
     private int maxHealthBonus;
     private float armor;
+    private float regenRemainder;
 
     public int CurrentHealth { get; private set; }
     public int MaxHealth => maxHealth + maxHealthBonus;
@@ -88,6 +93,29 @@ public class Health : MonoBehaviour
             objectCollider = GetComponent<Collider>();
         }
 
+        UpdateHealthText();
+    }
+
+    private void Update()
+    {
+        if (IsDead || regenPerSecond <= 0f || CurrentHealth >= MaxHealth)
+        {
+            return;
+        }
+
+        // Accumulate fractional regen in a remainder rather than rounding
+        // every frame, so slow regen rates (e.g. 2/sec) don't get rounded
+        // away to zero at high framerate or drift high at low framerate.
+        regenRemainder += regenPerSecond * Time.deltaTime;
+        int wholeRegen = Mathf.FloorToInt(regenRemainder);
+
+        if (wholeRegen <= 0)
+        {
+            return;
+        }
+
+        regenRemainder -= wholeRegen;
+        CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + wholeRegen);
         UpdateHealthText();
     }
 
@@ -201,6 +229,21 @@ public class Health : MonoBehaviour
         if (enemyController != null)
         {
             enemyController.enabled = false;
+        }
+
+        // Stops driving the "Broken" animator bool after death — otherwise a
+        // corpse that died while staggered keeps ticking Stagger.Update(),
+        // which re-fires the Any State -> StunnedLoop transition right after
+        // Death plays and, once the broken window ends, transitions back out
+        // to idle, leaving the corpse standing instead of in its death pose.
+        // The Animator Controllers also guard this directly (Broken's Any
+        // State transition now requires IsDead == false), so this is a
+        // second layer, not the only fix.
+        Stagger stagger = GetComponent<Stagger>();
+
+        if (stagger != null)
+        {
+            stagger.enabled = false;
         }
 
         if (characterController != null)

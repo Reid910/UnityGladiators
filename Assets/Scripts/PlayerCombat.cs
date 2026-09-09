@@ -1,3 +1,5 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,32 +9,42 @@ public class PlayerCombat : MonoBehaviour
     private struct ComboHit
     {
         public int damage;
-        public float staggerAmount;
         public float hitstunDuration;
+        [Tooltip("Telegraph delay before the hitbox becomes active — gives an opponent (or the player, when an enemy swings) a real window to react/dodge instead of an instant hit.")]
+        public float windup;
+        [Tooltip("How long after the windup the hitbox stays checkable. A target only needs to be in range at some point during this window, not at the exact instant the button was pressed.")]
+        public float activeDuration;
         public float recoveryTime;
         public string animatorTrigger;
     }
 
     [Header("Light Combo")]
-    // animatorTrigger reuses the existing "Attack" parameter (the only one the
-    // current Animator Controllers actually have) rather than distinct
-    // per-hit triggers — every light hit plays the same swing animation for
-    // now. Give each hit its own trigger name here once real animations
-    // exist and the Controllers have matching states/transitions.
+    // animatorTrigger names (AttackCombo1/2/3) are generic on purpose — they're
+    // a permanent interface, while the clips they currently point to (the
+    // Blink pack's MeleeAttack_OneHanded, PunchLeft, PunchRight) are disposable
+    // filler that just needs to look like 3 distinct hits. Heavy gets its own
+    // dedicated AttackHeavy state/clip (MeleeAttack_TwoHanded) so it stays
+    // visually distinct from combo hit 1.
+    // windup+activeDuration+recoveryTime sums match the original single
+    // recoveryTime values, so overall combo pacing is unchanged — this just
+    // carves out an explicit telegraph + hit window instead of an instant hit.
+    // No stagger value per hit anymore — Stagger.AddStaggerFromDamage derives
+    // it from damage dealt vs. the target's own max health.
     [SerializeField]
     private ComboHit[] lightComboHits =
     {
-        new ComboHit { damage = 15, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
-        new ComboHit { damage = 18, staggerAmount = 12f, hitstunDuration = 0.2f, recoveryTime = 0.35f, animatorTrigger = "Attack" },
-        new ComboHit { damage = 28, staggerAmount = 18f, hitstunDuration = 0.25f, recoveryTime = 0.5f, animatorTrigger = "Attack" },
+        new ComboHit { damage = 15, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "AttackCombo1" },
+        new ComboHit { damage = 18, hitstunDuration = 0.2f, windup = 0.08f, activeDuration = 0.08f, recoveryTime = 0.19f, animatorTrigger = "AttackCombo2" },
+        new ComboHit { damage = 28, hitstunDuration = 0.25f, windup = 0.12f, activeDuration = 0.1f, recoveryTime = 0.28f, animatorTrigger = "AttackCombo3" },
     };
     [SerializeField] private float comboWindow = 0.8f;
 
     [Header("Heavy Attack")]
     [SerializeField] private int heavyDamage = 40;
-    [SerializeField] private float heavyStaggerAmount = 35f;
     [SerializeField] private float heavyHitstunDuration = 0.35f;
-    [SerializeField] private float heavyRecoveryTime = 0.9f;
+    [SerializeField] private float heavyWindup = 0.35f;
+    [SerializeField] private float heavyActiveDuration = 0.15f;
+    [SerializeField] private float heavyRecoveryTime = 0.4f;
 
     [Header("Attack")]
     [SerializeField] private Transform attackPoint;
@@ -53,16 +65,31 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private PlayerEquipment equipment;
 
     private InputSystem_Actions inputSystemActions;
+    private Coroutine attackCoroutine;
 
     private int comboStep;
     private float comboResetTime;
     private float nextAttackTime;
     private float nextAbilityTime;
     private float nextDashTime;
+    private float invulnerableUntilTime;
 
     public int ComboStep => comboStep;
     public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
     public float DashCooldownRemaining => Mathf.Max(0f, nextDashTime - Time.time);
+
+    // Hyper armor window: true from the moment an attack starts (windup)
+    // until its full recovery ends — the same window nextAttackTime already
+    // gates. EnemyController checks this to skip applying Hitstun while true;
+    // damage/Stagger still land normally, so this only stops a routine hit
+    // from flinching the player out of a swing they've already committed to.
+    public bool IsAttacking => Time.time < nextAttackTime;
+
+    // True i-frames from dashing (see DashDefinition.InvulnerabilityDuration)
+    // — unlike hyper armor, this blocks damage/stagger/finishers entirely,
+    // not just hitstun. EnemyController checks this before resolving a hit
+    // at all.
+    public bool IsInvulnerable => Time.time < invulnerableUntilTime;
 
     private bool IsDead => health != null && health.IsDead;
 
@@ -160,11 +187,10 @@ public class PlayerCombat : MonoBehaviour
 
         int hitIndex = comboStep % lightComboHits.Length;
         ComboHit hit = lightComboHits[hitIndex];
-
-        DealDamage(hit.damage, hit.staggerAmount, hit.hitstunDuration, hit.animatorTrigger);
-
         comboStep++;
-        nextAttackTime = Time.time + ApplyAttackSpeed(hit.recoveryTime);
+
+        BeginAttack(hit.damage, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime);
+
         comboResetTime = nextAttackTime + comboWindow;
     }
 
@@ -175,25 +201,96 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        // Reuses "Attack" too (see lightComboHits comment) — no distinct
-        // heavy-swing animation exists yet.
-        DealDamage(heavyDamage, heavyStaggerAmount, heavyHitstunDuration, "Attack");
+        // Dedicated AttackHeavy state (MeleeAttack_TwoHanded) — a bigger,
+        // different motion from any combo hit.
+        BeginAttack(heavyDamage, heavyHitstunDuration, "AttackHeavy", heavyWindup, heavyActiveDuration, heavyRecoveryTime);
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
-        nextAttackTime = Time.time + ApplyAttackSpeed(heavyRecoveryTime);
         comboResetTime = nextAttackTime;
     }
 
     // Attack Speed affix (Head-flavored, see TODO.md) shortens recovery time.
-    private float ApplyAttackSpeed(float recoveryTime)
+    private float ApplyAttackSpeed(float duration)
     {
         float attackSpeedMultiplier = 1f + (playerStats != null ? playerStats.GetStat(StatType.AttackSpeed) : 0f);
-        return recoveryTime / Mathf.Max(0.1f, attackSpeedMultiplier);
+        return duration / Mathf.Max(0.1f, attackSpeedMultiplier);
+    }
+
+    private void BeginAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime, float range = -1f)
+    {
+        float scaledWindup = ApplyAttackSpeed(windup);
+        float scaledActiveDuration = ApplyAttackSpeed(activeDuration);
+        float scaledRecoveryTime = ApplyAttackSpeed(recoveryTime);
+        float hitRange = range > 0f ? range : attackRange;
+
+        nextAttackTime = Time.time + scaledWindup + scaledActiveDuration + scaledRecoveryTime;
+
+        if (attackCoroutine != null)
+        {
+            StopCoroutine(attackCoroutine);
+        }
+
+        attackCoroutine = StartCoroutine(PerformAttack(damage, hitstunDuration, animatorTrigger, scaledWindup, scaledActiveDuration, hitRange));
+    }
+
+    private IEnumerator PerformAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float range)
+    {
+        if (animator != null && !string.IsNullOrEmpty(animatorTrigger))
+        {
+            animator.SetTrigger(animatorTrigger);
+        }
+
+        if (windup > 0f)
+        {
+            yield return new WaitForSeconds(windup);
+        }
+
+        // Getting broken (not just hitstunned — hyper armor covers that)
+        // mid-windup cancels the hit — a fully-interrupted swing shouldn't
+        // still land.
+        if (IsIncapacitated)
+        {
+            yield break;
+        }
+
+        int totalDamage = RollDamage(damage);
+
+        LootCorpses();
+
+        HashSet<Health> hitTargets = new HashSet<Health>();
+        float activeEndTime = Time.time + Mathf.Max(activeDuration, Time.deltaTime);
+
+        do
+        {
+            CheckHit(totalDamage, hitstunDuration, hitTargets, range);
+            yield return null;
+        }
+        while (Time.time < activeEndTime);
+    }
+
+    // Crit Chance affix: one roll per swing, not per enemy hit, so every
+    // enemy caught in a single swing (or a swing's whole active window)
+    // shares the same crit result.
+    private int RollDamage(int baseDamage)
+    {
+        int totalDamage = baseDamage + (playerStats != null ? playerStats.TotalDamage : 0);
+        float critChance = playerStats != null ? playerStats.GetStat(StatType.CritChance) : 0f;
+
+        if (Random.value < critChance)
+        {
+            totalDamage = Mathf.RoundToInt(totalDamage * critDamageMultiplier);
+        }
+
+        return totalDamage;
     }
 
     private void TryUseAbility()
     {
+        // Deliberately not gated by IsIncapacitated/IsAttacking or nextAttackTime
+        // the way light/heavy are — the ability has its own independent
+        // cooldown (nextAbilityTime) and can be weaved between combo hits.
+        // It's still blocked while dead/stunned/broken via IsIncapacitated below.
         if (IsIncapacitated || Time.time < nextAbilityTime)
         {
             return;
@@ -211,14 +308,23 @@ public class PlayerCombat : MonoBehaviour
 
         float cooldownReduction = playerStats != null ? playerStats.GetStat(StatType.AbilityCooldownReduction) : 0f;
         float effectiveCooldown = Mathf.Max(0.1f, abilityDefinition.Cooldown * (1f - cooldownReduction));
-
-        // No animator trigger fired yet — abilityDefinition.AnimatorTrigger
-        // names a state ("AbilityCast" by default) that doesn't exist in the
-        // current Animator Controllers. The ability still functions
-        // (cooldown/effect), it just won't visibly animate until real states
-        // are built for it.
-
         nextAbilityTime = Time.time + effectiveCooldown;
+
+        // An ability is a bigger, rarer hit than a normal swing — same
+        // windup/active-window pipeline as combo/heavy, just with its own
+        // damage/range from the weapon's AbilityDefinition. Doesn't touch
+        // nextAttackTime/comboStep, so it doesn't interrupt or reset the
+        // light combo chain. animatorTrigger ("AbilityCast" by default) now
+        // maps to a real state (SpellCast, filler from the Blink pack) —
+        // deliberately a different-looking motion from the punch/melee combo
+        // states so an ability reads as clearly distinct from a normal attack.
+        StartCoroutine(PerformAttack(
+            abilityDefinition.Damage,
+            abilityDefinition.HitstunDuration,
+            abilityDefinition.AnimatorTrigger,
+            ApplyAttackSpeed(abilityDefinition.Windup),
+            ApplyAttackSpeed(abilityDefinition.ActiveDuration),
+            abilityDefinition.Range));
     }
 
     private void TryDash()
@@ -238,41 +344,26 @@ public class PlayerCombat : MonoBehaviour
         }
 
         characterController.Move(transform.forward * dashDefinition.Distance);
+        invulnerableUntilTime = Time.time + dashDefinition.InvulnerabilityDuration;
 
         if (dashDefinition.DealsDamage)
         {
-            // No "Dash" animator trigger exists yet (see TryUseAbility), so
-            // no animatorTrigger is passed here — damage/stagger/hitstun and
-            // corpse looting still apply.
-            DealDamage(dashDefinition.Damage, 0f, 0f, null);
+            // Dash's own movement is the telegraph, so this hits instantly
+            // rather than going through the windup/active-window pipeline —
+            // no "Dash" animator trigger exists yet either (see TryUseAbility).
+            int totalDamage = RollDamage(dashDefinition.Damage);
+            CheckHit(totalDamage, 0f, new HashSet<Health>(), attackRange);
+            LootCorpses();
         }
 
         nextDashTime = Time.time + dashDefinition.Cooldown;
     }
 
-    private void DealDamage(int damage, float staggerAmount, float hitstunDuration, string animatorTrigger)
+    private void CheckHit(int totalDamage, float hitstunDuration, HashSet<Health> alreadyHit, float range)
     {
-        if (animator != null && !string.IsNullOrEmpty(animatorTrigger))
-        {
-            animator.SetTrigger(animatorTrigger);
-        }
-
-        // Combo/heavy/dash damage is a base move value; gear (base damage +
-        // every equipped item's rolled damage, see PlayerStats) adds on top.
-        int totalDamage = damage + (playerStats != null ? playerStats.TotalDamage : 0);
-
-        // Crit Chance affix: one roll per swing, not per enemy hit, so every
-        // enemy caught in a single swing shares the same crit result.
-        float critChance = playerStats != null ? playerStats.GetStat(StatType.CritChance) : 0f;
-
-        if (Random.value < critChance)
-        {
-            totalDamage = Mathf.RoundToInt(totalDamage * critDamageMultiplier);
-        }
-
         Collider[] hitEnemies = Physics.OverlapSphere(
             attackPoint.position,
-            attackRange,
+            range,
             enemyLayer
         );
 
@@ -280,10 +371,12 @@ public class PlayerCombat : MonoBehaviour
         {
             Health enemyHealth = enemyCollider.GetComponentInParent<Health>();
 
-            if (enemyHealth == null || enemyHealth.IsDead)
+            if (enemyHealth == null || enemyHealth.IsDead || alreadyHit.Contains(enemyHealth))
             {
                 continue;
             }
+
+            alreadyHit.Add(enemyHealth);
 
             Stagger enemyStagger = enemyCollider.GetComponentInParent<Stagger>();
 
@@ -298,7 +391,7 @@ public class PlayerCombat : MonoBehaviour
 
             if (enemyStagger != null)
             {
-                enemyStagger.AddStagger(staggerAmount);
+                enemyStagger.AddStaggerFromDamage(totalDamage, enemyHealth.MaxHealth);
             }
 
             Hitstun enemyHitstun = enemyCollider.GetComponentInParent<Hitstun>();
@@ -308,8 +401,6 @@ public class PlayerCombat : MonoBehaviour
                 enemyHitstun.ApplyStun(hitstunDuration);
             }
         }
-
-        LootCorpses();
     }
 
     private void LootCorpses()
