@@ -22,6 +22,19 @@ applies here too. Project-specific on top of that:
   - Post the whole description inside a single fenced code block, so it's
     copy-pasteable in one action.
 
+## Hand-editing Unity asset files (.controller/.prefab/.unity)
+
+These get edited directly as YAML, bypassing the Unity Editor entirely. If
+Unity has the project open while this happens, it can reimport late or — worse
+— overwrite the on-disk edit with its stale in-memory copy (autosave, exiting
+Play mode, saving the scene) with no error at all.
+
+- Before starting a batch of hand-edits to `.controller`/`.prefab`/`.unity`
+  files, ask whether Unity is currently open on the machine that'll test the
+  result, and suggest closing it until the edits are committed.
+- Don't just assume based on earlier in the conversation — Unity may have been
+  reopened since. Check again periodically, not just once per session.
+
 ## Setup instructions file
 
 Maintain `SETUP.md` as a running, step-by-step list of manual Unity Editor work
