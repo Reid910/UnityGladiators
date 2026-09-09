@@ -1923,12 +1923,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 843bd8ee6ac57654c92020f02e5f1125, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  maxHealth: 10000
+  maxHealth: 500
   healthText: {fileID: 3769552702181470598}
   destroyOnDeath: 0
   destroyDelay: 2.5
   disableObjectOnDeath: 0
-  regenPerSecond: 2
+  regenPerSecond: 10
   animator: {fileID: 2359033824035277344}
   characterController: {fileID: 5133888403426230031}
   objectCollider: {fileID: 5133888403426230031}

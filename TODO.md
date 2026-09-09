@@ -563,8 +563,9 @@ breaks and finishers, not a slow tank-and-spank.
       not gated by time since the last hit. Fractional regen accumulates in
       a remainder each frame rather than rounding per-frame, so slow rates
       don't get truncated to zero at high framerate.
-- [x] Enabled on `Player.prefab` only: `regenPerSecond: 2` — untuned first
-      guess, revisit during M7 playtest tuning.
+- [x] Enabled on `Player.prefab` only: `regenPerSecond: 10`. `maxHealth` also
+      moved off its 10000 debug-testing value to a real default of 500 —
+      both still untuned first guesses, revisit during M7 playtest tuning.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.

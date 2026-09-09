@@ -6,7 +6,7 @@ each feature.
 ## Player health regen — verify before trusting
 
 No Inspector wiring needed — `Player.prefab`'s `Health` component was
-hand-edited directly to set `regenPerSecond: 2` (Enemy stays at the script
+hand-edited directly to set `regenPerSecond: 10` (Enemy stays at the script
 default of 0, i.e. no regen). Regen is always active, even mid-combat — same
 constant-tick model as Stagger's decay, no out-of-combat delay. Verify:
 
