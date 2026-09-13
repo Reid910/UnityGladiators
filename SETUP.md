@@ -476,3 +476,17 @@ defaults if a number ever seems to not match what a `TODO.md` note says it
 should be — Unity prefabs freeze field values at the time they're saved, and
 a hand-edited script default only take effect for *new* instances or fields
 that never existed on the prefab before.
+
+## Combat HUD (installed)
+- SampleScene Canvas/Combat HUD contains framed vitals, wave status, centered skill slots, and five compact gear slots.
+- Original eight HUD text objects are preserved and inactive; GameUI now references replacement labels.
+- Skill icons use LMB (basic attack), Q (Ability), and Left Ctrl (Dash). The basic attack box is smaller. Equip a weapon with AbilityDefinition and boots with DashDefinition to enable those skills.
+- Basic attack has a radial cooldown and centered countdown tied to actual windup, hit window, and recovery, including attack-speed modifiers and the shared heavy-attack recovery. GameUI Attack Cooldown Fill/Text are wired; use Gladiators > Upgrade Attack Cooldown for an older HUD.
+- RMB Heavy has its own small box beside LMB, with the same shared attack recovery overlay. Ability/dash borders flash white for 0.65 seconds when their cooldown completes, then return to gold.
+- Equipping gear flashes the matching rarity frame and shows a fading "Equipped: item name" message above the skills for 2.2 seconds. EquipmentHUD listens to PlayerEquipment.ItemEquipped; no swap input changes are needed.
+- Feedback is wired in SampleScene. Use Gladiators > Upgrade HUD Feedback for an older HUD; HUDFlash components control flash duration on the skill/gear borders.
+- Art and layout can be adjusted directly on Canvas/Combat HUD. GameUI Visual HUD fields drive bars and cooldown overlays.
+- Gear slots show item names and rarity borders; the previous Equipment text panel is preserved and inactive.
+- Swap comparison appears only for the nearby pickup targeted by PlayerEquipment. It shows current and incoming item stats and [E] Equip/Swap. No inventory screen is needed.
+- EquipmentHUD on Canvas/Combat HUD/Gear slots references PlayerEquipment, five slot views, and the Swap comparison panel. These references are already wired in SampleScene.
+- For another scene with an existing GameUI Canvas, use Gladiators > Build Combat HUD. For the original HUD, use Gladiators > Upgrade HUD Gear Slots. Both skip the gear upgrade if Gear slots already exists.

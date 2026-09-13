@@ -3,6 +3,7 @@ using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 
 public class GameUI : MonoBehaviour
 {
@@ -31,6 +32,26 @@ public class GameUI : MonoBehaviour
     [SerializeField] private GameObject gameOverPanel;
 
     private bool gameEnded;
+
+    [Header("Visual HUD")]
+    [SerializeField] private Image healthFill;
+    [SerializeField] private Image staggerFill;
+    [SerializeField] private Image abilityIcon;
+    [SerializeField] private Image dashIcon;
+    [SerializeField] private Image abilityCooldownFill;
+    [SerializeField] private Image dashCooldownFill;
+    [SerializeField] private Image attackCooldownFill;
+    [SerializeField] private TextMeshProUGUI attackCooldownText;
+    [SerializeField] private Image heavyCooldownFill;
+    [SerializeField] private TextMeshProUGUI heavyCooldownText;
+    [SerializeField] private HUDFlash abilityReadyFlash;
+    [SerializeField] private HUDFlash dashReadyFlash;
+    private bool abilityWasCooling;
+    private bool dashWasCooling;
+    private AbilityDefinition previousAbility;
+    private DashDefinition previousDash;
+    private float abilityCooldownPeak;
+    private float dashCooldownPeak;
 
     private void Start()
     {
@@ -102,6 +123,60 @@ public class GameUI : MonoBehaviour
         }
 
         UpdateEquippedItemsText();
+        UpdateVisualHUD();
+    }
+
+    private void UpdateVisualHUD()
+    {
+        if (healthFill != null && playerHealth != null)
+        {
+            healthFill.fillAmount = Mathf.Clamp01((float)playerHealth.CurrentHealth / Mathf.Max(1, playerHealth.MaxHealth));
+            healthFill.rectTransform.localScale = new Vector3(healthFill.fillAmount, 1f, 1f);
+        }
+        if (staggerFill != null && playerStagger != null)
+        {
+            staggerFill.fillAmount = playerStagger.IsBroken ? 1f : Mathf.Clamp01(playerStagger.CurrentStagger / Mathf.Max(1f, playerStagger.MaxStagger));
+            staggerFill.rectTransform.localScale = new Vector3(staggerFill.fillAmount, 1f, 1f);
+            staggerFill.color = playerStagger.IsBroken ? new Color(1f, .25f, .15f) : new Color(.9f, .65f, .23f);
+        }
+        if (playerCombat == null) return;
+        float attackRemaining = playerCombat.AttackCooldownRemaining;
+        if (attackCooldownFill != null)
+            attackCooldownFill.fillAmount = playerCombat.AttackCooldownDuration > 0f
+                ? Mathf.Clamp01(attackRemaining / playerCombat.AttackCooldownDuration) : 0f;
+        if (attackCooldownText != null)
+            attackCooldownText.text = attackRemaining > 0f ? attackRemaining.ToString("0.0") + "s" : "ATTACK";
+        if (heavyCooldownFill != null)
+            heavyCooldownFill.fillAmount = playerCombat.AttackCooldownDuration > 0f
+                ? Mathf.Clamp01(attackRemaining / playerCombat.AttackCooldownDuration) : 0f;
+        if (heavyCooldownText != null)
+            heavyCooldownText.text = attackRemaining > 0f ? attackRemaining.ToString("0.0") + "s" : "HEAVY";
+        bool hasAbility = playerEquipment != null && playerEquipment.GetEquipped(ItemSlot.Weapon)?.Definition?.AbilityDefinition != null;
+        bool hasDash = playerEquipment != null && playerEquipment.GetEquipped(ItemSlot.Boots)?.Definition?.DashDefinition != null;
+        UpdateSkill(abilityIcon, abilityCooldownFill, abilityCooldownText, hasAbility, playerCombat.AbilityCooldownRemaining, ref abilityCooldownPeak);
+        UpdateSkill(dashIcon, dashCooldownFill, dashCooldownText, hasDash, playerCombat.DashCooldownRemaining, ref dashCooldownPeak);
+        var ability = playerEquipment != null ? playerEquipment.GetEquipped(ItemSlot.Weapon)?.Definition?.AbilityDefinition : null;
+        var dash = playerEquipment != null ? playerEquipment.GetEquipped(ItemSlot.Boots)?.Definition?.DashDefinition : null;
+        bool abilityCooling = hasAbility && playerCombat.AbilityCooldownRemaining > 0f;
+        bool dashCooling = hasDash && playerCombat.DashCooldownRemaining > 0f;
+        if (abilityWasCooling && !abilityCooling && hasAbility && ability == previousAbility)
+            abilityReadyFlash?.Trigger();
+        if (dashWasCooling && !dashCooling && hasDash && dash == previousDash)
+            dashReadyFlash?.Trigger();
+        abilityWasCooling = abilityCooling;
+        dashWasCooling = dashCooling;
+        previousAbility = ability;
+        previousDash = dash;
+    }
+
+    private static void UpdateSkill(Image icon, Image overlay, TextMeshProUGUI label, bool equipped, float remaining, ref float peak)
+    {
+        // Capture the actual cooldown after equipment/stat modifiers, including reductions.
+        peak = remaining > 0f ? Mathf.Max(peak, remaining) : 0f;
+        if (icon != null) icon.color = equipped ? Color.white : new Color(.3f, .3f, .3f, 1f);
+        if (overlay != null) overlay.fillAmount = equipped && peak > 0f ? Mathf.Clamp01(remaining / peak) : 0f;
+        if (icon != null && label != null)
+            label.text = !equipped ? "UNEQUIPPED" : remaining > 0f ? remaining.ToString("0.0") + "s" : "READY";
     }
 
     private void UpdateEquippedItemsText()
