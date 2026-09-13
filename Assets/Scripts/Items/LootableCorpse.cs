@@ -15,34 +15,69 @@ public class LootableCorpse : MonoBehaviour
     [SerializeField] private ItemDefinition[] possibleItems;
     [SerializeField] private GameObject itemPickupPrefab;
 
+    [Tooltip("Optional. Tinted once the corpse becomes lootable — rarity color if it holds an item, a dim grey if it's empty — so looting doesn't require guessing. Not lootable yet = untinted.")]
+    [SerializeField] private Renderer visualRenderer;
+
+    private static readonly Color EmptyLootTint = new Color(0.25f, 0.25f, 0.25f);
+
     private EnemyController enemyController;
+    private MaterialPropertyBlock propertyBlock;
     private bool looted;
+    private bool lootPrepared;
+    private bool hasDrop;
+    private ItemDefinition preparedDefinition;
+    private ItemRarity preparedRarity;
 
     private void Awake()
     {
         enemyController = GetComponent<EnemyController>();
+
+        if (visualRenderer == null)
+        {
+            visualRenderer = GetComponentInChildren<Renderer>();
+        }
+    }
+
+    // Called by Health.EnableCorpseHitbox() once the wave this enemy died in
+    // fully clears. Rolls the drop outcome once here (rather than lazily in
+    // TryLoot()) so the tint shown to the player matches exactly what
+    // TryLoot() will actually produce — no re-rolling on attack.
+    public void PrepareLoot()
+    {
+        if (lootPrepared)
+        {
+            return;
+        }
+
+        lootPrepared = true;
+
+        if (possibleItems != null && possibleItems.Length > 0 && Random.value <= dropChance)
+        {
+            hasDrop = true;
+            preparedDefinition = possibleItems[Random.Range(0, possibleItems.Length)];
+            EnemyTier tier = enemyController != null ? enemyController.Tier : EnemyTier.T1;
+            preparedRarity = RollRarity(tier, t3SuperRareChance);
+        }
+
+        UpdateTint();
     }
 
     // Returns true if this attack actually popped loot (used for feedback hooks later).
     public bool TryLoot()
     {
-        if (looted)
+        if (looted || !lootPrepared)
         {
             return false;
         }
 
         looted = true;
 
-        if (possibleItems == null || possibleItems.Length == 0 || Random.value > dropChance)
+        if (!hasDrop)
         {
             return false;
         }
 
-        EnemyTier tier = enemyController != null ? enemyController.Tier : EnemyTier.T1;
-        ItemDefinition chosenDefinition = possibleItems[Random.Range(0, possibleItems.Length)];
-        ItemRarity rarity = RollRarity(tier, t3SuperRareChance);
-        EquippedItem rolledItem = ItemRoller.Roll(chosenDefinition, rarity);
-
+        EquippedItem rolledItem = ItemRoller.Roll(preparedDefinition, preparedRarity);
         SpawnPickup(rolledItem);
         return true;
     }
@@ -62,6 +97,22 @@ public class LootableCorpse : MonoBehaviour
             default:
                 return ItemRarity.Common;
         }
+    }
+
+    private void UpdateTint()
+    {
+        if (visualRenderer == null)
+        {
+            return;
+        }
+
+        Color tint = hasDrop ? RarityColor.Get(preparedRarity) : EmptyLootTint;
+
+        propertyBlock ??= new MaterialPropertyBlock();
+        visualRenderer.GetPropertyBlock(propertyBlock);
+        propertyBlock.SetColor("_BaseColor", tint);
+        propertyBlock.SetColor("_Color", tint);
+        visualRenderer.SetPropertyBlock(propertyBlock);
     }
 
     private void SpawnPickup(EquippedItem rolledItem)

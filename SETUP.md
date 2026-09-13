@@ -3,6 +3,41 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Corpse loot-rarity glow — verify Visual Renderer assignment
+
+`LootableCorpse` now tints the enemy's renderer once the corpse becomes
+lootable (post-wave-clear): rarity color if it holds an item (same
+`RarityColor` mapping as item pickups — white/blue/orange), a dim grey if it
+rolled empty, untinted while still not lootable.
+
+1. On `Enemy.prefab`, check the `LootableCorpse` component's **Visual
+   Renderer** field. It falls back to `GetComponentInChildren<Renderer>()` if
+   left empty, which may grab the wrong renderer on a multi-part character
+   rig (e.g. a weapon mesh instead of the body). Assign the actual body
+   mesh renderer explicitly if the auto-picked one looks wrong in play.
+2. Kill an enemy, wait for the wave to clear, and confirm the corpse tints
+   before you attack it (not after) — the color should match what actually
+   drops when you loot it, since the roll now happens once at wave-clear
+   instead of on-hit.
+3. Confirm a corpse that rolls no drop shows the dim grey tint, not white
+   (white is reserved for an actual Common-rarity drop) — a same-color
+   result here would make "empty" indistinguishable from "Common item."
+
+## Enemy tier tint — verify Visual Renderer assignment
+
+`EnemyController` now tints itself by `Tier` on spawn (white/orange/red for
+T1/T2/T3 — see `EnemyTierColor`), a cheap placeholder tell until real
+per-tier prefabs/models exist. Same caveat as the corpse glow above:
+
+1. Check `EnemyController`'s **Visual Renderer** field on `Enemy.prefab` —
+   falls back to `GetComponentInChildren<Renderer>()` if left empty, which
+   can grab the wrong renderer on a multi-part rig. Assign the body mesh
+   explicitly if the auto-picked one looks wrong.
+2. Since only T1 enemies exist as actual content right now (no T2/T3 prefab
+   built yet — see `TODO.md`), there's nothing to visually compare against
+   yet; this is confirmed correct once a T2 or T3 prefab actually exists and
+   spawns with a different tint than T1.
+
 ## Player health regen — verify before trusting
 
 No Inspector wiring needed — `Player.prefab`'s `Health` component was

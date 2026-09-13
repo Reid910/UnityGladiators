@@ -567,6 +567,25 @@ breaks and finishers, not a slow tank-and-spank.
       moved off its 10000 debug-testing value to a real default of 500 —
       both still untuned first guesses, revisit during M7 playtest tuning.
 
+## Corpse loot-rarity glow + enemy tier tint — combat-feel follow-up
+- [x] `LootableCorpse` no longer rolls its drop chance/rarity lazily on hit —
+      `PrepareLoot()` (called from `Health.EnableCorpseHitbox()`, once the
+      wave clears) rolls it once and tints the corpse's renderer via the
+      same `MaterialPropertyBlock` + `RarityColor` technique `ItemPickup`
+      already uses: rarity color if it holds an item, a dim grey if it
+      rolled empty, untinted while still not lootable. `TryLoot()` now just
+      consumes the pre-rolled result instead of re-rolling, so the tint the
+      player sees always matches what they actually get.
+- [x] `EnemyController` tints itself by `Tier` on spawn (new
+      `EnemyTierColor`: white/orange/red for T1/T2/T3) as a cheap
+      placeholder for telling tiers apart before death — previously `Tier`
+      had zero visual effect while an enemy was alive. Not real per-tier
+      art, just a stopgap.
+- [ ] Only a T1 `Enemy.prefab` exists as actual content — `WaveManager`'s
+      multi-prefab/tier-gating system already supports T2/T3 prefabs
+      (`t2UnlockWave`/`t3UnlockWave`), but no T2/T3 prefab has been built to
+      actually spawn and show the new tint. Content gap, not a code gap.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

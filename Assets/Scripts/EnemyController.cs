@@ -4,8 +4,10 @@ using UnityEngine;
 public class EnemyController : MonoBehaviour
 {
     [Header("Tier")]
-    [Tooltip("Drives loot rarity (see LootableCorpse, which reads this) and is a label for tuning this prefab's own stats — it doesn't auto-scale anything itself. Fast/low-hp = T1, slow/high-damage = T2, ranged/tankier = T3 is the suggested split.")]
+    [Tooltip("Drives loot rarity (see LootableCorpse, which reads this), tints Visual Renderer by tier on spawn (see EnemyTierColor — a placeholder until real per-tier prefabs/models exist), and is a label for tuning this prefab's own stats — it doesn't auto-scale stats itself. Fast/low-hp = T1, slow/high-damage = T2, ranged/tankier = T3 is the suggested split.")]
     [SerializeField] private EnemyTier tier = EnemyTier.T1;
+    [Tooltip("Optional. Tinted by Tier on spawn (see EnemyTierColor). Falls back to the first Renderer found in children if left empty.")]
+    [SerializeField] private Renderer visualRenderer;
 
     [Header("Movement")]
     [SerializeField] private float movementSpeed = 2.5f;
@@ -41,6 +43,7 @@ public class EnemyController : MonoBehaviour
     private Vector3 verticalVelocity;
     private float nextAttackTime;
     private bool isAttacking;
+    private MaterialPropertyBlock propertyBlock;
 
     public EnemyTier Tier => tier;
 
@@ -63,6 +66,13 @@ public class EnemyController : MonoBehaviour
             animator = GetComponentInChildren<Animator>();
         }
 
+        if (visualRenderer == null)
+        {
+            visualRenderer = GetComponentInChildren<Renderer>();
+        }
+
+        TintByTier();
+
         GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
 
         if (playerObject != null)
@@ -73,6 +83,23 @@ public class EnemyController : MonoBehaviour
             targetHitstun = playerObject.GetComponent<Hitstun>();
             targetCombat = playerObject.GetComponent<PlayerCombat>();
         }
+    }
+
+    // Cheap placeholder tier tell until real per-tier prefabs/models exist —
+    // see EnemyTierColor.
+    private void TintByTier()
+    {
+        if (visualRenderer == null)
+        {
+            return;
+        }
+
+        propertyBlock ??= new MaterialPropertyBlock();
+        visualRenderer.GetPropertyBlock(propertyBlock);
+        Color tint = EnemyTierColor.Get(tier);
+        propertyBlock.SetColor("_BaseColor", tint);
+        propertyBlock.SetColor("_Color", tint);
+        visualRenderer.SetPropertyBlock(propertyBlock);
     }
 
     private void Update()

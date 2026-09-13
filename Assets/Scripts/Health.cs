@@ -177,6 +177,13 @@ public class Health : MonoBehaviour
         {
             corpseHitbox.enabled = true;
         }
+
+        LootableCorpse lootableCorpse = GetComponent<LootableCorpse>();
+
+        if (lootableCorpse != null)
+        {
+            lootableCorpse.PrepareLoot();
+        }
     }
 
     private void SpawnDamageNumber(int amount)
