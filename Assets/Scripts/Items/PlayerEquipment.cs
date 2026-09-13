@@ -16,6 +16,7 @@ public class PlayerEquipment : MonoBehaviour
     private ItemPickup targetedPickup;
 
     public bool HasNearbyPickup => targetedPickup != null;
+    public ItemPickup TargetedPickup => targetedPickup;
 
     // Only worth re-checking every frame while more than one pickup
     // overlaps — with 0 or 1 in range the target can't change without an

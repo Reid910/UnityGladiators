@@ -75,6 +75,8 @@ public class PlayerCombat : MonoBehaviour
     private float invulnerableUntilTime;
 
     public int ComboStep => comboStep;
+    public float AttackCooldownRemaining => Mathf.Max(0f, nextAttackTime - Time.time);
+    public float AttackCooldownDuration { get; private set; }
     public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
     public float DashCooldownRemaining => Mathf.Max(0f, nextDashTime - Time.time);
 
@@ -224,7 +226,8 @@ public class PlayerCombat : MonoBehaviour
         float scaledRecoveryTime = ApplyAttackSpeed(recoveryTime);
         float hitRange = range > 0f ? range : attackRange;
 
-        nextAttackTime = Time.time + scaledWindup + scaledActiveDuration + scaledRecoveryTime;
+        AttackCooldownDuration = scaledWindup + scaledActiveDuration + scaledRecoveryTime;
+        nextAttackTime = Time.time + AttackCooldownDuration;
 
         if (attackCoroutine != null)
         {
