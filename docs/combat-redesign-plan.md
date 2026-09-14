@@ -143,29 +143,36 @@ doc are trying to make feel good, just approached from opposite ends.
   brainstorm (including Deflect being Gloves-granted) can coexist with this
   without conflict; it just means building it out is lower priority than
   nailing movement/telegraphs/spacing first.
-- **Hyper armor confirmed to apply to ALL basic attacks**, not just heavy —
+- **Resolved: remove hyper armor from normal (Light) attacks.**
   `PlayerCombat.BeginAttack()` (which sets the `IsAttacking`/hyper-armor
-  window) is called from both `TryLightAttack()` and `TryHeavyAttack()`;
-  only the ability is exempt by design. Every swing currently grants
-  hitstun immunity for its full windup+active+recovery window (~0.35–0.9s),
-  meaning there's no way to safely poke right now — every attack is a
-  designed trade. Proposed direction: cut or drastically shrink baseline
-  hyper armor so basic combat is genuinely risk/reward (must find a real
-  opening), and revisit it later as a possible gear-granted effect (fits
-  the "items help you beat bigger guys" philosophy above) rather than a
-  free baseline. **Awaiting user confirmation on this specific cut.**
+  window) is currently called from both `TryLightAttack()` and
+  `TryHeavyAttack()`; the ability is already exempt by design. Reading
+  "normal attack" as **Light specifically** (the `Attack` input, distinct
+  from the separate `Heavy` input in `InputSystem_Actions`) — Heavy keeps
+  hyper armor as a deliberate bigger-commitment trade, Light becomes a real
+  risk/reward poke with no trade safety net. **Flagging this interpretation
+  explicitly in case "normal attack" was meant to include Heavy too** — easy
+  to correct if so.
+  - Implementation note: `IsAttacking` currently can't distinguish which
+    attack is in progress (`nextAttackTime` is a single shared field for
+    both). Needs a way to know "is the in-progress attack a Heavy" so hyper
+    armor only applies then.
+- **Resolved: enemy attack telegraphs get a filler flicker, not real
+  animations yet.** Building actual wind-up animations is out of scope for
+  now — instead, a quick visual flicker/flash on the enemy during
+  `attackWindup` signals "this is coming," using the same
+  `MaterialPropertyBlock` tint technique already used for `EnemyTierColor`/
+  the corpse loot glow, rather than new animation work. Placeholder, same
+  spirit as everything else marked that way in this doc.
 
 ## Open questions (still being worked through)
 
-- Is designing the "beefy champion" enemy archetype (M5's Legionary) in
-  scope for this plan, or is that a separate future pass once the core feel
-  is retuned? (Leaning toward: separate/later, given the itemization
-  sequencing decision above — champions are downstream of core feel too.)
 - Camera collision/occlusion, combat-assist framing (nudge toward nearest
-  enemy / zoom out with multiple targets), zoom — still unconfirmed which
-  of these are wanted.
-- Confirm: cut/shrink baseline hyper armor (see above), or keep it and see
-  if fixing telegraphs/density already solves the feel first?
+  enemy / zoom out with multiple targets), zoom — **explicitly deferred,
+  leave camera as-is for now.**
+- **Resolved: designing the "beefy champion" enemy archetype (M5's
+  Legionary) is for later.** For now, just basic enemy AI — see Enemy AI
+  below for what "basic" means concretely (NavMesh-to-player + shuffle).
 
 ---
 
@@ -392,12 +399,20 @@ concrete mechanism proposed for it.
 
 ### Distance-based movement
 First real idea for enemy AI/moveset (previously just flagged as needed).
+This is the scope of "basic enemy AI for now" — the champion/Legionary
+archetype and any deeper moveset work is deferred (see Open questions).
 - **Three-phase approach instead of one constant chase speed**: Sprint
   while far from the player, **Shuffle** once close but not yet in attack
   range, then Attack once in range.
-- The Shuffle phase is a soft telegraph — it reads as "this one's about to
-  commit to something" before the actual attack windup even starts, and
-  makes the approach feel less robotic than a flat charge-in at one speed.
+- **Resolved, concrete behavior for each phase:**
+  - **Sprint**: NavMesh-driven movement straight toward the player — this is
+    the *only* job of the NavMesh switch below, not the shuffle or attack
+    logic.
+  - **Shuffle**: once within the shuffle distance band, the enemy moves
+    **side to side (lateral, not forward/backward)** — like real sword
+    -fighting circling/feinting while looking for an opening — instead of
+    just closing the remaining distance slower. This is what actually reads
+    as "about to commit to something," not merely a reduced approach speed.
 - Maps onto `EnemyController`'s existing distance-based state (it already
   has `stoppingDistance`) — Shuffle would be a new distance band between
   "still closing" and "in range," not a wholly new system.
