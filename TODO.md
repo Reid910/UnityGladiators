@@ -656,6 +656,36 @@ breaks and finishers, not a slow tank-and-spank.
       mechanical effect that makes them real and testable already, per the
       "cheap to build, checks existing state" framing in the design doc.
 
+## Combat identity redesign, step 5: Deflect/Block + Ultimate meter/attack — see docs/combat-redesign-plan.md
+- [x] **Deflect / Block**, one input (repurposes the unused stock `Jump`
+      action, bound to Space — see the "no jump" decision): a fresh press
+      within `Deflect Window` (0.5s placeholder) of an incoming hit is a
+      perfect **Deflect** (no cost, fills the Ultimate meter fast); just
+      holding it down **Blocks** — absorbs the hit's HP damage but costs
+      the player Stagger instead (`Block Stagger Cost Multiplier`, 75%
+      placeholder) — this is exactly how Sekiro's real posture-on-block
+      system works. `PlayerCombat.TryDefendAgainst()`, called from
+      `EnemyController.ResolveHit()` before damage/stagger/hitstun.
+      Deflect is a **universal ability for now** — gating it behind a
+      Gloves item is deferred to the gear/itemization step.
+- [x] **Ultimate meter**, cap 100 (placeholder): +5 per landed hit
+      (any move), +20 per successful Deflect, +15 per Light-attack
+      finisher (Heavy/Ultimate/Ability/Dash finishers just get the
+      baseline +5, no bonus — matches the "only Light triggers the
+      cinematic" rule).
+- [x] **Ultimate attack**: new input (repurposes the unused stock `Crouch`
+      action, bound to C), gated by the meter being full. Huge AoE stagger
+      bonus (×5) + good damage (60 placeholder), reuses the `AttackHeavy`
+      animator state since no distinct animation exists yet. Heavy also
+      got its own stagger multiplier (×2) applied the same way — both
+      layer on top of `Stagger`'s own `damageToStaggerMultiplier`, not the
+      actual HP damage dealt.
+- [ ] **Not implemented this pass**: the actual finisher cinematic
+      presentation (camera punch-in, hit-stop, VFX) — the mechanical rule
+      (only Light triggers it) is wired, but no visual/camera work exists
+      yet. Also not implemented: Perilous attacks (Downslam/Side swing) as
+      real enemy moves — still design-only.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

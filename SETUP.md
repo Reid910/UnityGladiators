@@ -46,6 +46,30 @@ unused until now. Verify:
    top of the normal Light hit. Attacking normally (not sprinting, not
    right after a dash) should be unaffected.
 
+## Combat identity redesign, step 5 — verify before trusting
+
+No new Inspector wiring needed — `Jump`/`Crouch` were already bound (Space/C)
+in the Input Actions asset, just unused until now. Verify:
+
+1. **Block**: hold Space while an enemy attacks — you should take no HP
+   damage, but your Stagger meter should visibly climb instead (75% of what
+   the hit's normal stagger contribution would be).
+2. **Deflect**: press Space (don't hold) right as an enemy's hit would land
+   — should take no damage AND cost no Stagger, and the (currently
+   text-only, no dedicated UI yet) Ultimate meter should jump by 20.
+   Pressing too early (more than 0.5s before the hit lands) should fall
+   back to the Block behavior above once the hit actually lands, not a
+   clean Deflect.
+3. **Ultimate**: land enough hits/deflects to fill the meter (no HUD
+   element for this yet either — check `PlayerCombat.UltimateMeter` in the
+   Inspector during Play mode, or add a debug readout), then press C —
+   should play the same big two-handed swing Heavy uses, hit a wide AoE,
+   and reset the meter to 0.
+4. Confirm a **Heavy or Ultimate landing on an already-broken enemy** kills
+   it instantly with no special animation beyond the swing itself, while a
+   **Light attack on a broken enemy** still plays the same instant-kill
+   (no dedicated cinematic exists yet — that's still open, see `TODO.md`).
+
 ## Combat identity redesign — NavMeshAgent switch deferred
 
 Not done — see `TODO.md`. If picking this up later: add a `NavMeshAgent`

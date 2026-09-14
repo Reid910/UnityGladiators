@@ -314,6 +314,15 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
+        // Deflect (no cost, fills the Ultimate meter) or Block (absorbs the
+        // hit but costs the player Stagger instead) — see
+        // PlayerCombat.TryDefendAgainst and docs/combat-redesign-plan.md. A
+        // successfully defended hit skips damage/stagger/hitstun entirely.
+        if (targetCombat != null && targetCombat.TryDefendAgainst(attackDamage))
+        {
+            return;
+        }
+
         targetHealth.TakeDamage(attackDamage);
 
         if (targetStagger != null)
