@@ -548,5 +548,28 @@ fight → loot → level → next wave → win/lose):
 
 ## Implementation approach
 
-_To be filled in once the open questions above are resolved — this doc will
-be updated as the design conversation continues._
+Ordered per the sequencing philosophy above (core feel first, itemization
+last) — each step should be played and felt before moving to the next,
+since several of these interact (e.g., hyper armor removal changes how
+punishing the current wave density/telegraph gaps feel).
+
+1. **Pure tuning + small code changes** — cheapest, fastest to feel:
+   hyper armor cut from Light attacks, the enemy attack telegraph flicker,
+   and the three numeric placeholders (stagger decay, wave density/spacing,
+   player HP/regen).
+2. **Dash respecting movement-input direction** instead of always firing in
+   current facing.
+3. **Enemy AI**: NavMesh switch for movement-to-player, plus the lateral
+   Shuffle phase when close.
+4. **Movement additions**: unlimited sprint, Slide (dash-while-sprinting)
+   with momentum carry-over, dodge-out/sprint-out Light attack variants.
+5. **Deflect/Block + Ultimate meter**: the defensive input split, and the
+   resource that Heavy/Ultimate/finishers feed into.
+6. **Gear/itemization** (Gloves→Deflect, the 6-slot system, Stat Shards,
+   Level): deliberately last, per the sequencing decision — this is what
+   fills the gap needed to beat tougher enemies once the baseline feel
+   above is solid, not something to build in parallel with it.
+
+Camera work and the champion/Legionary enemy archetype are explicitly out
+of scope for this pass (see Open questions) — separate future work once
+the above is played and retuned.
