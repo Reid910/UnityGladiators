@@ -31,6 +31,8 @@ public class EnemyController : MonoBehaviour
     [Tooltip("Distance the target must be within when the active window checks — separate from Stopping Distance, which only decides when the enemy stops closing in to swing.")]
     [SerializeField] private float attackRange = 1.8f;
     [SerializeField] private float attackCooldown = 1.25f;
+    [Tooltip("SFX — assign once you have a clip (see AudioManager).")]
+    [SerializeField] private AudioClip attackSwingClip;
 
     [Header("Telegraph")]
     [Tooltip("Filler visual telegraph until real wind-up animations exist — flickers this color during the attack windup so an incoming hit is readable, not just mechanically fair (the windup timing already existed, it just wasn't visible). See docs/combat-redesign-plan.md.")]
@@ -235,6 +237,8 @@ public class EnemyController : MonoBehaviour
         {
             animator.SetTrigger("Attack");
         }
+
+        AudioManager.PlaySfx(attackSwingClip);
 
         if (attackWindup > 0f)
         {

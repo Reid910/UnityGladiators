@@ -35,6 +35,9 @@ public class Health : MonoBehaviour
     [SerializeField] private Color damageNumberColor = Color.white;
     [Tooltip("Brief global freeze-frame applied on every hit that lands (see HitStop.cs). 0 disables it.")]
     [SerializeField] private float hitStopDuration = 0.05f;
+    [Tooltip("SFX — assign clips once you have them (see AudioManager).")]
+    [SerializeField] private AudioClip hitClip;
+    [SerializeField] private AudioClip deathClip;
 
     private int maxHealthBonus;
     private int levelMaxHealthBonus;
@@ -177,6 +180,7 @@ public class Health : MonoBehaviour
         if (animator != null && !IsDead)
         {
             animator.SetTrigger("Hit");
+            AudioManager.PlaySfx(hitClip);
         }
 
         if (IsDead)
@@ -247,6 +251,7 @@ public class Health : MonoBehaviour
     private void Die()
     {
         Died?.Invoke(this);
+        AudioManager.PlaySfx(deathClip);
 
         if (animator != null)
         {

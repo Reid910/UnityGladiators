@@ -756,6 +756,28 @@ breaks and finishers, not a slow tank-and-spank.
       call sites (`EnemyController.ResolveHit()` is the one that matters,
       since only the player has hyper armor) — scoped out of this pass.
 
+## Audio hookup (SFX + music plumbing) — combat-feel follow-up
+- [x] New `AudioManager` (static entry point + lazily-created persistent
+      runner, mirrors the existing `HitStop.Trigger()` pattern exactly —
+      `AudioManager.PlaySfx(clip)`/`PlayMusic(clip)` from anywhere, no scene
+      wiring needed). A null clip is a no-op, so nothing breaks before real
+      sound files are assigned.
+- [x] Each script holds its own `AudioClip` fields (same pattern as
+      `Health.hitStopDuration` already being owned by the calling script,
+      not a central registry) and calls `AudioManager.PlaySfx()` at the
+      natural trigger point:
+      - `PlayerCombat`: Light/Heavy/Ultimate swing, hit-impact-landed,
+        Ability cast, Dash, Slide, Deflect, Block
+      - `Health`: Hit, Death
+      - `Stagger`: Break
+      - `EnemyController`: attack swing
+      - `WaveManager`: looping background music, started once in `Start()`
+- [ ] **No actual clips assigned yet** — every field above is empty,
+      waiting on real files. Free CC0 candidates already checked and
+      confirmed clear: Kenney's Impact Sounds, RPG Audio, and Interface
+      Sounds/UI Audio packs (same publisher already used for the UI
+      borders in this project).
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

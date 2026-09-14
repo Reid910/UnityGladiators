@@ -19,6 +19,12 @@ public class WaveManager : MonoBehaviour
     [SerializeField] private float timeBetweenSpawns = 0.5f;
     [SerializeField] private float timeBetweenWaves = 2f;
 
+    [Header("Music")]
+    [Tooltip("Looping background track for the whole run — assign once you have one (see AudioManager). Started once in Start().")]
+    [SerializeField] private AudioClip backgroundMusic;
+    [Range(0f, 1f)]
+    [SerializeField] private float musicVolume = 0.5f;
+
     [Header("Tier Unlocks")]
     [Tooltip("T2 enemy prefabs won't be picked before this wave number.")]
     [SerializeField] private int t2UnlockWave = 2;
@@ -52,6 +58,7 @@ public class WaveManager : MonoBehaviour
             playerLevel = playerObject.GetComponent<PlayerLevel>();
         }
 
+        AudioManager.PlayMusic(backgroundMusic, musicVolume);
         StartCoroutine(StartNextWaveAfterDelay(1f));
     }
 

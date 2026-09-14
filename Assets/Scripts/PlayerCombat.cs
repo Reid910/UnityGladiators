@@ -89,6 +89,17 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private float dodgeOutWindow = 0.25f;
     [SerializeField] private float attackLungeDistance = 1.2f;
 
+    [Header("SFX (assign clips once you have them — see AudioManager)")]
+    [SerializeField] private AudioClip lightAttackClip;
+    [SerializeField] private AudioClip heavyAttackClip;
+    [SerializeField] private AudioClip ultimateClip;
+    [SerializeField] private AudioClip hitImpactClip;
+    [SerializeField] private AudioClip abilityCastClip;
+    [SerializeField] private AudioClip dashClip;
+    [SerializeField] private AudioClip slideClip;
+    [SerializeField] private AudioClip deflectClip;
+    [SerializeField] private AudioClip blockClip;
+
     [Header("References")]
     [SerializeField] private Animator animator;
     [SerializeField] private Health health;
@@ -283,6 +294,7 @@ public class PlayerCombat : MonoBehaviour
         bool isSprintAttack = !isDodgeOutAttack && playerController != null && playerController.IsSprinting;
 
         BeginAttack(hit.damage, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime, isLightAttack: true);
+        AudioManager.PlaySfx(lightAttackClip);
 
         if (isDodgeOutAttack || isSprintAttack)
         {
@@ -306,6 +318,7 @@ public class PlayerCombat : MonoBehaviour
         // Dedicated AttackHeavy state (MeleeAttack_TwoHanded) — a bigger,
         // different motion from any combo hit.
         BeginAttack(heavyDamage, heavyHitstunDuration, "AttackHeavy", heavyWindup, heavyActiveDuration, heavyRecoveryTime, grantsHyperArmor: true, staggerMultiplier: heavyStaggerMultiplier);
+        AudioManager.PlaySfx(heavyAttackClip);
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
@@ -324,6 +337,7 @@ public class PlayerCombat : MonoBehaviour
         // Reuses the AttackHeavy state — no distinct Ultimate animation
         // exists yet (see docs/combat-redesign-plan.md).
         BeginAttack(ultimateDamage, ultimateHitstunDuration, "AttackHeavy", ultimateWindup, ultimateActiveDuration, ultimateRecoveryTime, range: ultimateRange, grantsHyperArmor: true, staggerMultiplier: ultimateStaggerMultiplier);
+        AudioManager.PlaySfx(ultimateClip);
 
         // Same interrupt-and-reset behavior as Heavy.
         comboStep = 0;
@@ -395,6 +409,7 @@ public class PlayerCombat : MonoBehaviour
         if (isPerfectDeflect)
         {
             AddUltimateMeter(ultimateMeterPerDeflect);
+            AudioManager.PlaySfx(deflectClip);
             return true;
         }
 
@@ -410,6 +425,7 @@ public class PlayerCombat : MonoBehaviour
                 stagger.AddStaggerFromDamage(blockStaggerDamage, health.MaxHealth);
             }
 
+            AudioManager.PlaySfx(blockClip);
             return true;
         }
 
@@ -521,6 +537,7 @@ public class PlayerCombat : MonoBehaviour
         float cooldownReduction = playerStats != null ? playerStats.GetStat(StatType.AbilityCooldownReduction) : 0f;
         float effectiveCooldown = Mathf.Max(0.1f, abilityDefinition.Cooldown * (1f - cooldownReduction));
         nextAbilityTime = Time.time + effectiveCooldown;
+        AudioManager.PlaySfx(abilityCastClip);
 
         // An ability is a bigger, rarer hit than a normal swing — same
         // windup/active-window pipeline as combo/heavy, just with its own
@@ -572,11 +589,13 @@ public class PlayerCombat : MonoBehaviour
         if (playerController != null && playerController.IsSprinting)
         {
             StartCoroutine(PerformSlide(dashDirection, dashDefinition.Distance));
+            AudioManager.PlaySfx(slideClip);
         }
         else
         {
             characterController.Move(dashDirection * dashDefinition.Distance);
             dashEndedTime = Time.time;
+            AudioManager.PlaySfx(dashClip);
         }
 
         if (dashDefinition.DealsDamage)
@@ -658,6 +677,7 @@ public class PlayerCombat : MonoBehaviour
             enemyHealth.TakeDamage(totalDamage);
             AddUltimateMeter(ultimateMeterPerHit);
             ApplyLifesteal(totalDamage);
+            AudioManager.PlaySfx(hitImpactClip);
 
             if (enemyStagger != null)
             {

@@ -70,6 +70,23 @@ in the Input Actions asset, just unused until now. Verify:
    **Light attack on a broken enemy** still plays the same instant-kill
    (no dedicated cinematic exists yet — that's still open, see `TODO.md`).
 
+## Audio hookup — assign clips, no code changes needed
+
+All the SFX/music plumbing is in place (`AudioManager` + per-script
+`AudioClip` fields), but every field is currently empty — nothing plays
+until real sound files are assigned. To wire up real audio:
+
+1. Download whichever Kenney packs you want (Impact Sounds, RPG Audio,
+   Interface Sounds/UI Audio — all confirmed CC0, links given in chat)
+   and import the `.ogg` files into the project (e.g. `Assets/Audio/`).
+2. Assign clips in the Inspector: `PlayerCombat` (Light/Heavy/Ultimate
+   attack, Hit Impact, Ability Cast, Dash, Slide, Deflect, Block),
+   `Health` (Hit, Death — on both Player and Enemy prefabs), `Stagger`
+   (Break), `EnemyController` (Attack Swing), `WaveManager` (Background
+   Music + Music Volume).
+3. Play and confirm each sound fires at the right moment — no clip
+   assigned just means silence for that action, not an error.
+
 ## Slide animation — verify before trusting
 
 Same hand-edit technique as every other Animator Controller change this
