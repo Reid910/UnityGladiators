@@ -70,6 +70,42 @@ in the Input Actions asset, just unused until now. Verify:
    **Light attack on a broken enemy** still plays the same instant-kill
    (no dedicated cinematic exists yet — that's still open, see `TODO.md`).
 
+## Combat identity redesign, step 6 — REQUIRED manual step
+
+**`PlayerLevel` must be added to `Player.prefab` in the Editor** (Add
+Component → search "Player Level"). This is a brand-new script — I can't
+safely wire a new `MonoBehaviour` into a prefab's serialized YAML by hand,
+since its `.meta` GUID doesn't exist until Unity actually imports it once,
+and guessing one would produce a broken/missing-script reference. Without
+this step, killing enemies grants no XP at all (`WaveManager`'s lookup for
+the component just returns null, silently).
+
+1. Open `Player.prefab`, Add Component → `Player Level`.
+2. Its `Health`/`Player Stats` reference fields auto-fill via
+   `GetComponent` in `Awake()` if left empty — no need to manually assign
+   unless they're on a different GameObject than expected.
+3. Verify: kill a few enemies, check `Player Level`'s `Level`/`Current Xp`
+   in the Inspector during Play mode climb — there's no HUD element for
+   this yet.
+
+## Combat identity redesign, step 6 — content not yet authored
+
+The new `Gloves`/`StatShard` slots and the `DeflectDefinition`/
+`PassiveEffectDefinition` types are code-only right now — no actual
+`ItemDefinition` `.asset` instances reference them yet, so nothing will
+currently drop for these slots or grant these effects. To test:
+
+1. Create a `PassiveEffectDefinition` asset (`Assets → Create →
+   UnityGladiators → Passive Effect`) — e.g. Effect Type = Lifesteal,
+   Value = 0.15 (heals 15% of damage dealt).
+2. Create a `DeflectDefinition` asset (`Assets → Create → UnityGladiators →
+   Deflect`).
+3. Create (or edit an existing) `ItemDefinition` with Slot = Head/Gloves and
+   assign the above in the new "Head/Chest/Pants slot only" / "Gloves slot
+   only" Inspector fields.
+4. Add that `ItemDefinition` to some `LootableCorpse.Possible Items` list so
+   it can actually drop, or assign it directly for manual testing.
+
 ## Combat identity redesign — NavMeshAgent switch deferred
 
 Not done — see `TODO.md`. If picking this up later: add a `NavMeshAgent`

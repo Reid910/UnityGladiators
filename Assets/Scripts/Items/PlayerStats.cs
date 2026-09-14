@@ -15,8 +15,18 @@ public class PlayerStats : MonoBehaviour
 
     private readonly Dictionary<StatType, float> statTotals = new Dictionary<StatType, float>();
     private int totalDamage;
+    private int levelDamageBonus;
 
     public int TotalDamage => totalDamage;
+
+    // Called by PlayerLevel — kept separate from gear's rolled damage so
+    // levelling and itemization are independent power sources, per
+    // docs/combat-redesign-plan.md's "Gear as build identity."
+    public void SetLevelDamageBonus(int bonus)
+    {
+        levelDamageBonus = bonus;
+        Recalculate();
+    }
 
     private void Awake()
     {
@@ -62,7 +72,7 @@ public class PlayerStats : MonoBehaviour
     private void Recalculate()
     {
         statTotals.Clear();
-        totalDamage = baseDamage;
+        totalDamage = baseDamage + levelDamageBonus;
 
         if (equipment != null)
         {
@@ -95,6 +105,17 @@ public class PlayerStats : MonoBehaviour
         {
             health.SetMaxHealthBonus(Mathf.RoundToInt(GetStat(StatType.MaxHealth)));
             health.SetArmor(GetStat(StatType.Armor));
+
+            // Chest passive effect (see docs/combat-redesign-plan.md) — the
+            // other two effect types (Lifesteal, AutoDodge) are read
+            // directly by PlayerCombat at the moment they trigger instead of
+            // through this static recalculation, since they're reactive to
+            // specific events (a hit landing, a cooldown), not a standing value.
+            PassiveEffectDefinition chestEffect = equipment?.GetEquipped(ItemSlot.Chest)?.Definition?.PassiveEffectDefinition;
+            float mitigation = chestEffect != null && chestEffect.EffectType == PassiveEffectType.DamageMitigation
+                ? chestEffect.Value
+                : 0f;
+            health.SetDamageMitigation(mitigation);
         }
     }
 }

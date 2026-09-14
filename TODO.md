@@ -686,6 +686,43 @@ breaks and finishers, not a slow tank-and-spank.
       yet. Also not implemented: Perilous attacks (Downslam/Side swing) as
       real enemy moves — still design-only.
 
+## Combat identity redesign, step 6: gear/itemization, Level — see docs/combat-redesign-plan.md
+- [x] **Two new `ItemSlot` values**: `Gloves` and `StatShard`. `PlayerEquipment`/
+      `PlayerStats`/`ItemRoller` all iterate `ItemSlot` generically already,
+      so no changes needed there — only `ItemDefinition` gained new fields.
+- [x] **`DeflectDefinition`** (Gloves slot only, mirrors `AbilityDefinition`/
+      `DashDefinition`): grants the perfect-Deflect tier from step 5, which
+      is now correctly gated behind a Gloves item instead of the step-5
+      placeholder "universal for now" — Block stays universal regardless of
+      gear (see `PlayerCombat.TryDefendAgainst`).
+- [x] **`PassiveEffectDefinition`/`PassiveEffectType`** (Head/Chest/Pants
+      slot only): one concrete effect implemented per slot theme as a
+      starting point — Head = Lifesteal (heals on hit,
+      `PlayerCombat.ApplyLifesteal`), Chest = DamageMitigation (flat %
+      damage reduction, applied in `Health.TakeDamage` alongside Armor,
+      recalculated in `PlayerStats`), Pants = AutoDodge (a free periodic
+      invulnerability window, polled in `PlayerCombat.Update()`). More
+      flavor options per slot (crit/bleed/poison for Head, heal/tank for
+      Chest) are future content — same shape of work as adding a new
+      `StatType` affix, not a new system.
+- [x] **`PlayerLevel`**: kills-only XP (hooked into `WaveManager.OnEnemyDied`),
+      resets every run (no persistence, consistent with "meta-progression
+      between runs" being out of scope). Grants only MaxHealth + flat
+      damage per level — deliberately not Attack Speed/Crit/Move Speed/
+      Ability CDR, which stay purely Stat-Shard-driven. `Health`/`PlayerStats`
+      both gained a separate level-bonus field so it adds on top of gear's
+      bonus instead of overwriting it.
+- [ ] **Manual step required, see `SETUP.md`**: `PlayerLevel` must be added
+      to `Player.prefab` in the Editor — a brand-new `MonoBehaviour` can't
+      be safely wired into a prefab's serialized YAML by hand (its `.meta`
+      GUID doesn't exist until Unity imports it once). Without this, XP
+      silently does nothing (`WaveManager`'s reference stays null).
+- [ ] **No actual `ItemDefinition`/`AffixDefinition`/`DeflectDefinition`/
+      `PassiveEffectDefinition` asset instances created for Gloves/Stat
+      Shard/the new passive effects** — this step built the code-level
+      plumbing only. Authoring real item content (so these slots actually
+      drop and do something in a playthrough) is separate follow-up work.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

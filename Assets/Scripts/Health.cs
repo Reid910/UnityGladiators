@@ -37,11 +37,13 @@ public class Health : MonoBehaviour
     [SerializeField] private float hitStopDuration = 0.05f;
 
     private int maxHealthBonus;
+    private int levelMaxHealthBonus;
     private float armor;
+    private float damageMitigation;
     private float regenRemainder;
 
     public int CurrentHealth { get; private set; }
-    public int MaxHealth => maxHealth + maxHealthBonus;
+    public int MaxHealth => maxHealth + maxHealthBonus + levelMaxHealthBonus;
     public bool IsDead => CurrentHealth <= 0;
 
     // Called by PlayerStats when equipped gear's MaxHealth affix total changes.
@@ -50,17 +52,28 @@ public class Health : MonoBehaviour
     // only clamps current health down if it would now exceed the new max.
     public void SetMaxHealthBonus(int bonus)
     {
-        int previousMax = MaxHealth;
+        ApplyMaxHealthDelta(bonus - maxHealthBonus);
         maxHealthBonus = bonus;
-        int delta = MaxHealth - previousMax;
+    }
 
+    // Called by PlayerLevel — separate from the gear-driven bonus above so
+    // the two add together instead of overwriting each other. See
+    // docs/combat-redesign-plan.md.
+    public void SetLevelMaxHealthBonus(int bonus)
+    {
+        ApplyMaxHealthDelta(bonus - levelMaxHealthBonus);
+        levelMaxHealthBonus = bonus;
+    }
+
+    private void ApplyMaxHealthDelta(int delta)
+    {
         if (delta > 0)
         {
             CurrentHealth += delta;
         }
-        else if (CurrentHealth > MaxHealth)
+        else if (CurrentHealth > MaxHealth + delta)
         {
-            CurrentHealth = MaxHealth;
+            CurrentHealth = MaxHealth + delta;
         }
 
         UpdateHealthText();
@@ -72,6 +85,27 @@ public class Health : MonoBehaviour
     public void SetArmor(float armorValue)
     {
         armor = armorValue;
+    }
+
+    // Called by PlayerStats from a Chest passive effect (DamageMitigation) —
+    // a fraction (0.1 = 10%) reduction applied alongside Armor in TakeDamage.
+    // See docs/combat-redesign-plan.md.
+    public void SetDamageMitigation(float fraction)
+    {
+        damageMitigation = fraction;
+    }
+
+    // Called by a Head passive effect (Lifesteal, see PlayerCombat.CheckHit)
+    // or anything else that wants to restore health outside of Regen.
+    public void Heal(int amount)
+    {
+        if (IsDead || amount <= 0)
+        {
+            return;
+        }
+
+        CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + amount);
+        UpdateHealthText();
     }
 
     private void Awake()
@@ -126,9 +160,12 @@ public class Health : MonoBehaviour
             return;
         }
 
-        // Armor reduces incoming damage by a flat amount but never below 1,
-        // so a heavily-armored player can't become fully unkillable.
-        int mitigatedDamage = Mathf.Max(1, damageAmount - Mathf.RoundToInt(armor));
+        // Armor reduces incoming damage by a flat amount, DamageMitigation
+        // (a Chest passive effect, see docs/combat-redesign-plan.md) by a
+        // fraction on top of that — never below 1, so neither can make the
+        // target fully unkillable.
+        float afterArmor = damageAmount - armor;
+        int mitigatedDamage = Mathf.Max(1, Mathf.RoundToInt(afterArmor * (1f - damageMitigation)));
 
         CurrentHealth -= mitigatedDamage;
         CurrentHealth = Mathf.Max(CurrentHealth, 0);

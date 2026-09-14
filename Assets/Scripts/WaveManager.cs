@@ -36,6 +36,7 @@ public class WaveManager : MonoBehaviour
     private List<GameObject> pickupsAwaitingClear2 = new List<GameObject>();
     private bool isSpawningWave;
     private bool gameEnded;
+    private PlayerLevel playerLevel;
 
     public int CurrentWave => currentWave;
     public int EnemiesAlive => enemiesAlive;
@@ -44,6 +45,13 @@ public class WaveManager : MonoBehaviour
 
     private void Start()
     {
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+
+        if (playerObject != null)
+        {
+            playerLevel = playerObject.GetComponent<PlayerLevel>();
+        }
+
         StartCoroutine(StartNextWaveAfterDelay(1f));
     }
 
@@ -208,6 +216,11 @@ public class WaveManager : MonoBehaviour
         enemyHealth.Died -= OnEnemyDied;
 
         enemiesAlive = Mathf.Max(0, enemiesAlive - 1);
+
+        // Kills-only XP (see docs/combat-redesign-plan.md's Level system) —
+        // every enemy death grants XP regardless of how it died (finisher,
+        // Ultimate AoE, etc.), not just direct player hits.
+        playerLevel?.AddKillXp();
 
         if (enemiesAlive <= 0 && !isSpawningWave)
         {

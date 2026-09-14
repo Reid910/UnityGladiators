@@ -65,9 +65,7 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private float ultimateMeterPerFinisher = 15f;
 
     [Header("Deflect / Block")]
-    [Tooltip("Same input handles both, repurposing the unused stock 'Jump' action (bound to Space) — see docs/combat-redesign-plan.md's 'no jump' decision. A fresh press within this window of an incoming hit becomes a perfect Deflect (no cost, fills the Ultimate meter fast); just holding the button Blocks HP damage but costs the player Stagger instead — this is how Sekiro's actual posture-on-block works. Deflect is a universal ability for now; gating it behind a Gloves item is deferred until the gear/itemization system exists.")]
-    [SerializeField] private float deflectWindow = 0.5f;
-    [Tooltip("Fraction of the hit's normal damage-based stagger value the player takes when Blocking (not perfectly deflecting).")]
+    [Tooltip("Same input handles both, repurposing the unused stock 'Jump' action (bound to Space) — see docs/combat-redesign-plan.md's 'no jump' decision. A fresh press within the equipped Gloves item's Deflect Window of an incoming hit becomes a perfect Deflect (no cost, fills the Ultimate meter fast, requires a Gloves item with a DeflectDefinition); just holding the button Blocks HP damage but costs the player Stagger instead, no gear required — this is how Sekiro's actual posture-on-block works.")]
     [SerializeField] private float blockStaggerCostMultiplier = 0.75f;
 
     [Header("Attack")]
@@ -115,6 +113,7 @@ public class PlayerCombat : MonoBehaviour
     private float lastDeflectPressTime = float.NegativeInfinity;
     private bool isBlockHeld;
     private float ultimateMeter;
+    private float nextAutoDodgeTime;
 
     public int ComboStep => comboStep;
     public float AttackCooldownRemaining => Mathf.Max(0f, nextAttackTime - Time.time);
@@ -328,12 +327,51 @@ public class PlayerCombat : MonoBehaviour
         ultimateMeter = Mathf.Min(ultimateMeterMax, ultimateMeter + amount);
     }
 
+    // Head passive effect (see docs/combat-redesign-plan.md) — heals the
+    // player for a fraction of damage just dealt. Read directly from the
+    // equipped item rather than through PlayerStats' static recalculation
+    // since this only matters at the moment a hit actually lands.
+    private void ApplyLifesteal(int damageDealt)
+    {
+        PassiveEffectDefinition headEffect = equipment?.GetEquipped(ItemSlot.Head)?.Definition?.PassiveEffectDefinition;
+
+        if (headEffect == null || headEffect.EffectType != PassiveEffectType.Lifesteal || health == null)
+        {
+            return;
+        }
+
+        health.Heal(Mathf.RoundToInt(damageDealt * headEffect.Value));
+    }
+
+    // Pants passive effect (see docs/combat-redesign-plan.md) — a free
+    // automatic invulnerability window on a cooldown, independent of Boots'
+    // Dash. Polled every frame rather than event-driven since it's a
+    // standing cooldown, not a reaction to something happening.
+    private void Update()
+    {
+        if (IsIncapacitated || Time.time < nextAutoDodgeTime)
+        {
+            return;
+        }
+
+        PassiveEffectDefinition pantsEffect = equipment?.GetEquipped(ItemSlot.Pants)?.Definition?.PassiveEffectDefinition;
+
+        if (pantsEffect == null || pantsEffect.EffectType != PassiveEffectType.AutoDodge)
+        {
+            return;
+        }
+
+        nextAutoDodgeTime = Time.time + pantsEffect.Cooldown;
+        invulnerableUntilTime = Mathf.Max(invulnerableUntilTime, Time.time + pantsEffect.Value);
+    }
+
     // Called by whatever resolves a hit against the player (see
     // EnemyController.ResolveHit()) before applying damage/stagger/hitstun —
     // returns true if the hit was fully absorbed (Deflect or Block), meaning
-    // the caller should skip its normal resolution entirely. Deflect is a
-    // universal ability for now; gating it behind a Gloves item is deferred
-    // until the gear/itemization system exists. See docs/combat-redesign-plan.md.
+    // the caller should skip its normal resolution entirely. Perfect Deflect
+    // requires a Gloves item with a DeflectDefinition; Block is universal
+    // regardless of gear (see docs/combat-redesign-plan.md — this is what
+    // guarantees baseline defense even without a good Gloves item).
     public bool TryDefendAgainst(int incomingDamage)
     {
         if (IsIncapacitated)
@@ -341,7 +379,8 @@ public class PlayerCombat : MonoBehaviour
             return false;
         }
 
-        bool isPerfectDeflect = Time.time - lastDeflectPressTime <= deflectWindow;
+        DeflectDefinition deflectDefinition = equipment?.GetEquipped(ItemSlot.Gloves)?.Definition?.DeflectDefinition;
+        bool isPerfectDeflect = deflectDefinition != null && Time.time - lastDeflectPressTime <= deflectDefinition.DeflectWindow;
 
         if (isPerfectDeflect)
         {
@@ -600,6 +639,7 @@ public class PlayerCombat : MonoBehaviour
 
             enemyHealth.TakeDamage(totalDamage);
             AddUltimateMeter(ultimateMeterPerHit);
+            ApplyLifesteal(totalDamage);
 
             if (enemyStagger != null)
             {
