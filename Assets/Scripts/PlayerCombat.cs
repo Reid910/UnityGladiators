@@ -55,6 +55,18 @@ public class PlayerCombat : MonoBehaviour
     [Tooltip("Separate from enemyLayer — dead enemies' corpse hitboxes (see Health.corpseHitbox) live here so attacks can loot them instead of dealing damage.")]
     [SerializeField] private LayerMask corpseLayer;
 
+    [Header("Slide")]
+    [Tooltip("Dash while sprinting triggers a Slide instead of the normal instant-burst dash — same distance/cooldown/i-frames from the equipped DashDefinition, but covered over this duration instead of one instant Move(). See docs/combat-redesign-plan.md.")]
+    [SerializeField] private float slideDuration = 0.3f;
+    [Tooltip("Speed multiplier applied briefly right after a Slide ends — the actual 'chain moves while still fast' ingredient, not the slide itself.")]
+    [SerializeField] private float slideMomentumMultiplier = 1.4f;
+    [SerializeField] private float slideMomentumDuration = 0.25f;
+
+    [Header("Movement-state attack variants")]
+    [Tooltip("Window after a Dash/Slide ends where the next Light attack becomes a dodge-out attack. No distinct animation exists yet (see docs/combat-redesign-plan.md) — a forward lunge burst is the placeholder mechanical effect that makes the variant real and testable already.")]
+    [SerializeField] private float dodgeOutWindow = 0.25f;
+    [SerializeField] private float attackLungeDistance = 1.2f;
+
     [Header("References")]
     [SerializeField] private Animator animator;
     [SerializeField] private Health health;
@@ -75,6 +87,7 @@ public class PlayerCombat : MonoBehaviour
     private float nextAbilityTime;
     private float nextDashTime;
     private float invulnerableUntilTime;
+    private float dashEndedTime = float.NegativeInfinity;
 
     public int ComboStep => comboStep;
     public float AttackCooldownRemaining => Mathf.Max(0f, nextAttackTime - Time.time);
@@ -200,7 +213,24 @@ public class PlayerCombat : MonoBehaviour
         ComboHit hit = lightComboHits[hitIndex];
         comboStep++;
 
+        // Movement-state attack variants (see docs/combat-redesign-plan.md,
+        // modeled on Elden Ring's running/roll attacks): dodge-out takes
+        // priority since a Slide is also technically "sprinting" right as it
+        // ends. No distinct animation exists for either yet — a forward
+        // lunge burst is the placeholder mechanical effect.
+        bool isDodgeOutAttack = Time.time - dashEndedTime <= dodgeOutWindow;
+        bool isSprintAttack = !isDodgeOutAttack && playerController != null && playerController.IsSprinting;
+
         BeginAttack(hit.damage, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime);
+
+        if (isDodgeOutAttack || isSprintAttack)
+        {
+            Vector3 lungeDirection = playerController != null && playerController.MovementDirection.sqrMagnitude > 0.01f
+                ? playerController.MovementDirection
+                : transform.forward;
+
+            characterController.Move(lungeDirection * attackLungeDistance);
+        }
 
         comboResetTime = nextAttackTime + comboWindow;
     }
@@ -369,8 +399,20 @@ public class PlayerCombat : MonoBehaviour
             ? playerController.MovementDirection
             : transform.forward;
 
-        characterController.Move(dashDirection * dashDefinition.Distance);
         invulnerableUntilTime = Time.time + dashDefinition.InvulnerabilityDuration;
+
+        // Dash while sprinting becomes a Slide instead of the normal
+        // instant-burst dash — same input, state-conditional result, no new
+        // button (see docs/combat-redesign-plan.md).
+        if (playerController != null && playerController.IsSprinting)
+        {
+            StartCoroutine(PerformSlide(dashDirection, dashDefinition.Distance));
+        }
+        else
+        {
+            characterController.Move(dashDirection * dashDefinition.Distance);
+            dashEndedTime = Time.time;
+        }
 
         if (dashDefinition.DealsDamage)
         {
@@ -383,6 +425,28 @@ public class PlayerCombat : MonoBehaviour
         }
 
         nextDashTime = Time.time + dashDefinition.Cooldown;
+    }
+
+    // Covers the same total distance as a normal dash, but over time
+    // instead of one instant Move() — the actual "slide" — then applies a
+    // brief momentum boost so chaining into the next action (another dash,
+    // a dodge-out attack) feels fast rather than snapping back to normal
+    // speed immediately. See docs/combat-redesign-plan.md.
+    private IEnumerator PerformSlide(Vector3 direction, float distance)
+    {
+        float elapsed = 0f;
+        float speed = distance / Mathf.Max(0.01f, slideDuration);
+
+        while (elapsed < slideDuration)
+        {
+            float step = Mathf.Min(Time.deltaTime, slideDuration - elapsed);
+            characterController.Move(direction * speed * step);
+            elapsed += step;
+            yield return null;
+        }
+
+        dashEndedTime = Time.time;
+        playerController?.ApplyMomentumBoost(slideMomentumMultiplier, slideMomentumDuration);
     }
 
     private void CheckHit(int totalDamage, float hitstunDuration, HashSet<Health> alreadyHit, float range)

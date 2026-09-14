@@ -28,6 +28,24 @@ change or a numeric tweak to fields that already exist. Verify:
    needs to stay bigger than `Stopping Distance` on `Enemy.prefab` or the
    Shuffle band collapses to nothing.
 
+## Combat identity redesign, step 4 — verify before trusting
+
+No new Inspector wiring needed — all new fields default sensibly, and
+`Sprint` was already bound (Left Shift) in the Input Actions asset, just
+unused until now. Verify:
+
+1. **Sprint**: hold Left Shift while moving — should visibly speed up, no
+   limit on duration (no stamina bar exists to drain).
+2. **Slide**: hold Sprint and press Dash — should cover the dash distance
+   over a short slide instead of an instant teleport-like burst, and you
+   should feel a brief speed boost right after it ends (easiest to notice
+   by immediately holding a movement direction after the slide finishes).
+   Dash while NOT sprinting should behave exactly as before (instant).
+3. **Dodge-out / sprint attacks**: attack immediately after a dash/slide
+   ends, or while sprinting — you should see/feel an extra forward lunge on
+   top of the normal Light hit. Attacking normally (not sprinting, not
+   right after a dash) should be unaffected.
+
 ## Combat identity redesign — NavMeshAgent switch deferred
 
 Not done — see `TODO.md`. If picking this up later: add a `NavMeshAgent`

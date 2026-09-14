@@ -635,6 +635,27 @@ breaks and finishers, not a slow tank-and-spank.
       either real arena geometry to path around, or enemy-clumping in
       testing shows agent-to-agent avoidance is actually needed on its own.
 
+## Combat identity redesign, step 4: movement additions — see docs/combat-redesign-plan.md
+- [x] **Unlimited sprint, no stamina meter.** `PlayerController` reads the
+      existing (previously unused) `Sprint` input action and applies
+      `Sprint Speed Multiplier` while held and moving. Exposed as
+      `IsSprinting`/`MovementDirection` for `PlayerCombat` to react to.
+- [x] **Slide**: `PlayerCombat.TryDash()` while sprinting now runs
+      `PerformSlide()` instead of the normal instant-burst dash — same
+      distance/cooldown/i-frames from the equipped `DashDefinition`, but
+      covered over `Slide Duration` instead of one instant `Move()`. Ends
+      with a brief `PlayerController.ApplyMomentumBoost()` speed bump
+      (`Slide Momentum Multiplier` for `Slide Momentum Duration`) — the
+      actual ingredient that makes chaining moves feel fast, not the slide
+      alone.
+- [x] **Dodge-out / sprint attacks**: `TryLightAttack()` now detects being
+      within `Dodge Out Window` seconds of a Dash/Slide ending, or
+      currently sprinting, and applies a forward lunge burst
+      (`Attack Lunge Distance`) on top of the normal hit. No distinct
+      animation exists for either variant yet — this is the placeholder
+      mechanical effect that makes them real and testable already, per the
+      "cheap to build, checks existing state" framing in the design doc.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

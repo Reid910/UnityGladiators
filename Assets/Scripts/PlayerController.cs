@@ -7,6 +7,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float movementSpeed = 5f;
     [SerializeField] private float rotationSpeed = 12f;
     [SerializeField] private float gravity = -20f;
+    [Tooltip("Speed multiplier while holding Sprint. Unlimited — no stamina meter (see docs/combat-redesign-plan.md); Dash's own cooldown already covers 'can't spam mobility forever'.")]
+    [SerializeField] private float sprintSpeedMultiplier = 1.6f;
 
     [Header("Animation")]
     [SerializeField] private float animationBlendSpeed = 10f;
@@ -35,6 +37,24 @@ public class PlayerController : MonoBehaviour
     // lags behind input during quick turns since rotation is smoothed
     // (rotationSpeed), but a dash should go where you're pressing right now.
     public Vector3 MovementDirection { get; private set; }
+
+    // True while Sprint is held and the player is actually moving — exposed
+    // for PlayerCombat's dash-while-sprinting-triggers-a-Slide and
+    // sprint-attack behaviors (see docs/combat-redesign-plan.md).
+    public bool IsSprinting { get; private set; }
+
+    private float momentumMultiplier = 1f;
+    private float momentumUntilTime;
+
+    // Called by PlayerCombat when a Slide ends — a brief residual speed
+    // boost is the actual ingredient that makes chaining moves (slide into
+    // another dash, into an attack) feel fast instead of the slide just
+    // being an animation. See docs/combat-redesign-plan.md.
+    public void ApplyMomentumBoost(float multiplier, float duration)
+    {
+        momentumMultiplier = multiplier;
+        momentumUntilTime = Time.time + duration;
+    }
 
     // Movement is locked while stunned from a hit, broken from stagger, or
     // dead — mirrors the same restriction EnemyController applies to enemies.
@@ -103,6 +123,7 @@ public class PlayerController : MonoBehaviour
         else
         {
             MovementDirection = Vector3.zero;
+            IsSprinting = false;
         }
 
         ApplyGravity();
@@ -135,10 +156,21 @@ public class PlayerController : MonoBehaviour
             // Normalize movement so diagonal movement is not faster.
             movementDirection.Normalize();
             MovementDirection = movementDirection;
+            IsSprinting = inputSystemActions.Player.Sprint.IsPressed();
 
             // Move Speed affix (Pants-flavored, see TODO.md) is a fractional
             // bonus on top of the base speed.
             float moveSpeedMultiplier = 1f + (playerStats != null ? playerStats.GetStat(StatType.MoveSpeed) : 0f);
+
+            if (IsSprinting)
+            {
+                moveSpeedMultiplier *= sprintSpeedMultiplier;
+            }
+
+            if (Time.time < momentumUntilTime)
+            {
+                moveSpeedMultiplier *= momentumMultiplier;
+            }
 
             characterController.Move(
                 movementDirection * movementSpeed * moveSpeedMultiplier * Time.deltaTime
@@ -155,6 +187,7 @@ public class PlayerController : MonoBehaviour
         else
         {
             MovementDirection = Vector3.zero;
+            IsSprinting = false;
         }
     }
 
