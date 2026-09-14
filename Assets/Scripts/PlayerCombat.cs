@@ -589,6 +589,14 @@ public class PlayerCombat : MonoBehaviour
     // speed immediately. See docs/combat-redesign-plan.md.
     private IEnumerator PerformSlide(Vector3 direction, float distance)
     {
+        // RollForward (Blink pack) stands in for a dedicated slide clip —
+        // no literal "slide" animation exists in the pack, but a forward
+        // roll reads as the same kind of low, fast, forward-traveling move.
+        if (animator != null)
+        {
+            animator.SetTrigger("Slide");
+        }
+
         float elapsed = 0f;
         float speed = distance / Mathf.Max(0.01f, slideDuration);
 

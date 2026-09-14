@@ -723,6 +723,15 @@ breaks and finishers, not a slow tank-and-spank.
       plumbing only. Authoring real item content (so these slots actually
       drop and do something in a playthrough) is separate follow-up work.
 
+## Slide animation hookup — combat-feel follow-up
+- [x] `PerformSlide()` now fires a new `Slide` animator trigger. No literal
+      "slide" clip exists in the Blink pack, so `RollForward.fbx` (Movement
+      folder) stands in — a forward roll reads as the same kind of low,
+      fast, forward-traveling move. Same filler-clip approach as
+      `AttackHeavy`/`AbilityCast` earlier — verified with the same PyYAML
+      fileID/parameter cross-reference script used for every prior
+      Animator Controller hand-edit.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

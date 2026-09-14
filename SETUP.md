@@ -70,6 +70,17 @@ in the Input Actions asset, just unused until now. Verify:
    **Light attack on a broken enemy** still plays the same instant-kill
    (no dedicated cinematic exists yet — that's still open, see `TODO.md`).
 
+## Slide animation — verify before trusting
+
+Same hand-edit technique as every other Animator Controller change this
+project — no new Inspector wiring needed. Verify:
+
+1. Sprint, then Dash — should play a forward-roll animation (`RollForward`
+   filler clip, no dedicated slide clip exists) for the slide's duration,
+   then return to normal locomotion.
+2. Dash while NOT sprinting should still play no special animation (same as
+   before this change).
+
 ## Combat identity redesign, step 6 — REQUIRED manual step
 
 **`PlayerLevel` must be added to `Player.prefab` in the Editor** (Add
