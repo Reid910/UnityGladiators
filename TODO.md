@@ -605,6 +605,16 @@ breaks and finishers, not a slow tank-and-spank.
       hits actually matter), `WaveManager.enemiesAddedPerWave` 2→1, and
       SampleScene's 4 spawn points spread from ~6-7 units apart to ~10-12.
 
+## Combat identity redesign, step 2: dash respects movement input — see docs/combat-redesign-plan.md
+- [x] `PlayerCombat.TryDash()` now dashes in the camera-relative movement
+      direction the player is currently pressing (`PlayerController.
+      MovementDirection`, newly exposed) instead of always firing in
+      `transform.forward`. Falls back to facing direction when standing
+      still. `transform.forward` previously lagged behind quick direction
+      changes since `PlayerController` smooths rotation — a dash now goes
+      where you're pressing right now, not where the body has visually
+      finished turning to.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

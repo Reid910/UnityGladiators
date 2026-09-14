@@ -63,6 +63,7 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private Hitstun hitstun;
     [SerializeField] private PlayerStats playerStats;
     [SerializeField] private PlayerEquipment equipment;
+    [SerializeField] private PlayerController playerController;
 
     private InputSystem_Actions inputSystemActions;
     private Coroutine attackCoroutine;
@@ -142,6 +143,11 @@ public class PlayerCombat : MonoBehaviour
         if (equipment == null)
         {
             equipment = GetComponent<PlayerEquipment>();
+        }
+
+        if (playerController == null)
+        {
+            playerController = GetComponent<PlayerController>();
         }
     }
 
@@ -354,7 +360,16 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        characterController.Move(transform.forward * dashDefinition.Distance);
+        // Respects movement input direction instead of always firing in the
+        // current facing (see docs/combat-redesign-plan.md) — transform.forward
+        // lags behind input during quick turns since PlayerController smooths
+        // rotation, but a dash should go where you're pressing right now.
+        // Falls back to facing direction when standing still.
+        Vector3 dashDirection = playerController != null && playerController.MovementDirection.sqrMagnitude > 0.01f
+            ? playerController.MovementDirection
+            : transform.forward;
+
+        characterController.Move(dashDirection * dashDefinition.Distance);
         invulnerableUntilTime = Time.time + dashDefinition.InvulnerabilityDuration;
 
         if (dashDefinition.DealsDamage)

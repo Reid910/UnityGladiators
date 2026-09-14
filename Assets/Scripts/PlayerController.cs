@@ -28,6 +28,14 @@ public class PlayerController : MonoBehaviour
     private float currentMoveX;
     private float currentMoveZ;
 
+    // Camera-relative world-space movement direction from raw input, zero
+    // when not moving. Exposed so PlayerCombat's dash can fire in the
+    // direction the player is actually pressing instead of always
+    // transform.forward (see docs/combat-redesign-plan.md) — transform.forward
+    // lags behind input during quick turns since rotation is smoothed
+    // (rotationSpeed), but a dash should go where you're pressing right now.
+    public Vector3 MovementDirection { get; private set; }
+
     // Movement is locked while stunned from a hit, broken from stagger, or
     // dead — mirrors the same restriction EnemyController applies to enemies.
     private bool IsIncapacitated =>
@@ -92,6 +100,10 @@ public class PlayerController : MonoBehaviour
         {
             HandleMovement();
         }
+        else
+        {
+            MovementDirection = Vector3.zero;
+        }
 
         ApplyGravity();
         UpdateAnimation();
@@ -122,6 +134,7 @@ public class PlayerController : MonoBehaviour
 
             // Normalize movement so diagonal movement is not faster.
             movementDirection.Normalize();
+            MovementDirection = movementDirection;
 
             // Move Speed affix (Pants-flavored, see TODO.md) is a fractional
             // bonus on top of the base speed.
@@ -138,6 +151,10 @@ public class PlayerController : MonoBehaviour
                 targetRotation,
                 rotationSpeed * Time.deltaTime
             );
+        }
+        else
+        {
+            MovementDirection = Vector3.zero;
         }
     }
 
