@@ -21,6 +21,22 @@ change or a numeric tweak to fields that already exist. Verify:
 3. **Numbers**: confirm stagger visibly takes longer to decay from a partial
    fill, the player's health bar shows 120 max instead of 500, and wave 5
    spawns 6 enemies instead of 10 (`2 + 4×1` vs. the old `2 + 4×2`).
+4. **Enemy Shuffle**: approach an enemy from far away — it should Sprint
+   straight at you, then within `Shuffle Distance` (default 3.5) start
+   moving side to side while still facing you, then close in and attack
+   once within `Stopping Distance`. If it looks wrong, `Shuffle Distance`
+   needs to stay bigger than `Stopping Distance` on `Enemy.prefab` or the
+   Shuffle band collapses to nothing.
+
+## Combat identity redesign — NavMeshAgent switch deferred
+
+Not done — see `TODO.md`. If picking this up later: add a `NavMeshAgent`
+component to `Enemy.prefab` in the Editor (don't hand-edit this one, too
+many fields to get right blind), bake a NavMesh for the arena/ground
+(Window → AI → Navigation, mark ground as Navigation Static, Bake), then
+swap `EnemyController`'s movement calls to use the agent instead of
+`CharacterController`. Until then, movement works fine via the existing
+`CharacterController` path — this isn't blocking anything, just deferred.
 
 ## Corpse loot-rarity glow — verify Visual Renderer assignment
 

@@ -615,6 +615,26 @@ breaks and finishers, not a slow tank-and-spank.
       where you're pressing right now, not where the body has visually
       finished turning to.
 
+## Combat identity redesign, step 3: enemy Shuffle phase — see docs/combat-redesign-plan.md
+- [x] `EnemyController` now has a three-phase approach instead of one
+      constant chase speed: **Sprint** (unchanged, straight toward the
+      player) while beyond the new `Shuffle Distance`, **Shuffle** (moves
+      side to side while still facing the player, like circling for an
+      opening — new `ShuffleAroundTarget()`) once inside `Shuffle Distance`
+      but not yet in `Stopping Distance`, then **Attack** once in range.
+      Flips shuffle direction every `Shuffle Flip Interval` seconds.
+- [ ] **Deferred: the actual NavMeshAgent switch.** The original plan was
+      NavMesh for both obstacle pathfinding and free agent-to-agent
+      avoidance, but there's no arena/obstacles built yet and no NavMesh
+      baked in `SampleScene` — adding a `NavMeshAgent` component via hand
+      -edited YAML blind (many finicky fields, no way to verify without the
+      Editor) for zero current visible benefit (nothing to path around) was
+      judged not worth the risk right now. Shuffle above uses the existing
+      `CharacterController`-based movement instead, which already reliably
+      does "move toward the player." Revisit NavMeshAgent once there's
+      either real arena geometry to path around, or enemy-clumping in
+      testing shows agent-to-agent avoidance is actually needed on its own.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

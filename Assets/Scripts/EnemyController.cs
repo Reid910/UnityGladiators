@@ -14,6 +14,12 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float rotationSpeed = 10f;
     [SerializeField] private float stoppingDistance = 1.6f;
     [SerializeField] private float gravity = -20f;
+    [Tooltip("Distance band between this and Stopping Distance where the enemy Shuffles (moves side to side while facing the player, like circling for an opening) instead of closing straight in. Above this distance the enemy Sprints straight toward the player. See docs/combat-redesign-plan.md.")]
+    [SerializeField] private float shuffleDistance = 3.5f;
+    [Tooltip("Lateral movement speed while Shuffling — separate from Movement Speed so the shuffle can read as more tentative/searching than a full Sprint.")]
+    [SerializeField] private float shuffleSpeed = 1.5f;
+    [Tooltip("How often the shuffle direction flips (left/right), in seconds.")]
+    [SerializeField] private float shuffleFlipInterval = 0.8f;
 
     [Header("Combat")]
     [SerializeField] private int attackDamage = 10;
@@ -49,6 +55,8 @@ public class EnemyController : MonoBehaviour
     private float nextAttackTime;
     private bool isAttacking;
     private MaterialPropertyBlock propertyBlock;
+    private float shuffleDirection = 1f;
+    private float nextShuffleFlipTime;
 
     public EnemyTier Tier => tier;
 
@@ -132,9 +140,17 @@ public class EnemyController : MonoBehaviour
 
         float distanceToTarget = Vector3.Distance(transform.position, target.position);
 
-        if (distanceToTarget > stoppingDistance)
+        // Three-phase approach instead of one constant chase speed: Sprint
+        // while far, Shuffle (circle, looking for an opening) once close but
+        // not yet in range, Attack once in range. See docs/combat-redesign-plan.md.
+        if (distanceToTarget > shuffleDistance)
         {
             MoveTowardTarget();
+            SetMoving(true);
+        }
+        else if (distanceToTarget > stoppingDistance)
+        {
+            ShuffleAroundTarget();
             SetMoving(true);
         }
         else
@@ -157,16 +173,47 @@ public class EnemyController : MonoBehaviour
         }
 
         directionToTarget.Normalize();
+        RotateToFaceDirection(directionToTarget);
 
-        Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
+        characterController.Move(directionToTarget * movementSpeed * Time.deltaTime);
+    }
+
+    // Moves side to side while still facing the player, like real sword
+    // -fighting circling/feinting while looking for an opening — reads as
+    // "about to commit to something" more than a slower straight approach
+    // would. See docs/combat-redesign-plan.md.
+    private void ShuffleAroundTarget()
+    {
+        Vector3 directionToTarget = target.position - transform.position;
+        directionToTarget.y = 0f;
+
+        if (directionToTarget.sqrMagnitude <= 0.01f)
+        {
+            return;
+        }
+
+        directionToTarget.Normalize();
+        RotateToFaceDirection(directionToTarget);
+
+        if (Time.time >= nextShuffleFlipTime)
+        {
+            shuffleDirection *= -1f;
+            nextShuffleFlipTime = Time.time + shuffleFlipInterval;
+        }
+
+        Vector3 lateralDirection = Vector3.Cross(Vector3.up, directionToTarget).normalized;
+        characterController.Move(lateralDirection * shuffleDirection * shuffleSpeed * Time.deltaTime);
+    }
+
+    private void RotateToFaceDirection(Vector3 direction)
+    {
+        Quaternion targetRotation = Quaternion.LookRotation(direction);
 
         transform.rotation = Quaternion.Slerp(
             transform.rotation,
             targetRotation,
             rotationSpeed * Time.deltaTime
         );
-
-        characterController.Move(directionToTarget * movementSpeed * Time.deltaTime);
     }
 
     private void AttackTarget()
