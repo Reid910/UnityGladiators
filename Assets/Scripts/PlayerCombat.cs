@@ -70,6 +70,7 @@ public class PlayerCombat : MonoBehaviour
     private int comboStep;
     private float comboResetTime;
     private float nextAttackTime;
+    private float hyperArmorUntilTime;
     private float nextAbilityTime;
     private float nextDashTime;
     private float invulnerableUntilTime;
@@ -80,12 +81,14 @@ public class PlayerCombat : MonoBehaviour
     public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
     public float DashCooldownRemaining => Mathf.Max(0f, nextDashTime - Time.time);
 
-    // Hyper armor window: true from the moment an attack starts (windup)
-    // until its full recovery ends — the same window nextAttackTime already
-    // gates. EnemyController checks this to skip applying Hitstun while true;
+    // Hyper armor window: true from the moment a Heavy attack starts (windup)
+    // until its full recovery ends. Light no longer grants this (see
+    // docs/combat-redesign-plan.md — cut so basic combat has a real safe
+    // window to poke in, Heavy stays a deliberate bigger-commitment trade).
+    // EnemyController checks this to skip applying Hitstun while true;
     // damage/Stagger still land normally, so this only stops a routine hit
     // from flinching the player out of a swing they've already committed to.
-    public bool IsAttacking => Time.time < nextAttackTime;
+    public bool IsAttacking => Time.time < hyperArmorUntilTime;
 
     // True i-frames from dashing (see DashDefinition.InvulnerabilityDuration)
     // — unlike hyper armor, this blocks damage/stagger/finishers entirely,
@@ -205,7 +208,7 @@ public class PlayerCombat : MonoBehaviour
 
         // Dedicated AttackHeavy state (MeleeAttack_TwoHanded) — a bigger,
         // different motion from any combo hit.
-        BeginAttack(heavyDamage, heavyHitstunDuration, "AttackHeavy", heavyWindup, heavyActiveDuration, heavyRecoveryTime);
+        BeginAttack(heavyDamage, heavyHitstunDuration, "AttackHeavy", heavyWindup, heavyActiveDuration, heavyRecoveryTime, grantsHyperArmor: true);
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
@@ -219,7 +222,7 @@ public class PlayerCombat : MonoBehaviour
         return duration / Mathf.Max(0.1f, attackSpeedMultiplier);
     }
 
-    private void BeginAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime, float range = -1f)
+    private void BeginAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime, float range = -1f, bool grantsHyperArmor = false)
     {
         float scaledWindup = ApplyAttackSpeed(windup);
         float scaledActiveDuration = ApplyAttackSpeed(activeDuration);
@@ -228,6 +231,11 @@ public class PlayerCombat : MonoBehaviour
 
         AttackCooldownDuration = scaledWindup + scaledActiveDuration + scaledRecoveryTime;
         nextAttackTime = Time.time + AttackCooldownDuration;
+
+        if (grantsHyperArmor)
+        {
+            hyperArmorUntilTime = nextAttackTime;
+        }
 
         if (attackCoroutine != null)
         {

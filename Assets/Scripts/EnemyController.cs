@@ -26,6 +26,11 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float attackRange = 1.8f;
     [SerializeField] private float attackCooldown = 1.25f;
 
+    [Header("Telegraph")]
+    [Tooltip("Filler visual telegraph until real wind-up animations exist — flickers this color during the attack windup so an incoming hit is readable, not just mechanically fair (the windup timing already existed, it just wasn't visible). See docs/combat-redesign-plan.md.")]
+    [SerializeField] private Color telegraphFlickerColor = new Color(1f, 0.15f, 0.1f);
+    [SerializeField] private float telegraphFlickerInterval = 0.08f;
+
     [Header("References")]
     [SerializeField] private Transform target;
     [SerializeField] private Animator animator;
@@ -89,6 +94,11 @@ public class EnemyController : MonoBehaviour
     // see EnemyTierColor.
     private void TintByTier()
     {
+        SetTint(EnemyTierColor.Get(tier));
+    }
+
+    private void SetTint(Color tint)
+    {
         if (visualRenderer == null)
         {
             return;
@@ -96,7 +106,6 @@ public class EnemyController : MonoBehaviour
 
         propertyBlock ??= new MaterialPropertyBlock();
         visualRenderer.GetPropertyBlock(propertyBlock);
-        Color tint = EnemyTierColor.Get(tier);
         propertyBlock.SetColor("_BaseColor", tint);
         propertyBlock.SetColor("_Color", tint);
         visualRenderer.SetPropertyBlock(propertyBlock);
@@ -182,7 +191,7 @@ public class EnemyController : MonoBehaviour
 
         if (attackWindup > 0f)
         {
-            yield return new WaitForSeconds(attackWindup);
+            yield return StartCoroutine(FlickerTelegraph(attackWindup));
         }
 
         // Getting broken mid-windup cancels the swing, same rule as the player's.
@@ -205,6 +214,29 @@ public class EnemyController : MonoBehaviour
         }
 
         isAttacking = false;
+    }
+
+    // Filler telegraph until real wind-up animations exist — flickers
+    // between the tier tint and a warning color for the whole windup, then
+    // guarantees the tier tint is restored before the active hit window
+    // starts. See docs/combat-redesign-plan.md.
+    private IEnumerator FlickerTelegraph(float duration)
+    {
+        float elapsed = 0f;
+        bool flickerOn = false;
+        Color tierTint = EnemyTierColor.Get(tier);
+
+        while (elapsed < duration)
+        {
+            flickerOn = !flickerOn;
+            SetTint(flickerOn ? telegraphFlickerColor : tierTint);
+
+            float step = Mathf.Min(telegraphFlickerInterval, duration - elapsed);
+            yield return new WaitForSeconds(step);
+            elapsed += step;
+        }
+
+        SetTint(tierTint);
     }
 
     private bool IsTargetInRange()

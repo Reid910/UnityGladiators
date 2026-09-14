@@ -3,6 +3,25 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Combat identity redesign, step 1 — verify before trusting
+
+No new Inspector wiring needed — everything here is either a pure code
+change or a numeric tweak to fields that already exist. Verify:
+
+1. **Hyper armor**: get hit by an enemy mid-Light-combo — you should now
+   flinch/hitstun (assuming no other immunity applies), unlike before. Get
+   hit mid-Heavy — you should still be immune to the flinch (hyper armor
+   still applies), only the animation/hitbox timing changed.
+2. **Telegraph flicker**: watch an enemy about to attack — it should flicker
+   between its tier color and a red/orange warning tint for the whole
+   windup, then settle back to its tier color right as the hit resolves.
+   `EnemyController`'s new `Telegraph Flicker Color`/`Telegraph Flicker
+   Interval` fields are tunable on the prefab if the flicker reads as too
+   fast/slow or the wrong color.
+3. **Numbers**: confirm stagger visibly takes longer to decay from a partial
+   fill, the player's health bar shows 120 max instead of 500, and wave 5
+   spawns 6 enemies instead of 10 (`2 + 4×1` vs. the old `2 + 4×2`).
+
 ## Corpse loot-rarity glow — verify Visual Renderer assignment
 
 `LootableCorpse` now tints the enemy's renderer once the corpse becomes

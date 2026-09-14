@@ -586,6 +586,25 @@ breaks and finishers, not a slow tank-and-spank.
       (`t2UnlockWave`/`t3UnlockWave`), but no T2/T3 prefab has been built to
       actually spawn and show the new tint. Content gap, not a code gap.
 
+## Combat identity redesign, step 1: tuning + small code changes — see docs/combat-redesign-plan.md
+- [x] Hyper armor removed from Light attacks — `PlayerCombat.IsAttacking`
+      (hyper armor) now only tracks a Heavy attack's window
+      (`hyperArmorUntilTime`, separate from the shared `nextAttackTime`
+      cooldown gate). Heavy still grants it as a deliberate bigger
+      -commitment trade; Ability was already exempt. Basic combat (Light)
+      now has a real safe window to poke in instead of every swing being a
+      designed trade.
+- [x] Enemy attack telegraph flicker — `EnemyController.FlickerTelegraph()`
+      flickers the enemy between its tier tint and a warning color for the
+      whole `attackWindup`, reusing the existing `MaterialPropertyBlock`
+      tint technique instead of new animations. The windup timing already
+      existed and was mechanically fair; it just wasn't visible.
+- [x] Placeholder numbers (all explicit test values, expect to retune):
+      `Stagger.decayPerSecond` 5→2 (both Player and Enemy prefabs), Player
+      `maxHealth`/`regenPerSecond` 500/10→120/2 (closer to enemy baseline so
+      hits actually matter), `WaveManager.enemiesAddedPerWave` 2→1, and
+      SampleScene's 4 spawn points spread from ~6-7 units apart to ~10-12.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
