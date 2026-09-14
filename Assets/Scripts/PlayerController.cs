@@ -230,5 +230,11 @@ public class PlayerController : MonoBehaviour
         animator.SetFloat("MoveZ", currentMoveZ);
         animator.SetFloat("Speed", movementInput.magnitude);
         animator.SetBool("IsMoving", movementInput.sqrMagnitude > 0.01f);
+
+        // Forward-only Sprint clip is a clean fit here, not a directional
+        // compromise — the character already always rotates to face
+        // MovementDirection above regardless of sprint state, so there's
+        // never actually a "strafing while sprinting" case to represent.
+        animator.SetBool("IsSprinting", IsSprinting);
     }
 }

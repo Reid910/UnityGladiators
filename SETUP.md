@@ -81,6 +81,25 @@ project — no new Inspector wiring needed. Verify:
 2. Dash while NOT sprinting should still play no special animation (same as
    before this change).
 
+## GetHit / BlockingLoop / Sprint animations — verify before trusting
+
+Same hand-edit technique, no new Inspector wiring. Verify:
+
+1. Take a hit — should play `GetHit` briefly before returning to normal
+   locomotion. Should NOT play while already in `StunnedLoop` (Broken) —
+   structurally shouldn't be possible since broken targets get finished via
+   `Execute()` instead of `TakeDamage()`, but worth confirming.
+2. Hold the Deflect/Block input (Space) — should loop `BlockingLoop` the
+   whole time held, and return to normal locomotion the instant it's
+   released.
+3. Hold Sprint while moving — should play `Sprint` instead of the normal
+   run cycle, and return to Locomotion the instant Sprint is released or
+   movement stops.
+4. **Known mismatch, not fixed yet**: getting hit while hyper-armored
+   (mid-Heavy-swing) still plays `GetHit` even though hitstun itself is
+   suppressed — see the note in `TODO.md`. Not broken, just a visual
+   inconsistency worth knowing about if it looks odd in play.
+
 ## Combat identity redesign, step 6 — REQUIRED manual step
 
 **`PlayerLevel` must be added to `Player.prefab` in the Editor** (Add

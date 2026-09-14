@@ -236,11 +236,21 @@ public class PlayerCombat : MonoBehaviour
     {
         lastDeflectPressTime = Time.time;
         isBlockHeld = true;
+
+        if (animator != null)
+        {
+            animator.SetBool("IsBlocking", true);
+        }
     }
 
     private void OnDeflectCanceled(InputAction.CallbackContext context)
     {
         isBlockHeld = false;
+
+        if (animator != null)
+        {
+            animator.SetBool("IsBlocking", false);
+        }
     }
 
     // No inventory: swaps whatever's in the nearby ItemPickup's slot with

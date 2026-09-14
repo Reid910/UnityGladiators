@@ -732,6 +732,30 @@ breaks and finishers, not a slow tank-and-spank.
       fileID/parameter cross-reference script used for every prior
       Animator Controller hand-edit.
 
+## Three more animation hookups — combat-feel follow-up
+- [x] **GetHit**: the `Hit` trigger parameter has existed since earlier this
+      session (added just to stop a console error) but had no state/clip
+      wired to it — every hit fired a parameter that did nothing visually.
+      Now plays `GetHit` (Blink pack) before returning to Locomotion.
+- [x] **BlockingLoop**: new `IsBlocking` bool, driven by `PlayerCombat`'s
+      Deflect/Block input (`isBlockHeld`) — Block previously had zero
+      visual feedback at all.
+- [x] **Sprint**: new `IsSprinting` bool, driven by `PlayerController`.
+      `Sprint.fbx` is forward-only, which turns out to be a clean fit, not
+      a directional compromise — the character already always rotates to
+      face `MovementDirection` regardless of sprint state (see step 2's
+      dash-direction work), so there's never actually a "strafing while
+      sprinting" case to represent.
+- [ ] **Known caveat, not fixed here**: `Health.TakeDamage()` fires `Hit`
+      unconditionally, but hyper armor (see combat identity redesign step
+      1) only suppresses `Hitstun`, not this animator trigger — meaning a
+      player mid-Heavy-swing (hyper armor active) will still visually
+      flinch into `GetHit` even though they're supposed to be immune to
+      being flinched. Fixing it means threading a "suppress Hit animation"
+      flag from `PlayerCombat.IsAttacking` through both `TakeDamage()`
+      call sites (`EnemyController.ResolveHit()` is the one that matters,
+      since only the player has hyper armor) — scoped out of this pass.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
