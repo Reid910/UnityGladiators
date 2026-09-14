@@ -106,28 +106,34 @@ doc are trying to make feel good, just approached from opposite ends.
 
 - **Dash** should respect movement input direction instead of always firing
   in the current facing direction (`transform.forward`).
-- **Stagger decay** should be significantly slower than the current flat
-  5/sec — exact number is a playtest-tuning call, not pinned down here.
-  **Resolved (cross-referenced with the Mac session's stagger placeholder
-  below): decay slowing down is the primary lever, not raising
-  `damageToStaggerMultiplier`** — that stays at 1 for now. Doing both at
-  once risked overcorrecting into stagger being trivial to trigger; pick one
-  lever, retune later if decay alone isn't enough.
-- **Player HP/regen (500 / 10 per sec) is an acknowledged testing crutch**,
-  not an intentional design target — the user doesn't feel survivable
-  without it *because* the real survivability tools (readable enemy
-  telegraphs, enemy spacing, saner wave density) aren't there yet. Plan is
-  to fix those root causes first, then bring HP/regen back down — not to
-  leave the crutch in place permanently. Exact new numbers: playtest-tuning
-  call, not pinned here.
+- **Stagger decay: placeholder `decayPerSecond` 5 → 2** (test value). At
+  `maxStagger` 100 (enemy), that's 50s to fully drain from max instead of
+  20s — meaningfully more forgiving without removing the always-decaying
+  pressure entirely. **Resolved (cross-referenced with the Mac session's
+  stagger placeholder below): decay slowing down is the primary lever, not
+  raising `damageToStaggerMultiplier`** — that stays at 1 for now. Doing
+  both at once risked overcorrecting into stagger being trivial to trigger;
+  pick one lever, retune later if decay alone isn't enough.
+- **Player HP/regen: placeholder 500/10 → 120/2** (test value). The doc's
+  own stated identity is "wins fights by disabling enemies, not
+  out-statting them," but 500 HP against a 100-HP/10-damage enemy baseline
+  is tanky enough to face-tank most fights, which fights that identity.
+  Dropping to 120 (close to the enemy baseline, not wildly above it) makes
+  individual hits matter, which is what actually forces the dodge/deflect/
+  disable loop to be the answer instead of a fallback. Regen scaled down
+  proportionally (120/2 keeps roughly the same time-to-full-heal ratio as
+  500/10) so it's still a real sustain tool, not a rounding error.
 - **Enemy AI needs spacing/surrounding behavior** instead of every enemy
   independently pathing straight at the player — should feel like enemies
   are trying to flank/surround rather than clump into one stack. (See
   "Enemy AI" below for the Mac session's concrete take on this — NavMesh +
   standoff distance, independently arrived at the same conclusion.)
-- **Wave density needs to come down**: lower `enemiesAddedPerWave` from the
-  current 2, and increase spacing between spawn points (current ~6–7 units
-  apart apparently isn't enough separation for how this is meant to feel).
+- **Wave density: placeholder `enemiesAddedPerWave` 2 → 1, spawn spacing
+  ~6-7 units → ~10-12 units** (test values). Wave 5 currently spawns 10
+  enemies (2 + 4×2); at 1/wave that's 6 (2 + 4×1) — a much gentler ramp.
+  Wider spawn spacing gives each enemy's independent windup more room
+  before their attack ranges overlap, directly targeting the density root
+  cause diagnosed above.
 - **Enemy attack telegraphs need to actually be visible** — not just
   mechanically fair (the windup already exists) but readable, so the
   player can learn to dodge/punish rather than trade blindly.
