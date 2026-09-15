@@ -25,3 +25,5 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 2c10e674dbad42b0ae641771d65e973c, type: 2}
   abilityDefinition: {fileID: 0}
   dashDefinition: {fileID: 0}
+  deflectDefinition: {fileID: 0}
+  passiveEffectDefinition: {fileID: 11400000, guid: 19322fed157cf9c6b16e2d5cabeb9592, type: 2}
