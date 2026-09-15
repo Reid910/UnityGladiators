@@ -824,6 +824,20 @@ breaks and finishers, not a slow tank-and-spank.
       that's a separate axis (risk/reward tuning) from commitment, not
       asked for.
 
+## Enemy attack telegraph — interruption fix
+- [x] `EnemyController.FlickerTelegraph()` didn't check `IsIncapacitated`
+      inside its flicker loop, so staggering/breaking an enemy mid-windup
+      left it flickering the red warning tint on top of the Broken/
+      StunnedLoop pose instead of stopping. Now breaks out of the loop (and
+      restores the tier tint) the moment the enemy becomes incapacitated.
+- [ ] Known residual edge case, not fixed here: killing an enemy mid-windup
+      disables the whole `EnemyController` component in `Health.Die()`,
+      which halts the coroutine wherever it is between yields regardless of
+      any in-code check — a dead enemy can still render stuck on the red
+      tint for one frame. Self-heals once the corpse becomes lootable
+      (`LootableCorpse.PrepareLoot()` overwrites the tint), so left as-is
+      unless it's actually visible in play.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

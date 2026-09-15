@@ -279,6 +279,11 @@ public class EnemyController : MonoBehaviour
 
         while (elapsed < duration)
         {
+            if (IsIncapacitated)
+            {
+                break;
+            }
+
             flickerOn = !flickerOn;
             SetTint(flickerOn ? telegraphFlickerColor : tierTint);
 
