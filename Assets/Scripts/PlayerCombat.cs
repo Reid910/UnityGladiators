@@ -608,13 +608,6 @@ public class PlayerCombat : MonoBehaviour
             nextDashTime = Mathf.Max(nextDashTime, tailStartTime);
             dashEndedTime = tailStartTime;
 
-            // Suppressed for the slide's full physical duration, not just
-            // the (shorter) commitment lock above — the lock intentionally
-            // opens a dodge-out window before the slide animation itself
-            // finishes playing, but Sprint's animator bool still needs to
-            // stay masked for that whole tail too.
-            playerController?.SuppressSprintAnimation(slideDuration);
-
             StartCoroutine(PerformSlide(dashDirection, dashDefinition.Distance));
             AudioManager.PlaySfx(slideClip);
         }

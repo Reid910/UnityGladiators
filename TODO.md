@@ -843,11 +843,22 @@ breaks and finishers, not a slow tank-and-spank.
       animation: `IsSprinting`'s Any-State transition (`m_HasExitTime: 0`,
       `m_InterruptionSource: 0`) fires immediately whenever the bool reads
       true, and it kept reading true throughout the slide since the Sprint
-      key was still physically held. Fixed by suppressing just the animator
-      bool (`PlayerController.SuppressSprintAnimation()`), not the
-      underlying `IsSprinting` state, for the slide's full physical
-      duration — real Sprint resumes on its own once that window expires
-      and the key is still held.
+      key was still physically held.
+      - First attempt suppressed the animator bool for a fixed
+        `slideDuration` (0.3s) — still got interrupted, because the actual
+        `RollForward` clip (46 frames) plays for noticeably longer than
+        that gameplay-timing number, so the mask expired mid-clip.
+      - Fixed properly by checking the Animator's real current/in-progress
+        state (`PlayerController.IsPlayingSlideAnimation`, via
+        `GetCurrentAnimatorStateInfo`/`GetNextAnimatorStateInfo` against a
+        cached `Animator.StringToHash("Slide")`) instead of any fixed
+        timer — the Sprint animator bool is masked for exactly as long as
+        the Slide state is actually playing, with no duration number that
+        can drift out of sync with the clip again.
+      - Note: this same Any-State bug class could in principle hijack
+        other committed animations too if Sprint is held through them
+        (e.g. a sprint-attack) — only Slide was reported/fixed so far;
+        worth watching for in play.
 - [x] `EnemyController`'s Shuffle phase only ever circled laterally and
       never closed the gap on its own — an enemy sitting just outside
       Stopping Distance would shuffle forever unless the player happened to
@@ -855,6 +866,9 @@ breaks and finishers, not a slow tank-and-spank.
       1.2s): after sizing the player up for that long, the enemy commits
       (`isClosingIn`) and moves straight in until within Stopping Distance,
       then attacks as before.
+      - Confirmed working in play, but `shuffleDecisionTime`/`shuffleSpeed`
+        are untuned guesses — needs a numbers pass once it's clear how
+        long a shuffle should feel before committing.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
