@@ -3,6 +3,166 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Combat identity redesign, step 1 — verify before trusting
+
+No new Inspector wiring needed — everything here is either a pure code
+change or a numeric tweak to fields that already exist. Verify:
+
+1. **Hyper armor**: get hit by an enemy mid-Light-combo — you should now
+   flinch/hitstun (assuming no other immunity applies), unlike before. Get
+   hit mid-Heavy — you should still be immune to the flinch (hyper armor
+   still applies), only the animation/hitbox timing changed.
+2. **Telegraph flicker**: watch an enemy about to attack — it should flicker
+   between its tier color and a red/orange warning tint for the whole
+   windup, then settle back to its tier color right as the hit resolves.
+   `EnemyController`'s new `Telegraph Flicker Color`/`Telegraph Flicker
+   Interval` fields are tunable on the prefab if the flicker reads as too
+   fast/slow or the wrong color.
+3. **Numbers**: confirm stagger visibly takes longer to decay from a partial
+   fill, the player's health bar shows 120 max instead of 500, and wave 5
+   spawns 6 enemies instead of 10 (`2 + 4×1` vs. the old `2 + 4×2`).
+4. **Enemy Shuffle**: approach an enemy from far away — it should Sprint
+   straight at you, then within `Shuffle Distance` (default 3.5) start
+   moving side to side while still facing you, then close in and attack
+   once within `Stopping Distance`. If it looks wrong, `Shuffle Distance`
+   needs to stay bigger than `Stopping Distance` on `Enemy.prefab` or the
+   Shuffle band collapses to nothing.
+
+## Combat identity redesign, step 4 — verify before trusting
+
+No new Inspector wiring needed — all new fields default sensibly, and
+`Sprint` was already bound (Left Shift) in the Input Actions asset, just
+unused until now. Verify:
+
+1. **Sprint**: hold Left Shift while moving — should visibly speed up, no
+   limit on duration (no stamina bar exists to drain).
+2. **Slide**: hold Sprint and press Dash — should cover the dash distance
+   over a short slide instead of an instant teleport-like burst, and you
+   should feel a brief speed boost right after it ends (easiest to notice
+   by immediately holding a movement direction after the slide finishes).
+   Dash while NOT sprinting should behave exactly as before (instant).
+3. **Dodge-out / sprint attacks**: attack immediately after a dash/slide
+   ends, or while sprinting — you should see/feel an extra forward lunge on
+   top of the normal Light hit. Attacking normally (not sprinting, not
+   right after a dash) should be unaffected.
+
+## Combat identity redesign, step 5 — verify before trusting
+
+No new Inspector wiring needed — `Jump`/`Crouch` were already bound (Space/C)
+in the Input Actions asset, just unused until now. Verify:
+
+1. **Block**: hold Space while an enemy attacks — you should take no HP
+   damage, but your Stagger meter should visibly climb instead (75% of what
+   the hit's normal stagger contribution would be).
+2. **Deflect**: press Space (don't hold) right as an enemy's hit would land
+   — should take no damage AND cost no Stagger, and the (currently
+   text-only, no dedicated UI yet) Ultimate meter should jump by 20.
+   Pressing too early (more than 0.5s before the hit lands) should fall
+   back to the Block behavior above once the hit actually lands, not a
+   clean Deflect.
+3. **Ultimate**: land enough hits/deflects to fill the meter (no HUD
+   element for this yet either — check `PlayerCombat.UltimateMeter` in the
+   Inspector during Play mode, or add a debug readout), then press C —
+   should play the same big two-handed swing Heavy uses, hit a wide AoE,
+   and reset the meter to 0.
+4. Confirm a **Heavy or Ultimate landing on an already-broken enemy** kills
+   it instantly with no special animation beyond the swing itself, while a
+   **Light attack on a broken enemy** still plays the same instant-kill
+   (no dedicated cinematic exists yet — that's still open, see `TODO.md`).
+
+## Audio hookup — assign clips, no code changes needed
+
+All the SFX/music plumbing is in place (`AudioManager` + per-script
+`AudioClip` fields), but every field is currently empty — nothing plays
+until real sound files are assigned. To wire up real audio:
+
+1. Download whichever Kenney packs you want (Impact Sounds, RPG Audio,
+   Interface Sounds/UI Audio — all confirmed CC0, links given in chat)
+   and import the `.ogg` files into the project (e.g. `Assets/Audio/`).
+2. Assign clips in the Inspector: `PlayerCombat` (Light/Heavy/Ultimate
+   attack, Hit Impact, Ability Cast, Dash, Slide, Deflect, Block),
+   `Health` (Hit, Death — on both Player and Enemy prefabs), `Stagger`
+   (Break), `EnemyController` (Attack Swing), `WaveManager` (Background
+   Music + Music Volume).
+3. Play and confirm each sound fires at the right moment — no clip
+   assigned just means silence for that action, not an error.
+
+## Slide animation — verify before trusting
+
+Same hand-edit technique as every other Animator Controller change this
+project — no new Inspector wiring needed. Verify:
+
+1. Sprint, then Dash — should play a forward-roll animation (`RollForward`
+   filler clip, no dedicated slide clip exists) for the slide's duration,
+   then return to normal locomotion.
+2. Dash while NOT sprinting should still play no special animation (same as
+   before this change).
+
+## GetHit / BlockingLoop / Sprint animations — verify before trusting
+
+Same hand-edit technique, no new Inspector wiring. Verify:
+
+1. Take a hit — should play `GetHit` briefly before returning to normal
+   locomotion. Should NOT play while already in `StunnedLoop` (Broken) —
+   structurally shouldn't be possible since broken targets get finished via
+   `Execute()` instead of `TakeDamage()`, but worth confirming.
+2. Hold the Deflect/Block input (Space) — should loop `BlockingLoop` the
+   whole time held, and return to normal locomotion the instant it's
+   released.
+3. Hold Sprint while moving — should play `Sprint` instead of the normal
+   run cycle, and return to Locomotion the instant Sprint is released or
+   movement stops.
+4. **Known mismatch, not fixed yet**: getting hit while hyper-armored
+   (mid-Heavy-swing) still plays `GetHit` even though hitstun itself is
+   suppressed — see the note in `TODO.md`. Not broken, just a visual
+   inconsistency worth knowing about if it looks odd in play.
+
+## Combat identity redesign, step 6 — REQUIRED manual step
+
+**`PlayerLevel` must be added to `Player.prefab` in the Editor** (Add
+Component → search "Player Level"). This is a brand-new script — I can't
+safely wire a new `MonoBehaviour` into a prefab's serialized YAML by hand,
+since its `.meta` GUID doesn't exist until Unity actually imports it once,
+and guessing one would produce a broken/missing-script reference. Without
+this step, killing enemies grants no XP at all (`WaveManager`'s lookup for
+the component just returns null, silently).
+
+1. Open `Player.prefab`, Add Component → `Player Level`.
+2. Its `Health`/`Player Stats` reference fields auto-fill via
+   `GetComponent` in `Awake()` if left empty — no need to manually assign
+   unless they're on a different GameObject than expected.
+3. Verify: kill a few enemies, check `Player Level`'s `Level`/`Current Xp`
+   in the Inspector during Play mode climb — there's no HUD element for
+   this yet.
+
+## Combat identity redesign, step 6 — content not yet authored
+
+The new `Gloves`/`StatShard` slots and the `DeflectDefinition`/
+`PassiveEffectDefinition` types are code-only right now — no actual
+`ItemDefinition` `.asset` instances reference them yet, so nothing will
+currently drop for these slots or grant these effects. To test:
+
+1. Create a `PassiveEffectDefinition` asset (`Assets → Create →
+   UnityGladiators → Passive Effect`) — e.g. Effect Type = Lifesteal,
+   Value = 0.15 (heals 15% of damage dealt).
+2. Create a `DeflectDefinition` asset (`Assets → Create → UnityGladiators →
+   Deflect`).
+3. Create (or edit an existing) `ItemDefinition` with Slot = Head/Gloves and
+   assign the above in the new "Head/Chest/Pants slot only" / "Gloves slot
+   only" Inspector fields.
+4. Add that `ItemDefinition` to some `LootableCorpse.Possible Items` list so
+   it can actually drop, or assign it directly for manual testing.
+
+## Combat identity redesign — NavMeshAgent switch deferred
+
+Not done — see `TODO.md`. If picking this up later: add a `NavMeshAgent`
+component to `Enemy.prefab` in the Editor (don't hand-edit this one, too
+many fields to get right blind), bake a NavMesh for the arena/ground
+(Window → AI → Navigation, mark ground as Navigation Static, Bake), then
+swap `EnemyController`'s movement calls to use the agent instead of
+`CharacterController`. Until then, movement works fine via the existing
+`CharacterController` path — this isn't blocking anything, just deferred.
+
 ## Corpse loot-rarity glow — verify Visual Renderer assignment
 
 `LootableCorpse` now tints the enemy's renderer once the corpse becomes

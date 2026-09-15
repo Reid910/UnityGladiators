@@ -45,6 +45,28 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private float heavyWindup = 0.35f;
     [SerializeField] private float heavyActiveDuration = 0.15f;
     [SerializeField] private float heavyRecoveryTime = 0.4f;
+    [Tooltip("Heavy and Ultimate both exist primarily to build stagger, not health damage, just at very different scales (see docs/combat-redesign-plan.md) — this multiplies the stagger contribution only, on top of Stagger's own damageToStaggerMultiplier, not the actual HP damage dealt.")]
+    [SerializeField] private float heavyStaggerMultiplier = 2f;
+
+    [Header("Ultimate")]
+    [Tooltip("Huge stagger bonus + good damage, AoE, rare/meter-gated — the 'reset the fight' payoff move. Reuses the AttackHeavy animator state for now (no distinct animation exists yet).")]
+    [SerializeField] private int ultimateDamage = 60;
+    [SerializeField] private float ultimateHitstunDuration = 0.4f;
+    [SerializeField] private float ultimateWindup = 0.4f;
+    [SerializeField] private float ultimateActiveDuration = 0.2f;
+    [SerializeField] private float ultimateRecoveryTime = 0.6f;
+    [Tooltip("AoE radius — bigger than the normal Attack Range since Heavy/Ultimate are both meant to hit a surrounding cluster, not one target.")]
+    [SerializeField] private float ultimateRange = 3.5f;
+    [SerializeField] private float ultimateStaggerMultiplier = 5f;
+    [SerializeField] private float ultimateMeterMax = 100f;
+    [Tooltip("Meter gained per source, all placeholders — see docs/combat-redesign-plan.md.")]
+    [SerializeField] private float ultimateMeterPerHit = 5f;
+    [SerializeField] private float ultimateMeterPerDeflect = 20f;
+    [SerializeField] private float ultimateMeterPerFinisher = 15f;
+
+    [Header("Deflect / Block")]
+    [Tooltip("Same input handles both, repurposing the unused stock 'Jump' action (bound to Space) — see docs/combat-redesign-plan.md's 'no jump' decision. A fresh press within the equipped Gloves item's Deflect Window of an incoming hit becomes a perfect Deflect (no cost, fills the Ultimate meter fast, requires a Gloves item with a DeflectDefinition); just holding the button Blocks HP damage but costs the player Stagger instead, no gear required — this is how Sekiro's actual posture-on-block works.")]
+    [SerializeField] private float blockStaggerCostMultiplier = 0.75f;
 
     [Header("Attack")]
     [SerializeField] private Transform attackPoint;
@@ -55,6 +77,29 @@ public class PlayerCombat : MonoBehaviour
     [Tooltip("Separate from enemyLayer — dead enemies' corpse hitboxes (see Health.corpseHitbox) live here so attacks can loot them instead of dealing damage.")]
     [SerializeField] private LayerMask corpseLayer;
 
+    [Header("Slide")]
+    [Tooltip("Dash while sprinting triggers a Slide instead of the normal instant-burst dash — same distance/cooldown/i-frames from the equipped DashDefinition, but covered over this duration instead of one instant Move(). See docs/combat-redesign-plan.md.")]
+    [SerializeField] private float slideDuration = 0.3f;
+    [Tooltip("Speed multiplier applied briefly right after a Slide ends — the actual 'chain moves while still fast' ingredient, not the slide itself.")]
+    [SerializeField] private float slideMomentumMultiplier = 1.4f;
+    [SerializeField] private float slideMomentumDuration = 0.25f;
+
+    [Header("Movement-state attack variants")]
+    [Tooltip("Window after a Dash/Slide ends where the next Light attack becomes a dodge-out attack. No distinct animation exists yet (see docs/combat-redesign-plan.md) — a forward lunge burst is the placeholder mechanical effect that makes the variant real and testable already.")]
+    [SerializeField] private float dodgeOutWindow = 0.25f;
+    [SerializeField] private float attackLungeDistance = 1.2f;
+
+    [Header("SFX (assign clips once you have them — see AudioManager)")]
+    [SerializeField] private AudioClip lightAttackClip;
+    [SerializeField] private AudioClip heavyAttackClip;
+    [SerializeField] private AudioClip ultimateClip;
+    [SerializeField] private AudioClip hitImpactClip;
+    [SerializeField] private AudioClip abilityCastClip;
+    [SerializeField] private AudioClip dashClip;
+    [SerializeField] private AudioClip slideClip;
+    [SerializeField] private AudioClip deflectClip;
+    [SerializeField] private AudioClip blockClip;
+
     [Header("References")]
     [SerializeField] private Animator animator;
     [SerializeField] private Health health;
@@ -63,6 +108,7 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private Hitstun hitstun;
     [SerializeField] private PlayerStats playerStats;
     [SerializeField] private PlayerEquipment equipment;
+    [SerializeField] private PlayerController playerController;
 
     private InputSystem_Actions inputSystemActions;
     private Coroutine attackCoroutine;
@@ -70,22 +116,33 @@ public class PlayerCombat : MonoBehaviour
     private int comboStep;
     private float comboResetTime;
     private float nextAttackTime;
+    private float hyperArmorUntilTime;
     private float nextAbilityTime;
     private float nextDashTime;
     private float invulnerableUntilTime;
+    private float dashEndedTime = float.NegativeInfinity;
+    private float lastDeflectPressTime = float.NegativeInfinity;
+    private bool isBlockHeld;
+    private float ultimateMeter;
+    private float nextAutoDodgeTime;
 
     public int ComboStep => comboStep;
     public float AttackCooldownRemaining => Mathf.Max(0f, nextAttackTime - Time.time);
     public float AttackCooldownDuration { get; private set; }
     public float AbilityCooldownRemaining => Mathf.Max(0f, nextAbilityTime - Time.time);
     public float DashCooldownRemaining => Mathf.Max(0f, nextDashTime - Time.time);
+    public float UltimateMeter => ultimateMeter;
+    public float UltimateMeterMax => ultimateMeterMax;
+    public bool IsUltimateReady => ultimateMeter >= ultimateMeterMax;
 
-    // Hyper armor window: true from the moment an attack starts (windup)
-    // until its full recovery ends — the same window nextAttackTime already
-    // gates. EnemyController checks this to skip applying Hitstun while true;
+    // Hyper armor window: true from the moment a Heavy attack starts (windup)
+    // until its full recovery ends. Light no longer grants this (see
+    // docs/combat-redesign-plan.md — cut so basic combat has a real safe
+    // window to poke in, Heavy stays a deliberate bigger-commitment trade).
+    // EnemyController checks this to skip applying Hitstun while true;
     // damage/Stagger still land normally, so this only stops a routine hit
     // from flinching the player out of a swing they've already committed to.
-    public bool IsAttacking => Time.time < nextAttackTime;
+    public bool IsAttacking => Time.time < hyperArmorUntilTime;
 
     // True i-frames from dashing (see DashDefinition.InvulnerabilityDuration)
     // — unlike hyper armor, this blocks damage/stagger/finishers entirely,
@@ -140,6 +197,11 @@ public class PlayerCombat : MonoBehaviour
         {
             equipment = GetComponent<PlayerEquipment>();
         }
+
+        if (playerController == null)
+        {
+            playerController = GetComponent<PlayerController>();
+        }
     }
 
     private void OnEnable()
@@ -150,6 +212,12 @@ public class PlayerCombat : MonoBehaviour
         inputSystemActions.Player.Ability.performed += OnAbilityPerformed;
         inputSystemActions.Player.Dash.performed += OnDashPerformed;
         inputSystemActions.Player.Interact.performed += OnInteractPerformed;
+        // Jump/Crouch are unused stock actions repurposed for Deflect/Block
+        // and Ultimate (see the Deflect/Block and Ultimate field headers) —
+        // avoids touching the Input Actions asset or its generated wrapper.
+        inputSystemActions.Player.Jump.started += OnDeflectStarted;
+        inputSystemActions.Player.Jump.canceled += OnDeflectCanceled;
+        inputSystemActions.Player.Crouch.performed += OnUltimatePerformed;
     }
 
     private void OnDisable()
@@ -159,6 +227,9 @@ public class PlayerCombat : MonoBehaviour
         inputSystemActions.Player.Ability.performed -= OnAbilityPerformed;
         inputSystemActions.Player.Dash.performed -= OnDashPerformed;
         inputSystemActions.Player.Interact.performed -= OnInteractPerformed;
+        inputSystemActions.Player.Jump.started -= OnDeflectStarted;
+        inputSystemActions.Player.Jump.canceled -= OnDeflectCanceled;
+        inputSystemActions.Player.Crouch.performed -= OnUltimatePerformed;
         inputSystemActions.Player.Disable();
     }
 
@@ -169,6 +240,29 @@ public class PlayerCombat : MonoBehaviour
     private void OnAbilityPerformed(InputAction.CallbackContext context) => TryUseAbility();
 
     private void OnDashPerformed(InputAction.CallbackContext context) => TryDash();
+
+    private void OnUltimatePerformed(InputAction.CallbackContext context) => TryUltimateAttack();
+
+    private void OnDeflectStarted(InputAction.CallbackContext context)
+    {
+        lastDeflectPressTime = Time.time;
+        isBlockHeld = true;
+
+        if (animator != null)
+        {
+            animator.SetBool("IsBlocking", true);
+        }
+    }
+
+    private void OnDeflectCanceled(InputAction.CallbackContext context)
+    {
+        isBlockHeld = false;
+
+        if (animator != null)
+        {
+            animator.SetBool("IsBlocking", false);
+        }
+    }
 
     // No inventory: swaps whatever's in the nearby ItemPickup's slot with
     // the player's currently equipped item there (see
@@ -191,7 +285,25 @@ public class PlayerCombat : MonoBehaviour
         ComboHit hit = lightComboHits[hitIndex];
         comboStep++;
 
-        BeginAttack(hit.damage, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime);
+        // Movement-state attack variants (see docs/combat-redesign-plan.md,
+        // modeled on Elden Ring's running/roll attacks): dodge-out takes
+        // priority since a Slide is also technically "sprinting" right as it
+        // ends. No distinct animation exists for either yet — a forward
+        // lunge burst is the placeholder mechanical effect.
+        bool isDodgeOutAttack = Time.time - dashEndedTime <= dodgeOutWindow;
+        bool isSprintAttack = !isDodgeOutAttack && playerController != null && playerController.IsSprinting;
+
+        BeginAttack(hit.damage, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime, isLightAttack: true);
+        AudioManager.PlaySfx(lightAttackClip);
+
+        if (isDodgeOutAttack || isSprintAttack)
+        {
+            Vector3 lungeDirection = playerController != null && playerController.MovementDirection.sqrMagnitude > 0.01f
+                ? playerController.MovementDirection
+                : transform.forward;
+
+            characterController.Move(lungeDirection * attackLungeDistance);
+        }
 
         comboResetTime = nextAttackTime + comboWindow;
     }
@@ -205,11 +317,119 @@ public class PlayerCombat : MonoBehaviour
 
         // Dedicated AttackHeavy state (MeleeAttack_TwoHanded) — a bigger,
         // different motion from any combo hit.
-        BeginAttack(heavyDamage, heavyHitstunDuration, "AttackHeavy", heavyWindup, heavyActiveDuration, heavyRecoveryTime);
+        BeginAttack(heavyDamage, heavyHitstunDuration, "AttackHeavy", heavyWindup, heavyActiveDuration, heavyRecoveryTime, grantsHyperArmor: true, staggerMultiplier: heavyStaggerMultiplier);
+        AudioManager.PlaySfx(heavyAttackClip);
 
         // Heavy attack interrupts and resets the light combo chain.
         comboStep = 0;
         comboResetTime = nextAttackTime;
+    }
+
+    private void TryUltimateAttack()
+    {
+        if (IsIncapacitated || Time.time < nextAttackTime || !IsUltimateReady)
+        {
+            return;
+        }
+
+        ultimateMeter = 0f;
+
+        // Reuses the AttackHeavy state — no distinct Ultimate animation
+        // exists yet (see docs/combat-redesign-plan.md).
+        BeginAttack(ultimateDamage, ultimateHitstunDuration, "AttackHeavy", ultimateWindup, ultimateActiveDuration, ultimateRecoveryTime, range: ultimateRange, grantsHyperArmor: true, staggerMultiplier: ultimateStaggerMultiplier);
+        AudioManager.PlaySfx(ultimateClip);
+
+        // Same interrupt-and-reset behavior as Heavy.
+        comboStep = 0;
+        comboResetTime = nextAttackTime;
+    }
+
+    // Called by CheckHit whenever a hit lands, and by a successful Deflect
+    // — the three sources the design doc lists. See docs/combat-redesign-plan.md.
+    private void AddUltimateMeter(float amount)
+    {
+        ultimateMeter = Mathf.Min(ultimateMeterMax, ultimateMeter + amount);
+    }
+
+    // Head passive effect (see docs/combat-redesign-plan.md) — heals the
+    // player for a fraction of damage just dealt. Read directly from the
+    // equipped item rather than through PlayerStats' static recalculation
+    // since this only matters at the moment a hit actually lands.
+    private void ApplyLifesteal(int damageDealt)
+    {
+        PassiveEffectDefinition headEffect = equipment?.GetEquipped(ItemSlot.Head)?.Definition?.PassiveEffectDefinition;
+
+        if (headEffect == null || headEffect.EffectType != PassiveEffectType.Lifesteal || health == null)
+        {
+            return;
+        }
+
+        health.Heal(Mathf.RoundToInt(damageDealt * headEffect.Value));
+    }
+
+    // Pants passive effect (see docs/combat-redesign-plan.md) — a free
+    // automatic invulnerability window on a cooldown, independent of Boots'
+    // Dash. Polled every frame rather than event-driven since it's a
+    // standing cooldown, not a reaction to something happening.
+    private void Update()
+    {
+        if (IsIncapacitated || Time.time < nextAutoDodgeTime)
+        {
+            return;
+        }
+
+        PassiveEffectDefinition pantsEffect = equipment?.GetEquipped(ItemSlot.Pants)?.Definition?.PassiveEffectDefinition;
+
+        if (pantsEffect == null || pantsEffect.EffectType != PassiveEffectType.AutoDodge)
+        {
+            return;
+        }
+
+        nextAutoDodgeTime = Time.time + pantsEffect.Cooldown;
+        invulnerableUntilTime = Mathf.Max(invulnerableUntilTime, Time.time + pantsEffect.Value);
+    }
+
+    // Called by whatever resolves a hit against the player (see
+    // EnemyController.ResolveHit()) before applying damage/stagger/hitstun —
+    // returns true if the hit was fully absorbed (Deflect or Block), meaning
+    // the caller should skip its normal resolution entirely. Perfect Deflect
+    // requires a Gloves item with a DeflectDefinition; Block is universal
+    // regardless of gear (see docs/combat-redesign-plan.md — this is what
+    // guarantees baseline defense even without a good Gloves item).
+    public bool TryDefendAgainst(int incomingDamage)
+    {
+        if (IsIncapacitated)
+        {
+            return false;
+        }
+
+        DeflectDefinition deflectDefinition = equipment?.GetEquipped(ItemSlot.Gloves)?.Definition?.DeflectDefinition;
+        bool isPerfectDeflect = deflectDefinition != null && Time.time - lastDeflectPressTime <= deflectDefinition.DeflectWindow;
+
+        if (isPerfectDeflect)
+        {
+            AddUltimateMeter(ultimateMeterPerDeflect);
+            AudioManager.PlaySfx(deflectClip);
+            return true;
+        }
+
+        if (isBlockHeld)
+        {
+            // Same posture-on-block model Sekiro actually uses: holding
+            // block absorbs the hit but costs the player Stagger instead of
+            // the enemy taking none — only a fresh, well-timed press avoids
+            // that cost entirely (the branch above).
+            if (stagger != null && health != null)
+            {
+                int blockStaggerDamage = Mathf.RoundToInt(incomingDamage * blockStaggerCostMultiplier);
+                stagger.AddStaggerFromDamage(blockStaggerDamage, health.MaxHealth);
+            }
+
+            AudioManager.PlaySfx(blockClip);
+            return true;
+        }
+
+        return false;
     }
 
     // Attack Speed affix (Head-flavored, see TODO.md) shortens recovery time.
@@ -219,7 +439,7 @@ public class PlayerCombat : MonoBehaviour
         return duration / Mathf.Max(0.1f, attackSpeedMultiplier);
     }
 
-    private void BeginAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime, float range = -1f)
+    private void BeginAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float recoveryTime, float range = -1f, bool grantsHyperArmor = false, bool isLightAttack = false, float staggerMultiplier = 1f)
     {
         float scaledWindup = ApplyAttackSpeed(windup);
         float scaledActiveDuration = ApplyAttackSpeed(activeDuration);
@@ -229,15 +449,20 @@ public class PlayerCombat : MonoBehaviour
         AttackCooldownDuration = scaledWindup + scaledActiveDuration + scaledRecoveryTime;
         nextAttackTime = Time.time + AttackCooldownDuration;
 
+        if (grantsHyperArmor)
+        {
+            hyperArmorUntilTime = nextAttackTime;
+        }
+
         if (attackCoroutine != null)
         {
             StopCoroutine(attackCoroutine);
         }
 
-        attackCoroutine = StartCoroutine(PerformAttack(damage, hitstunDuration, animatorTrigger, scaledWindup, scaledActiveDuration, hitRange));
+        attackCoroutine = StartCoroutine(PerformAttack(damage, hitstunDuration, animatorTrigger, scaledWindup, scaledActiveDuration, hitRange, isLightAttack, staggerMultiplier));
     }
 
-    private IEnumerator PerformAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float range)
+    private IEnumerator PerformAttack(int damage, float hitstunDuration, string animatorTrigger, float windup, float activeDuration, float range, bool isLightAttack = false, float staggerMultiplier = 1f)
     {
         if (animator != null && !string.IsNullOrEmpty(animatorTrigger))
         {
@@ -266,7 +491,7 @@ public class PlayerCombat : MonoBehaviour
 
         do
         {
-            CheckHit(totalDamage, hitstunDuration, hitTargets, range);
+            CheckHit(totalDamage, hitstunDuration, hitTargets, range, isLightAttack, staggerMultiplier);
             yield return null;
         }
         while (Time.time < activeEndTime);
@@ -312,6 +537,7 @@ public class PlayerCombat : MonoBehaviour
         float cooldownReduction = playerStats != null ? playerStats.GetStat(StatType.AbilityCooldownReduction) : 0f;
         float effectiveCooldown = Mathf.Max(0.1f, abilityDefinition.Cooldown * (1f - cooldownReduction));
         nextAbilityTime = Time.time + effectiveCooldown;
+        AudioManager.PlaySfx(abilityCastClip);
 
         // An ability is a bigger, rarer hit than a normal swing — same
         // windup/active-window pipeline as combo/heavy, just with its own
@@ -346,8 +572,31 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
-        characterController.Move(transform.forward * dashDefinition.Distance);
+        // Respects movement input direction instead of always firing in the
+        // current facing (see docs/combat-redesign-plan.md) — transform.forward
+        // lags behind input during quick turns since PlayerController smooths
+        // rotation, but a dash should go where you're pressing right now.
+        // Falls back to facing direction when standing still.
+        Vector3 dashDirection = playerController != null && playerController.MovementDirection.sqrMagnitude > 0.01f
+            ? playerController.MovementDirection
+            : transform.forward;
+
         invulnerableUntilTime = Time.time + dashDefinition.InvulnerabilityDuration;
+
+        // Dash while sprinting becomes a Slide instead of the normal
+        // instant-burst dash — same input, state-conditional result, no new
+        // button (see docs/combat-redesign-plan.md).
+        if (playerController != null && playerController.IsSprinting)
+        {
+            StartCoroutine(PerformSlide(dashDirection, dashDefinition.Distance));
+            AudioManager.PlaySfx(slideClip);
+        }
+        else
+        {
+            characterController.Move(dashDirection * dashDefinition.Distance);
+            dashEndedTime = Time.time;
+            AudioManager.PlaySfx(dashClip);
+        }
 
         if (dashDefinition.DealsDamage)
         {
@@ -362,7 +611,37 @@ public class PlayerCombat : MonoBehaviour
         nextDashTime = Time.time + dashDefinition.Cooldown;
     }
 
-    private void CheckHit(int totalDamage, float hitstunDuration, HashSet<Health> alreadyHit, float range)
+    // Covers the same total distance as a normal dash, but over time
+    // instead of one instant Move() — the actual "slide" — then applies a
+    // brief momentum boost so chaining into the next action (another dash,
+    // a dodge-out attack) feels fast rather than snapping back to normal
+    // speed immediately. See docs/combat-redesign-plan.md.
+    private IEnumerator PerformSlide(Vector3 direction, float distance)
+    {
+        // RollForward (Blink pack) stands in for a dedicated slide clip —
+        // no literal "slide" animation exists in the pack, but a forward
+        // roll reads as the same kind of low, fast, forward-traveling move.
+        if (animator != null)
+        {
+            animator.SetTrigger("Slide");
+        }
+
+        float elapsed = 0f;
+        float speed = distance / Mathf.Max(0.01f, slideDuration);
+
+        while (elapsed < slideDuration)
+        {
+            float step = Mathf.Min(Time.deltaTime, slideDuration - elapsed);
+            characterController.Move(direction * speed * step);
+            elapsed += step;
+            yield return null;
+        }
+
+        dashEndedTime = Time.time;
+        playerController?.ApplyMomentumBoost(slideMomentumMultiplier, slideMomentumDuration);
+    }
+
+    private void CheckHit(int totalDamage, float hitstunDuration, HashSet<Health> alreadyHit, float range, bool isLightAttack = false, float staggerMultiplier = 1f)
     {
         Collider[] hitEnemies = Physics.OverlapSphere(
             attackPoint.position,
@@ -383,18 +662,30 @@ public class PlayerCombat : MonoBehaviour
 
             Stagger enemyStagger = enemyCollider.GetComponentInParent<Stagger>();
 
-            // Landing any hit on an already-broken enemy is a finisher — instant kill.
+            // Landing any hit on an already-broken enemy is a finisher —
+            // instant kill. Only Light attack gets the bonus finisher meter
+            // (see docs/combat-redesign-plan.md — Heavy/Ultimate/Ability/Dash
+            // just kill outright, no separate reward beyond the baseline
+            // per-hit meter gain below).
             if (enemyStagger != null && enemyStagger.IsBroken)
             {
                 enemyHealth.Execute();
+                AddUltimateMeter(isLightAttack ? ultimateMeterPerFinisher : ultimateMeterPerHit);
                 continue;
             }
 
             enemyHealth.TakeDamage(totalDamage);
+            AddUltimateMeter(ultimateMeterPerHit);
+            ApplyLifesteal(totalDamage);
+            AudioManager.PlaySfx(hitImpactClip);
 
             if (enemyStagger != null)
             {
-                enemyStagger.AddStaggerFromDamage(totalDamage, enemyHealth.MaxHealth);
+                int staggerDamage = staggerMultiplier != 1f
+                    ? Mathf.RoundToInt(totalDamage * staggerMultiplier)
+                    : totalDamage;
+
+                enemyStagger.AddStaggerFromDamage(staggerDamage, enemyHealth.MaxHealth);
             }
 
             Hitstun enemyHitstun = enemyCollider.GetComponentInParent<Hitstun>();

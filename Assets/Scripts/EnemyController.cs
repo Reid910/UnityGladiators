@@ -14,6 +14,12 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float rotationSpeed = 10f;
     [SerializeField] private float stoppingDistance = 1.6f;
     [SerializeField] private float gravity = -20f;
+    [Tooltip("Distance band between this and Stopping Distance where the enemy Shuffles (moves side to side while facing the player, like circling for an opening) instead of closing straight in. Above this distance the enemy Sprints straight toward the player. See docs/combat-redesign-plan.md.")]
+    [SerializeField] private float shuffleDistance = 3.5f;
+    [Tooltip("Lateral movement speed while Shuffling — separate from Movement Speed so the shuffle can read as more tentative/searching than a full Sprint.")]
+    [SerializeField] private float shuffleSpeed = 1.5f;
+    [Tooltip("How often the shuffle direction flips (left/right), in seconds.")]
+    [SerializeField] private float shuffleFlipInterval = 0.8f;
 
     [Header("Combat")]
     [SerializeField] private int attackDamage = 10;
@@ -25,6 +31,13 @@ public class EnemyController : MonoBehaviour
     [Tooltip("Distance the target must be within when the active window checks — separate from Stopping Distance, which only decides when the enemy stops closing in to swing.")]
     [SerializeField] private float attackRange = 1.8f;
     [SerializeField] private float attackCooldown = 1.25f;
+    [Tooltip("SFX — assign once you have a clip (see AudioManager).")]
+    [SerializeField] private AudioClip attackSwingClip;
+
+    [Header("Telegraph")]
+    [Tooltip("Filler visual telegraph until real wind-up animations exist — flickers this color during the attack windup so an incoming hit is readable, not just mechanically fair (the windup timing already existed, it just wasn't visible). See docs/combat-redesign-plan.md.")]
+    [SerializeField] private Color telegraphFlickerColor = new Color(1f, 0.15f, 0.1f);
+    [SerializeField] private float telegraphFlickerInterval = 0.08f;
 
     [Header("References")]
     [SerializeField] private Transform target;
@@ -44,6 +57,8 @@ public class EnemyController : MonoBehaviour
     private float nextAttackTime;
     private bool isAttacking;
     private MaterialPropertyBlock propertyBlock;
+    private float shuffleDirection = 1f;
+    private float nextShuffleFlipTime;
 
     public EnemyTier Tier => tier;
 
@@ -89,6 +104,11 @@ public class EnemyController : MonoBehaviour
     // see EnemyTierColor.
     private void TintByTier()
     {
+        SetTint(EnemyTierColor.Get(tier));
+    }
+
+    private void SetTint(Color tint)
+    {
         if (visualRenderer == null)
         {
             return;
@@ -96,7 +116,6 @@ public class EnemyController : MonoBehaviour
 
         propertyBlock ??= new MaterialPropertyBlock();
         visualRenderer.GetPropertyBlock(propertyBlock);
-        Color tint = EnemyTierColor.Get(tier);
         propertyBlock.SetColor("_BaseColor", tint);
         propertyBlock.SetColor("_Color", tint);
         visualRenderer.SetPropertyBlock(propertyBlock);
@@ -123,9 +142,17 @@ public class EnemyController : MonoBehaviour
 
         float distanceToTarget = Vector3.Distance(transform.position, target.position);
 
-        if (distanceToTarget > stoppingDistance)
+        // Three-phase approach instead of one constant chase speed: Sprint
+        // while far, Shuffle (circle, looking for an opening) once close but
+        // not yet in range, Attack once in range. See docs/combat-redesign-plan.md.
+        if (distanceToTarget > shuffleDistance)
         {
             MoveTowardTarget();
+            SetMoving(true);
+        }
+        else if (distanceToTarget > stoppingDistance)
+        {
+            ShuffleAroundTarget();
             SetMoving(true);
         }
         else
@@ -148,16 +175,47 @@ public class EnemyController : MonoBehaviour
         }
 
         directionToTarget.Normalize();
+        RotateToFaceDirection(directionToTarget);
 
-        Quaternion targetRotation = Quaternion.LookRotation(directionToTarget);
+        characterController.Move(directionToTarget * movementSpeed * Time.deltaTime);
+    }
+
+    // Moves side to side while still facing the player, like real sword
+    // -fighting circling/feinting while looking for an opening — reads as
+    // "about to commit to something" more than a slower straight approach
+    // would. See docs/combat-redesign-plan.md.
+    private void ShuffleAroundTarget()
+    {
+        Vector3 directionToTarget = target.position - transform.position;
+        directionToTarget.y = 0f;
+
+        if (directionToTarget.sqrMagnitude <= 0.01f)
+        {
+            return;
+        }
+
+        directionToTarget.Normalize();
+        RotateToFaceDirection(directionToTarget);
+
+        if (Time.time >= nextShuffleFlipTime)
+        {
+            shuffleDirection *= -1f;
+            nextShuffleFlipTime = Time.time + shuffleFlipInterval;
+        }
+
+        Vector3 lateralDirection = Vector3.Cross(Vector3.up, directionToTarget).normalized;
+        characterController.Move(lateralDirection * shuffleDirection * shuffleSpeed * Time.deltaTime);
+    }
+
+    private void RotateToFaceDirection(Vector3 direction)
+    {
+        Quaternion targetRotation = Quaternion.LookRotation(direction);
 
         transform.rotation = Quaternion.Slerp(
             transform.rotation,
             targetRotation,
             rotationSpeed * Time.deltaTime
         );
-
-        characterController.Move(directionToTarget * movementSpeed * Time.deltaTime);
     }
 
     private void AttackTarget()
@@ -180,9 +238,11 @@ public class EnemyController : MonoBehaviour
             animator.SetTrigger("Attack");
         }
 
+        AudioManager.PlaySfx(attackSwingClip);
+
         if (attackWindup > 0f)
         {
-            yield return new WaitForSeconds(attackWindup);
+            yield return StartCoroutine(FlickerTelegraph(attackWindup));
         }
 
         // Getting broken mid-windup cancels the swing, same rule as the player's.
@@ -205,6 +265,29 @@ public class EnemyController : MonoBehaviour
         }
 
         isAttacking = false;
+    }
+
+    // Filler telegraph until real wind-up animations exist — flickers
+    // between the tier tint and a warning color for the whole windup, then
+    // guarantees the tier tint is restored before the active hit window
+    // starts. See docs/combat-redesign-plan.md.
+    private IEnumerator FlickerTelegraph(float duration)
+    {
+        float elapsed = 0f;
+        bool flickerOn = false;
+        Color tierTint = EnemyTierColor.Get(tier);
+
+        while (elapsed < duration)
+        {
+            flickerOn = !flickerOn;
+            SetTint(flickerOn ? telegraphFlickerColor : tierTint);
+
+            float step = Mathf.Min(telegraphFlickerInterval, duration - elapsed);
+            yield return new WaitForSeconds(step);
+            elapsed += step;
+        }
+
+        SetTint(tierTint);
     }
 
     private bool IsTargetInRange()
@@ -232,6 +315,15 @@ public class EnemyController : MonoBehaviour
         if (targetStagger != null && targetStagger.IsBroken)
         {
             targetHealth.Execute();
+            return;
+        }
+
+        // Deflect (no cost, fills the Ultimate meter) or Block (absorbs the
+        // hit but costs the player Stagger instead) — see
+        // PlayerCombat.TryDefendAgainst and docs/combat-redesign-plan.md. A
+        // successfully defended hit skips damage/stagger/hitstun entirely.
+        if (targetCombat != null && targetCombat.TryDefendAgainst(attackDamage))
+        {
             return;
         }
 

@@ -16,6 +16,8 @@ public class Stagger : MonoBehaviour
     [Header("References")]
     [Tooltip("Optional. Drives a 'Broken' bool each frame so a broken player/enemy visibly plays StunnedLoop (or whatever else the Controller has wired to it) instead of it being invisible except for the HUD.")]
     [SerializeField] private Animator animator;
+    [Tooltip("SFX — assign once you have a clip (see AudioManager).")]
+    [SerializeField] private AudioClip breakClip;
 
     private float currentStagger;
     private float brokenUntilTime;
@@ -78,6 +80,7 @@ public class Stagger : MonoBehaviour
         {
             currentStagger = 0f;
             brokenUntilTime = Time.time + brokenDuration;
+            AudioManager.PlaySfx(breakClip);
             Broken?.Invoke();
         }
     }

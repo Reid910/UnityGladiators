@@ -16,6 +16,12 @@ public class ItemDefinition : ScriptableObject
     [Header("Boots slot only")]
     [SerializeField] private DashDefinition dashDefinition;
 
+    [Header("Gloves slot only")]
+    [SerializeField] private DeflectDefinition deflectDefinition;
+
+    [Header("Head/Chest/Pants slot only")]
+    [SerializeField] private PassiveEffectDefinition passiveEffectDefinition;
+
     public string ItemName => itemName;
     public ItemSlot Slot => slot;
     public int MinDamage => minDamage;
@@ -23,4 +29,6 @@ public class ItemDefinition : ScriptableObject
     public AffixDefinition[] PossibleAffixes => possibleAffixes;
     public AbilityDefinition AbilityDefinition => abilityDefinition;
     public DashDefinition DashDefinition => dashDefinition;
+    public DeflectDefinition DeflectDefinition => deflectDefinition;
+    public PassiveEffectDefinition PassiveEffectDefinition => passiveEffectDefinition;
 }

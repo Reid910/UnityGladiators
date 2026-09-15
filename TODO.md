@@ -586,6 +586,198 @@ breaks and finishers, not a slow tank-and-spank.
       (`t2UnlockWave`/`t3UnlockWave`), but no T2/T3 prefab has been built to
       actually spawn and show the new tint. Content gap, not a code gap.
 
+## Combat identity redesign, step 1: tuning + small code changes — see docs/combat-redesign-plan.md
+- [x] Hyper armor removed from Light attacks — `PlayerCombat.IsAttacking`
+      (hyper armor) now only tracks a Heavy attack's window
+      (`hyperArmorUntilTime`, separate from the shared `nextAttackTime`
+      cooldown gate). Heavy still grants it as a deliberate bigger
+      -commitment trade; Ability was already exempt. Basic combat (Light)
+      now has a real safe window to poke in instead of every swing being a
+      designed trade.
+- [x] Enemy attack telegraph flicker — `EnemyController.FlickerTelegraph()`
+      flickers the enemy between its tier tint and a warning color for the
+      whole `attackWindup`, reusing the existing `MaterialPropertyBlock`
+      tint technique instead of new animations. The windup timing already
+      existed and was mechanically fair; it just wasn't visible.
+- [x] Placeholder numbers (all explicit test values, expect to retune):
+      `Stagger.decayPerSecond` 5→2 (both Player and Enemy prefabs), Player
+      `maxHealth`/`regenPerSecond` 500/10→120/2 (closer to enemy baseline so
+      hits actually matter), `WaveManager.enemiesAddedPerWave` 2→1, and
+      SampleScene's 4 spawn points spread from ~6-7 units apart to ~10-12.
+
+## Combat identity redesign, step 2: dash respects movement input — see docs/combat-redesign-plan.md
+- [x] `PlayerCombat.TryDash()` now dashes in the camera-relative movement
+      direction the player is currently pressing (`PlayerController.
+      MovementDirection`, newly exposed) instead of always firing in
+      `transform.forward`. Falls back to facing direction when standing
+      still. `transform.forward` previously lagged behind quick direction
+      changes since `PlayerController` smooths rotation — a dash now goes
+      where you're pressing right now, not where the body has visually
+      finished turning to.
+
+## Combat identity redesign, step 3: enemy Shuffle phase — see docs/combat-redesign-plan.md
+- [x] `EnemyController` now has a three-phase approach instead of one
+      constant chase speed: **Sprint** (unchanged, straight toward the
+      player) while beyond the new `Shuffle Distance`, **Shuffle** (moves
+      side to side while still facing the player, like circling for an
+      opening — new `ShuffleAroundTarget()`) once inside `Shuffle Distance`
+      but not yet in `Stopping Distance`, then **Attack** once in range.
+      Flips shuffle direction every `Shuffle Flip Interval` seconds.
+- [ ] **Deferred: the actual NavMeshAgent switch.** The original plan was
+      NavMesh for both obstacle pathfinding and free agent-to-agent
+      avoidance, but there's no arena/obstacles built yet and no NavMesh
+      baked in `SampleScene` — adding a `NavMeshAgent` component via hand
+      -edited YAML blind (many finicky fields, no way to verify without the
+      Editor) for zero current visible benefit (nothing to path around) was
+      judged not worth the risk right now. Shuffle above uses the existing
+      `CharacterController`-based movement instead, which already reliably
+      does "move toward the player." Revisit NavMeshAgent once there's
+      either real arena geometry to path around, or enemy-clumping in
+      testing shows agent-to-agent avoidance is actually needed on its own.
+
+## Combat identity redesign, step 4: movement additions — see docs/combat-redesign-plan.md
+- [x] **Unlimited sprint, no stamina meter.** `PlayerController` reads the
+      existing (previously unused) `Sprint` input action and applies
+      `Sprint Speed Multiplier` while held and moving. Exposed as
+      `IsSprinting`/`MovementDirection` for `PlayerCombat` to react to.
+- [x] **Slide**: `PlayerCombat.TryDash()` while sprinting now runs
+      `PerformSlide()` instead of the normal instant-burst dash — same
+      distance/cooldown/i-frames from the equipped `DashDefinition`, but
+      covered over `Slide Duration` instead of one instant `Move()`. Ends
+      with a brief `PlayerController.ApplyMomentumBoost()` speed bump
+      (`Slide Momentum Multiplier` for `Slide Momentum Duration`) — the
+      actual ingredient that makes chaining moves feel fast, not the slide
+      alone.
+- [x] **Dodge-out / sprint attacks**: `TryLightAttack()` now detects being
+      within `Dodge Out Window` seconds of a Dash/Slide ending, or
+      currently sprinting, and applies a forward lunge burst
+      (`Attack Lunge Distance`) on top of the normal hit. No distinct
+      animation exists for either variant yet — this is the placeholder
+      mechanical effect that makes them real and testable already, per the
+      "cheap to build, checks existing state" framing in the design doc.
+
+## Combat identity redesign, step 5: Deflect/Block + Ultimate meter/attack — see docs/combat-redesign-plan.md
+- [x] **Deflect / Block**, one input (repurposes the unused stock `Jump`
+      action, bound to Space — see the "no jump" decision): a fresh press
+      within `Deflect Window` (0.5s placeholder) of an incoming hit is a
+      perfect **Deflect** (no cost, fills the Ultimate meter fast); just
+      holding it down **Blocks** — absorbs the hit's HP damage but costs
+      the player Stagger instead (`Block Stagger Cost Multiplier`, 75%
+      placeholder) — this is exactly how Sekiro's real posture-on-block
+      system works. `PlayerCombat.TryDefendAgainst()`, called from
+      `EnemyController.ResolveHit()` before damage/stagger/hitstun.
+      Deflect is a **universal ability for now** — gating it behind a
+      Gloves item is deferred to the gear/itemization step.
+- [x] **Ultimate meter**, cap 100 (placeholder): +5 per landed hit
+      (any move), +20 per successful Deflect, +15 per Light-attack
+      finisher (Heavy/Ultimate/Ability/Dash finishers just get the
+      baseline +5, no bonus — matches the "only Light triggers the
+      cinematic" rule).
+- [x] **Ultimate attack**: new input (repurposes the unused stock `Crouch`
+      action, bound to C), gated by the meter being full. Huge AoE stagger
+      bonus (×5) + good damage (60 placeholder), reuses the `AttackHeavy`
+      animator state since no distinct animation exists yet. Heavy also
+      got its own stagger multiplier (×2) applied the same way — both
+      layer on top of `Stagger`'s own `damageToStaggerMultiplier`, not the
+      actual HP damage dealt.
+- [ ] **Not implemented this pass**: the actual finisher cinematic
+      presentation (camera punch-in, hit-stop, VFX) — the mechanical rule
+      (only Light triggers it) is wired, but no visual/camera work exists
+      yet. Also not implemented: Perilous attacks (Downslam/Side swing) as
+      real enemy moves — still design-only.
+
+## Combat identity redesign, step 6: gear/itemization, Level — see docs/combat-redesign-plan.md
+- [x] **Two new `ItemSlot` values**: `Gloves` and `StatShard`. `PlayerEquipment`/
+      `PlayerStats`/`ItemRoller` all iterate `ItemSlot` generically already,
+      so no changes needed there — only `ItemDefinition` gained new fields.
+- [x] **`DeflectDefinition`** (Gloves slot only, mirrors `AbilityDefinition`/
+      `DashDefinition`): grants the perfect-Deflect tier from step 5, which
+      is now correctly gated behind a Gloves item instead of the step-5
+      placeholder "universal for now" — Block stays universal regardless of
+      gear (see `PlayerCombat.TryDefendAgainst`).
+- [x] **`PassiveEffectDefinition`/`PassiveEffectType`** (Head/Chest/Pants
+      slot only): one concrete effect implemented per slot theme as a
+      starting point — Head = Lifesteal (heals on hit,
+      `PlayerCombat.ApplyLifesteal`), Chest = DamageMitigation (flat %
+      damage reduction, applied in `Health.TakeDamage` alongside Armor,
+      recalculated in `PlayerStats`), Pants = AutoDodge (a free periodic
+      invulnerability window, polled in `PlayerCombat.Update()`). More
+      flavor options per slot (crit/bleed/poison for Head, heal/tank for
+      Chest) are future content — same shape of work as adding a new
+      `StatType` affix, not a new system.
+- [x] **`PlayerLevel`**: kills-only XP (hooked into `WaveManager.OnEnemyDied`),
+      resets every run (no persistence, consistent with "meta-progression
+      between runs" being out of scope). Grants only MaxHealth + flat
+      damage per level — deliberately not Attack Speed/Crit/Move Speed/
+      Ability CDR, which stay purely Stat-Shard-driven. `Health`/`PlayerStats`
+      both gained a separate level-bonus field so it adds on top of gear's
+      bonus instead of overwriting it.
+- [ ] **Manual step required, see `SETUP.md`**: `PlayerLevel` must be added
+      to `Player.prefab` in the Editor — a brand-new `MonoBehaviour` can't
+      be safely wired into a prefab's serialized YAML by hand (its `.meta`
+      GUID doesn't exist until Unity imports it once). Without this, XP
+      silently does nothing (`WaveManager`'s reference stays null).
+- [ ] **No actual `ItemDefinition`/`AffixDefinition`/`DeflectDefinition`/
+      `PassiveEffectDefinition` asset instances created for Gloves/Stat
+      Shard/the new passive effects** — this step built the code-level
+      plumbing only. Authoring real item content (so these slots actually
+      drop and do something in a playthrough) is separate follow-up work.
+
+## Slide animation hookup — combat-feel follow-up
+- [x] `PerformSlide()` now fires a new `Slide` animator trigger. No literal
+      "slide" clip exists in the Blink pack, so `RollForward.fbx` (Movement
+      folder) stands in — a forward roll reads as the same kind of low,
+      fast, forward-traveling move. Same filler-clip approach as
+      `AttackHeavy`/`AbilityCast` earlier — verified with the same PyYAML
+      fileID/parameter cross-reference script used for every prior
+      Animator Controller hand-edit.
+
+## Three more animation hookups — combat-feel follow-up
+- [x] **GetHit**: the `Hit` trigger parameter has existed since earlier this
+      session (added just to stop a console error) but had no state/clip
+      wired to it — every hit fired a parameter that did nothing visually.
+      Now plays `GetHit` (Blink pack) before returning to Locomotion.
+- [x] **BlockingLoop**: new `IsBlocking` bool, driven by `PlayerCombat`'s
+      Deflect/Block input (`isBlockHeld`) — Block previously had zero
+      visual feedback at all.
+- [x] **Sprint**: new `IsSprinting` bool, driven by `PlayerController`.
+      `Sprint.fbx` is forward-only, which turns out to be a clean fit, not
+      a directional compromise — the character already always rotates to
+      face `MovementDirection` regardless of sprint state (see step 2's
+      dash-direction work), so there's never actually a "strafing while
+      sprinting" case to represent.
+- [ ] **Known caveat, not fixed here**: `Health.TakeDamage()` fires `Hit`
+      unconditionally, but hyper armor (see combat identity redesign step
+      1) only suppresses `Hitstun`, not this animator trigger — meaning a
+      player mid-Heavy-swing (hyper armor active) will still visually
+      flinch into `GetHit` even though they're supposed to be immune to
+      being flinched. Fixing it means threading a "suppress Hit animation"
+      flag from `PlayerCombat.IsAttacking` through both `TakeDamage()`
+      call sites (`EnemyController.ResolveHit()` is the one that matters,
+      since only the player has hyper armor) — scoped out of this pass.
+
+## Audio hookup (SFX + music plumbing) — combat-feel follow-up
+- [x] New `AudioManager` (static entry point + lazily-created persistent
+      runner, mirrors the existing `HitStop.Trigger()` pattern exactly —
+      `AudioManager.PlaySfx(clip)`/`PlayMusic(clip)` from anywhere, no scene
+      wiring needed). A null clip is a no-op, so nothing breaks before real
+      sound files are assigned.
+- [x] Each script holds its own `AudioClip` fields (same pattern as
+      `Health.hitStopDuration` already being owned by the calling script,
+      not a central registry) and calls `AudioManager.PlaySfx()` at the
+      natural trigger point:
+      - `PlayerCombat`: Light/Heavy/Ultimate swing, hit-impact-landed,
+        Ability cast, Dash, Slide, Deflect, Block
+      - `Health`: Hit, Death
+      - `Stagger`: Break
+      - `EnemyController`: attack swing
+      - `WaveManager`: looping background music, started once in `Start()`
+- [ ] **No actual clips assigned yet** — every field above is empty,
+      waiting on real files. Free CC0 candidates already checked and
+      confirmed clear: Kenney's Impact Sounds, RPG Audio, and Interface
+      Sounds/UI Audio packs (same publisher already used for the UI
+      borders in this project).
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
