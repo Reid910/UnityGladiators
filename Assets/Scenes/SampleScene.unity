@@ -4441,10 +4441,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 3595818344031245673, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 1483274550}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
 --- !u!4 &700000002 stripped
 Transform:
@@ -4456,7 +4453,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 4456081547657716220, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
   m_PrefabInstance: {fileID: 700000001}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1483274544}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 843bd8ee6ac57654c92020f02e5f1125, type: 3}
@@ -4467,7 +4464,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 9180044165183189459, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
   m_PrefabInstance: {fileID: 700000001}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1483274544}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d1c61828244915b4c942a0a0ce5671ed, type: 3}
@@ -4478,7 +4475,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 1655791083341687734, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
   m_PrefabInstance: {fileID: 700000001}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1483274544}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 42088798ebfcd354eb75c10a84757aff, type: 3}
@@ -4489,7 +4486,7 @@ MonoBehaviour:
   m_CorrespondingSourceObject: {fileID: 619273841001122335, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
   m_PrefabInstance: {fileID: 700000001}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1483274544}
+  m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6bc60576c8a6ba4469fd48e6e12aac95, type: 3}
@@ -9345,29 +9342,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1 &1483274544 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3595818344031245673, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
-  m_PrefabInstance: {fileID: 700000001}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &1483274550
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1483274544}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 14d65b80169de49bfbf116e1b83c5b19, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PlayerLevel
-  health: {fileID: 0}
-  playerStats: {fileID: 0}
-  xpPerKill: 10
-  baseXpToLevel: 50
-  maxHealthPerLevel: 10
-  damagePerLevel: 2
 --- !u!1 &1483329804
 GameObject:
   m_ObjectHideFlags: 0
