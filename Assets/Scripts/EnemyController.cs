@@ -39,6 +39,26 @@ public class EnemyController : MonoBehaviour
     [Tooltip("SFX — assign once you have a clip (see AudioManager).")]
     [SerializeField] private AudioClip attackSwingClip;
 
+    [Header("Perilous Attacks")]
+    [Tooltip("Perilous attacks (Downslam/Side swing) don't appear until this wave — gives the player time to learn basic combat and gear up first, same pattern as EnemyTier T2/T3 gating in WaveManager. Set once at spawn via SetSpawnWave(), not looked up continuously. See docs/combat-redesign-plan.md.")]
+    [SerializeField] private int perilousUnlockWave = 3;
+    [Tooltip("Chance to use a Perilous attack instead of a normal swing when eligible (unlock wave reached, off its own cooldown) — the rest of the time it's a normal attack. Placeholder, expect to retune.")]
+    [SerializeField] private float perilousAttackChance = 0.35f;
+    [Tooltip("Shared cooldown covering BOTH Perilous moves together, not tracked per-type — keeps them as rare, high-impact spikes rather than a constant threat. Placeholder, expect to retune.")]
+    [SerializeField] private float perilousCooldown = 10f;
+    [Tooltip("Both Perilous moves are unblockable/undeflectable — the only counter is being outside the affected area when it lands, not a per-type counter-move.")]
+    [SerializeField] private Color perilousFlickerColor = new Color(1f, 0.55f, 0f);
+    [Tooltip("Overhead impact, AoE around the enemy's own position. Get outside this radius before it lands.")]
+    [SerializeField] private float downslamRadius = 3f;
+    [SerializeField] private int downslamDamage = 25;
+    [SerializeField] private float downslamWindup = 0.9f;
+    [Tooltip("Wide horizontal arc in front of the enemy. Get clear of the arc's reach or its angle before it lands.")]
+    [SerializeField] private float sideSwingRange = 2.5f;
+    [Tooltip("Full width of the arc in degrees, centered on the enemy's facing direction.")]
+    [SerializeField] private float sideSwingArcDegrees = 160f;
+    [SerializeField] private int sideSwingDamage = 20;
+    [SerializeField] private float sideSwingWindup = 0.7f;
+
     [Header("Telegraph")]
     [Tooltip("Filler visual telegraph until real wind-up animations exist — flickers this color during the attack windup so an incoming hit is readable, not just mechanically fair (the windup timing already existed, it just wasn't visible). See docs/combat-redesign-plan.md.")]
     [SerializeField] private Color telegraphFlickerColor = new Color(1f, 0.15f, 0.1f);
@@ -66,8 +86,18 @@ public class EnemyController : MonoBehaviour
     private float nextShuffleFlipTime;
     private float shuffleStartTime = -1f;
     private bool isClosingIn;
+    private int spawnWave;
+    private float nextPerilousTime;
 
     public EnemyTier Tier => tier;
+
+    // Set once by WaveManager.SpawnEnemy() at spawn time — see
+    // perilousUnlockWave. Not a continuous lookup since the wave number
+    // this enemy spawned in never changes after the fact.
+    public void SetSpawnWave(int wave)
+    {
+        spawnWave = wave;
+    }
 
     // Enemies can't move or attack while stunned from a hit or broken from
     // stagger — mirrors the same restriction PlayerCombat applies to the player.
@@ -309,6 +339,26 @@ public class EnemyController : MonoBehaviour
             return;
         }
 
+        bool perilousEligible = spawnWave >= perilousUnlockWave && Time.time >= nextPerilousTime;
+
+        if (perilousEligible && Random.value < perilousAttackChance)
+        {
+            nextPerilousTime = Time.time + perilousCooldown;
+
+            if (Random.value < 0.5f)
+            {
+                nextAttackTime = Time.time + downslamWindup + attackCooldown;
+                StartCoroutine(PerformDownslam());
+            }
+            else
+            {
+                nextAttackTime = Time.time + sideSwingWindup + attackCooldown;
+                StartCoroutine(PerformSideSwing());
+            }
+
+            return;
+        }
+
         nextAttackTime = Time.time + attackWindup + attackActiveDuration + attackCooldown;
         StartCoroutine(PerformAttack());
     }
@@ -326,7 +376,7 @@ public class EnemyController : MonoBehaviour
 
         if (attackWindup > 0f)
         {
-            yield return StartCoroutine(FlickerTelegraph(attackWindup));
+            yield return StartCoroutine(FlickerTelegraph(attackWindup, telegraphFlickerColor));
         }
 
         // Getting broken mid-windup cancels the swing, same rule as the player's.
@@ -351,11 +401,60 @@ public class EnemyController : MonoBehaviour
         isAttacking = false;
     }
 
+    // Both Perilous moves are a single instant check at the moment the
+    // windup ends ("get out of the area before it lands"), not a sustained
+    // active window like the normal attack above — there's no "still in
+    // range a moment later" grace period to model here.
+    private IEnumerator PerformDownslam()
+    {
+        isAttacking = true;
+
+        if (animator != null)
+        {
+            animator.SetTrigger("Attack");
+        }
+
+        AudioManager.PlaySfx(attackSwingClip);
+
+        yield return StartCoroutine(FlickerTelegraph(downslamWindup, perilousFlickerColor));
+
+        // Getting broken mid-windup cancels the swing, same rule as every other attack.
+        if (!IsIncapacitated && IsTargetInDownslamRadius())
+        {
+            ResolveHit(downslamDamage, attackHitstunDuration, canBeDefended: false);
+        }
+
+        isAttacking = false;
+    }
+
+    private IEnumerator PerformSideSwing()
+    {
+        isAttacking = true;
+
+        if (animator != null)
+        {
+            animator.SetTrigger("Attack");
+        }
+
+        AudioManager.PlaySfx(attackSwingClip);
+
+        yield return StartCoroutine(FlickerTelegraph(sideSwingWindup, perilousFlickerColor));
+
+        if (!IsIncapacitated && IsTargetInSideSwingArc())
+        {
+            ResolveHit(sideSwingDamage, attackHitstunDuration, canBeDefended: false);
+        }
+
+        isAttacking = false;
+    }
+
     // Filler telegraph until real wind-up animations exist — flickers
-    // between the tier tint and a warning color for the whole windup, then
+    // between the tier tint and the given warning color for the whole
+    // windup (a distinct color for Perilous vs a normal swing, so the read
+    // is teachable, not a guess — see docs/combat-redesign-plan.md), then
     // guarantees the tier tint is restored before the active hit window
-    // starts. See docs/combat-redesign-plan.md.
-    private IEnumerator FlickerTelegraph(float duration)
+    // starts.
+    private IEnumerator FlickerTelegraph(float duration, Color flickerColor)
     {
         float elapsed = 0f;
         bool flickerOn = false;
@@ -369,7 +468,7 @@ public class EnemyController : MonoBehaviour
             }
 
             flickerOn = !flickerOn;
-            SetTint(flickerOn ? telegraphFlickerColor : tierTint);
+            SetTint(flickerOn ? flickerColor : tierTint);
 
             float step = Mathf.Min(telegraphFlickerInterval, duration - elapsed);
             yield return new WaitForSeconds(step);
@@ -384,7 +483,42 @@ public class EnemyController : MonoBehaviour
         return target != null && Vector3.Distance(transform.position, target.position) <= attackRange;
     }
 
+    private bool IsTargetInDownslamRadius()
+    {
+        return target != null && Vector3.Distance(transform.position, target.position) <= downslamRadius;
+    }
+
+    // Wide arc in front of the enemy — range AND angle both have to be
+    // satisfied, unlike Downslam's simple radius-around-self.
+    private bool IsTargetInSideSwingArc()
+    {
+        if (target == null)
+        {
+            return false;
+        }
+
+        Vector3 toTarget = target.position - transform.position;
+        toTarget.y = 0f;
+
+        if (toTarget.magnitude > sideSwingRange)
+        {
+            return false;
+        }
+
+        float angle = Vector3.Angle(transform.forward, toTarget);
+        return angle <= sideSwingArcDegrees * 0.5f;
+    }
+
     private void ResolveHit()
+    {
+        ResolveHit(attackDamage, attackHitstunDuration, canBeDefended: true);
+    }
+
+    // canBeDefended is false for Perilous attacks (Downslam/Side swing) —
+    // both are unblockable/undeflectable by design, the only counter is
+    // being outside the affected area when it lands, not a Deflect/Block
+    // timing. See docs/combat-redesign-plan.md.
+    private void ResolveHit(int damage, float hitstunDuration, bool canBeDefended)
     {
         if (targetHealth == null || targetHealth.IsDead)
         {
@@ -411,16 +545,16 @@ public class EnemyController : MonoBehaviour
         // hit but costs the player Stagger instead) — see
         // PlayerCombat.TryDefendAgainst and docs/combat-redesign-plan.md. A
         // successfully defended hit skips damage/stagger/hitstun entirely.
-        if (targetCombat != null && targetCombat.TryDefendAgainst(attackDamage))
+        if (canBeDefended && targetCombat != null && targetCombat.TryDefendAgainst(damage))
         {
             return;
         }
 
-        targetHealth.TakeDamage(attackDamage);
+        targetHealth.TakeDamage(damage);
 
         if (targetStagger != null)
         {
-            targetStagger.AddStaggerFromDamage(attackDamage, targetHealth.MaxHealth);
+            targetStagger.AddStaggerFromDamage(damage, targetHealth.MaxHealth);
         }
 
         // Hyper armor: a player mid-swing isn't flinched by a routine hit —
@@ -431,7 +565,7 @@ public class EnemyController : MonoBehaviour
 
         if (targetHitstun != null && !targetHasHyperArmor)
         {
-            targetHitstun.ApplyStun(attackHitstunDuration);
+            targetHitstun.ApplyStun(hitstunDuration);
         }
     }
 
