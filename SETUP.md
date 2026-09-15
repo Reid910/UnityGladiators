@@ -22,6 +22,11 @@ No new Inspector wiring — all hand-edited YAML/code. Verify:
    land as a dodge-out attack (forward lunge) right as the lock lifts.
 5. **HUD**: Heavy's cooldown icon should no longer count down in lockstep
    with the Attack (Light) icon.
+6. **Ability commitment**: try pressing Ability mid-Light-combo or
+   mid-slide — should be fully blocked (no cast) until the current action's
+   lock clears, unlike before where it fired immediately regardless.
+   Casting the Ability should also block Light/Heavy/Dash until its own
+   windup+active+recovery finishes.
 
 ## Combat identity redesign, step 1 — verify before trusting
 

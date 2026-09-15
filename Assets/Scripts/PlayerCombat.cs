@@ -515,11 +515,14 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryUseAbility()
     {
-        // Deliberately not gated by IsIncapacitated/IsAttacking or nextAttackTime
-        // the way light/heavy are — the ability has its own independent
-        // cooldown (nextAbilityTime) and can be weaved between combo hits.
-        // It's still blocked while dead/stunned/broken via IsIncapacitated below.
-        if (IsIncapacitated || Time.time < nextAbilityTime)
+        // Now a real committed action like everything else (see
+        // docs/combat-redesign-plan.md) — shares the same nextAttackTime
+        // lock as Light/Heavy/Ultimate/Dash, so it can't be cast mid-swing
+        // or mid-slide, and casting it locks other actions out for its own
+        // duration in turn. Previously deliberately exempt ("weave between
+        // combo hits"); reversed per playtest feedback. Still has its own
+        // independent cooldown (nextAbilityTime) on top of that lock.
+        if (IsIncapacitated || Time.time < nextAttackTime || Time.time < nextAbilityTime)
         {
             return;
         }
@@ -539,21 +542,25 @@ public class PlayerCombat : MonoBehaviour
         nextAbilityTime = Time.time + effectiveCooldown;
         AudioManager.PlaySfx(abilityCastClip);
 
-        // An ability is a bigger, rarer hit than a normal swing — same
-        // windup/active-window pipeline as combo/heavy, just with its own
-        // damage/range from the weapon's AbilityDefinition. Doesn't touch
-        // nextAttackTime/comboStep, so it doesn't interrupt or reset the
-        // light combo chain. animatorTrigger ("AbilityCast" by default) now
-        // maps to a real state (SpellCast, filler from the Blink pack) —
-        // deliberately a different-looking motion from the punch/melee combo
-        // states so an ability reads as clearly distinct from a normal attack.
-        StartCoroutine(PerformAttack(
+        // A bigger, rarer hit than a normal swing, with its own damage/
+        // range/recovery from the weapon's AbilityDefinition. Interrupts
+        // and resets the light combo chain, same as Heavy/Ultimate — it's
+        // a real committed action now, not something weaved in between.
+        // animatorTrigger ("AbilityCast" by default) maps to a real state
+        // (SpellCast, filler from the Blink pack) — deliberately a
+        // different-looking motion from the punch/melee combo states so an
+        // ability reads as clearly distinct from a normal attack.
+        BeginAttack(
             abilityDefinition.Damage,
             abilityDefinition.HitstunDuration,
             abilityDefinition.AnimatorTrigger,
-            ApplyAttackSpeed(abilityDefinition.Windup),
-            ApplyAttackSpeed(abilityDefinition.ActiveDuration),
-            abilityDefinition.Range));
+            abilityDefinition.Windup,
+            abilityDefinition.ActiveDuration,
+            abilityDefinition.RecoveryTime,
+            range: abilityDefinition.Range);
+
+        comboStep = 0;
+        comboResetTime = nextAttackTime;
     }
 
     private void TryDash()

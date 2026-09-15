@@ -807,6 +807,23 @@ breaks and finishers, not a slow tank-and-spank.
       element no longer mirrors the countdown; the shared cooldown system
       itself is unchanged.
 
+## Ability now commits like every other action — combat-feel follow-up
+- [x] `TryUseAbility()` was deliberately exempt from the shared
+      `nextAttackTime` lock ("weave between combo hits") — reversed per
+      playtest feedback, casting mid-swing didn't feel right. Now routes
+      through `BeginAttack()` exactly like Light/Heavy/Ultimate: blocked by
+      `nextAttackTime` (can't cast mid-swing or mid-slide), and sets it in
+      turn (casting locks other actions out for the Ability's own
+      duration). Still keeps its own independent cooldown
+      (`nextAbilityTime`) on top of that lock. Interrupts/resets the light
+      combo chain now too, same as Heavy/Ultimate.
+- [x] `AbilityDefinition` gained a `Recovery Time` field (default 0.3s) —
+      never needed one before since Ability bypassed the lock entirely;
+      now it needs a real recovery window like every other committed
+      action. Hyper armor was deliberately NOT added to Ability's cast —
+      that's a separate axis (risk/reward tuning) from commitment, not
+      asked for.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
