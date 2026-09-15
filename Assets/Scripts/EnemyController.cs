@@ -20,6 +20,8 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float shuffleSpeed = 1.5f;
     [Tooltip("How often the shuffle direction flips (left/right), in seconds.")]
     [SerializeField] private float shuffleFlipInterval = 0.8f;
+    [Tooltip("How long the enemy circles/feints (Shuffle) before committing to close the distance and attack — a 'sizing you up' beat, not an indefinite circle. Without a commit, an enemy that stays just outside Stopping Distance would shuffle forever and never actually attack unless the player closed the gap themselves. See docs/combat-redesign-plan.md.")]
+    [SerializeField] private float shuffleDecisionTime = 1.2f;
 
     [Header("Combat")]
     [SerializeField] private int attackDamage = 10;
@@ -59,6 +61,8 @@ public class EnemyController : MonoBehaviour
     private MaterialPropertyBlock propertyBlock;
     private float shuffleDirection = 1f;
     private float nextShuffleFlipTime;
+    private float shuffleStartTime = -1f;
+    private bool isClosingIn;
 
     public EnemyTier Tier => tier;
 
@@ -147,16 +151,47 @@ public class EnemyController : MonoBehaviour
         // not yet in range, Attack once in range. See docs/combat-redesign-plan.md.
         if (distanceToTarget > shuffleDistance)
         {
+            isClosingIn = false;
+            shuffleStartTime = -1f;
             MoveTowardTarget();
             SetMoving(true);
         }
         else if (distanceToTarget > stoppingDistance)
         {
-            ShuffleAroundTarget();
+            // Shuffle purely circles laterally and never closes the gap on
+            // its own — without a decision to commit, an enemy that stays
+            // just outside Stopping Distance would shuffle forever unless
+            // the player happened to close in themselves. After sizing the
+            // player up for shuffleDecisionTime, commit to closing straight
+            // in instead.
+            if (!isClosingIn)
+            {
+                if (shuffleStartTime < 0f)
+                {
+                    shuffleStartTime = Time.time;
+                }
+
+                if (Time.time - shuffleStartTime >= shuffleDecisionTime)
+                {
+                    isClosingIn = true;
+                }
+            }
+
+            if (isClosingIn)
+            {
+                MoveTowardTarget();
+            }
+            else
+            {
+                ShuffleAroundTarget();
+            }
+
             SetMoving(true);
         }
         else
         {
+            isClosingIn = false;
+            shuffleStartTime = -1f;
             SetMoving(false);
             AttackTarget();
         }

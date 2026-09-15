@@ -838,6 +838,24 @@ breaks and finishers, not a slow tank-and-spank.
       (`LootableCorpse.PrepareLoot()` overwrites the tint), so left as-is
       unless it's actually visible in play.
 
+## Second playtest pass — sprint/slide and enemy AI fixes
+- [x] Holding Sprint through a Dash still visibly interrupted the Slide
+      animation: `IsSprinting`'s Any-State transition (`m_HasExitTime: 0`,
+      `m_InterruptionSource: 0`) fires immediately whenever the bool reads
+      true, and it kept reading true throughout the slide since the Sprint
+      key was still physically held. Fixed by suppressing just the animator
+      bool (`PlayerController.SuppressSprintAnimation()`), not the
+      underlying `IsSprinting` state, for the slide's full physical
+      duration — real Sprint resumes on its own once that window expires
+      and the key is still held.
+- [x] `EnemyController`'s Shuffle phase only ever circled laterally and
+      never closed the gap on its own — an enemy sitting just outside
+      Stopping Distance would shuffle forever unless the player happened to
+      close the distance themselves. Added `shuffleDecisionTime` (default
+      1.2s): after sizing the player up for that long, the enemy commits
+      (`isClosingIn`) and moves straight in until within Stopping Distance,
+      then attacks as before.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
