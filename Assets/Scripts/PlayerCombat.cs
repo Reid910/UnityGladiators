@@ -588,6 +588,19 @@ public class PlayerCombat : MonoBehaviour
         // button (see docs/combat-redesign-plan.md).
         if (playerController != null && playerController.IsSprinting)
         {
+            // Locked into the slide for its full duration except the last
+            // Dodge Out Window seconds — attacking or re-dashing mid-slide
+            // isn't allowed, matching a Dark Souls-style "committed to your
+            // action" feel. dashEndedTime opens the dodge-out attack window
+            // starting at the tail, not at the slide's full completion, so
+            // the very first input once the lock lifts already qualifies.
+            float slideLockDuration = Mathf.Max(0f, slideDuration - dodgeOutWindow);
+            float tailStartTime = Time.time + slideLockDuration;
+
+            nextAttackTime = Mathf.Max(nextAttackTime, tailStartTime);
+            nextDashTime = Mathf.Max(nextDashTime, tailStartTime);
+            dashEndedTime = tailStartTime;
+
             StartCoroutine(PerformSlide(dashDirection, dashDefinition.Distance));
             AudioManager.PlaySfx(slideClip);
         }
@@ -608,7 +621,9 @@ public class PlayerCombat : MonoBehaviour
             LootCorpses();
         }
 
-        nextDashTime = Time.time + dashDefinition.Cooldown;
+        // Mathf.Max so the slide's lock (set above) isn't shortened by a
+        // Dash cooldown that happens to be quicker than the slide itself.
+        nextDashTime = Mathf.Max(nextDashTime, Time.time + dashDefinition.Cooldown);
     }
 
     // Covers the same total distance as a normal dash, but over time
@@ -637,7 +652,9 @@ public class PlayerCombat : MonoBehaviour
             yield return null;
         }
 
-        dashEndedTime = Time.time;
+        // dashEndedTime/nextAttackTime/nextDashTime were already set upfront
+        // in TryDash() to open the tail/dodge-out window before the slide
+        // physically finishes — nothing to set here.
         playerController?.ApplyMomentumBoost(slideMomentumMultiplier, slideMomentumDuration);
     }
 

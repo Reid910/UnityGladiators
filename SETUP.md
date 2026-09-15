@@ -3,6 +3,26 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## First playtest fixes — verify before trusting
+
+No new Inspector wiring — all hand-edited YAML/code. Verify:
+
+1. **Sprint**: hold Sprint while moving for several seconds — the run
+   animation should play smoothly, not visibly restart/stutter every
+   fraction of a second like before.
+2. **Block**: hold the Deflect/Block input (Space) for a few seconds —
+   same check, `BlockingLoop` should hold steady, not restart.
+3. **Broken/StunnedLoop**: get an enemy (or yourself) staggered to full and
+   watch it for the ~2s broken duration — should hold the stunned pose
+   steadily rather than flickering/restarting (this bug predates this
+   session's Sprint/Block work, just wasn't noticed until now).
+4. **Slide commitment**: sprint, Dash to trigger a Slide, and try
+   attacking/dashing again immediately (mid-slide) — should be fully
+   locked out until near the end of the slide, where a Light attack should
+   land as a dodge-out attack (forward lunge) right as the lock lifts.
+5. **HUD**: Heavy's cooldown icon should no longer count down in lockstep
+   with the Attack (Light) icon.
+
 ## Combat identity redesign, step 1 — verify before trusting
 
 No new Inspector wiring needed — everything here is either a pure code

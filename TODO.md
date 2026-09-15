@@ -778,6 +778,35 @@ breaks and finishers, not a slow tank-and-spank.
       Sounds/UI Audio packs (same publisher already used for the UI
       borders in this project).
 
+## First real playtest of the combat redesign — fixes
+- [x] **Sprint/Block/Broken animation restart bug**: `IsSprinting`,
+      `IsBlocking`, and the pre-existing `Broken` Any State transitions all
+      had `Can Transition To Self: 1` — fine for trigger-based transitions
+      (a trigger auto-consumes, so it can't refire), but for a bool that
+      stays continuously true, it means Unity kept re-entering/restarting
+      the destination state every evaluation. Fixed by setting it to 0 on
+      all three entry transitions in `LowPolyHumanAnimator.controller`.
+      `Broken`/`StunnedLoop` had this same latent bug since earlier this
+      session, just hadn't been reported — fixed proactively.
+- [x] **Could attack out of a mid-slide**: `TryDash()`'s Slide branch now
+      locks `nextAttackTime`/`nextDashTime` for the slide's full duration
+      minus `Dodge Out Window` — attacking or re-dashing mid-slide is
+      blocked, matching a Dark Souls-style "committed to your action" feel.
+      The dodge-out attack window now opens right at that lock's end (the
+      slide's tail), not at the slide's full physical completion, so the
+      very first input once the lock lifts already qualifies as a dodge-out
+      attack. Light/Heavy/Ultimate were already mutually locked via the
+      same `nextAttackTime`; Ability and Deflect/Block are deliberately
+      still exempt (weave-in-between-combos and always-available-defense
+      are existing design choices, not oversights).
+- [x] **UI showed Light and Heavy on two separate-looking cooldowns**: they
+      share one real cooldown (`PlayerCombat.nextAttackTime`) by design, but
+      `GameUI` was driving both `attackCooldownFill`/text and
+      `heavyCooldownFill`/text off the identical value, so both visibly
+      ticked down in lockstep — read like a bug in playtesting. Heavy's HUD
+      element no longer mirrors the countdown; the shared cooldown system
+      itself is unchanged.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

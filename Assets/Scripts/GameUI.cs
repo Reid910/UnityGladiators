@@ -146,11 +146,13 @@ public class GameUI : MonoBehaviour
                 ? Mathf.Clamp01(attackRemaining / playerCombat.AttackCooldownDuration) : 0f;
         if (attackCooldownText != null)
             attackCooldownText.text = attackRemaining > 0f ? attackRemaining.ToString("0.0") + "s" : "ATTACK";
-        if (heavyCooldownFill != null)
-            heavyCooldownFill.fillAmount = playerCombat.AttackCooldownDuration > 0f
-                ? Mathf.Clamp01(attackRemaining / playerCombat.AttackCooldownDuration) : 0f;
+        // Heavy shares the same underlying cooldown as Light (both gate on
+        // PlayerCombat.nextAttackTime) — that's intentional, but showing two
+        // separate fills/timers ticking in perfect lockstep read like a bug
+        // in playtesting. Heavy's icon stays static rather than mirroring
+        // Attack's countdown; the shared cooldown system itself is unchanged.
         if (heavyCooldownText != null)
-            heavyCooldownText.text = attackRemaining > 0f ? attackRemaining.ToString("0.0") + "s" : "HEAVY";
+            heavyCooldownText.text = "HEAVY";
         bool hasAbility = playerEquipment != null && playerEquipment.GetEquipped(ItemSlot.Weapon)?.Definition?.AbilityDefinition != null;
         bool hasDash = playerEquipment != null && playerEquipment.GetEquipped(ItemSlot.Boots)?.Definition?.DashDefinition != null;
         UpdateSkill(abilityIcon, abilityCooldownFill, abilityCooldownText, hasAbility, playerCombat.AbilityCooldownRemaining, ref abilityCooldownPeak);
