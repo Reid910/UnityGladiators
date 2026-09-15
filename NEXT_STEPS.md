@@ -14,16 +14,9 @@ Slide, Deflect/Block/Ultimate meter, gear itemization). What's left:
 2. **Assign real audio clips** — `AudioManager` plumbing exists everywhere
    (light/heavy/ultimate/hit/ability/dash/slide/deflect/block/break/music),
    but every `AudioClip` field is still empty.
-3. **Create actual gear assets** — `ItemDefinition`/`DeflectDefinition`/
-   `PassiveEffectDefinition` instances for the Gloves/Head/Chest/Pants slots
-   and Stat Shards. Code-side plumbing only exists so far, no real items.
-4. **Perilous attacks** (Downslam / Side swing) as real enemy moves — fully
-   designed in `docs/combat-redesign-plan.md`, not implemented in code yet.
-5. **Finisher (Execute) cinematic presentation** — camera/VFX for a
-   stagger-break kill. Currently just an instant kill with no presentation.
-6. **Full numbers/tuning pass** (`TODO.md`'s M7) — most combat numbers
-   (windups, stagger, shuffle timing, lunge distance, etc.) are first-guess
-   placeholders that need a real playtest pass.
+3. **Full numbers/tuning pass** (`TODO.md`'s M7) — most combat numbers
+   (windups, stagger, shuffle timing, lunge distance, Perilous/gear values,
+   etc.) are first-guess placeholders that need a real playtest pass.
 
 ## In progress
 - **NavMeshAgent switch** — no longer deferred. Filler arena obstacles are
@@ -31,6 +24,16 @@ Slide, Deflect/Block/Ultimate meter, gear itemization). What's left:
   `NavMeshAgent` when one's present, and everything falls back safely
   until it is. **Blocked on manual Editor steps** — see `SETUP.md`: add a
   `NavMeshSurface` + Bake, then add `NavMeshAgent` to `Enemy.prefab`.
+
+## Recently done
+- **Perilous attacks** (Downslam / Side swing) — implemented, gated to
+  wave 3+, unblockable/undeflectable, distinct orange telegraph. Untuned.
+- **Gear assets** — Gloves item + Deflect, 3 armor passives (Lifesteal/
+  DamageMitigation/AutoDodge) wired onto the existing Head/Chest/Pants
+  items, 1 Stat Shard item. All droppable in play now. Untuned.
+- **Finisher presentation** — `HitStop.TriggerFinisher()`: longer freeze +
+  slow-mo ramp back to speed on an Execute kill. Code-only, no camera/VFX
+  (camera work stays deferred, see below). Untuned.
 
 ## Explicitly deferred (don't start until asked)
 - Camera work: collision/occlusion, combat-assist framing, zoom

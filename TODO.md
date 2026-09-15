@@ -894,6 +894,64 @@ breaks and finishers, not a slow tank-and-spank.
       (`attackLungeDistance`) over a new `attackLungeDuration` (0.12s)
       via a coroutine, same incremental-Move pattern as `PerformSlide`.
 
+## Perilous attacks — Downslam and Side swing
+- [x] `EnemyController` now has two Perilous moves, both unblockable/
+      undeflectable (`ResolveHit()` refactored to take `canBeDefended`) —
+      the only counter is being outside the affected area when it lands:
+      **Downslam** (AoE radius around the enemy's own position) and **Side
+      swing** (wide horizontal arc in front of it, range + angle check).
+      Both share one cooldown (`perilousCooldown`, 10s placeholder) rather
+      than tracked per-type, and use a distinct orange telegraph color
+      (`perilousFlickerColor`) so the read is teachable vs a normal swing —
+      `FlickerTelegraph()` now takes the color as a parameter instead of a
+      single fixed field.
+- [x] Gated by wave number, same pattern as `EnemyTier` T2/T3 unlocks:
+      `WaveManager.SpawnEnemy()` now calls the new
+      `EnemyController.SetSpawnWave()` once at spawn time, and Perilous
+      moves only become eligible once `spawnWave >= perilousUnlockWave`
+      (default wave 3). `AttackTarget()` rolls `perilousAttackChance`
+      (0.35 placeholder) to pick a Perilous move over a normal swing when
+      eligible and off cooldown.
+- [ ] All new numbers (radius/range/arc/damage/windup/chance/cooldown) are
+      first-pass guesses, untuned.
+
+## Gear assets — Gloves/passives/Stat Shard, first real content
+- [x] 3 new `PassiveEffectDefinition` assets (`Assets/Definitions/
+      PassiveEffect/`): **Minor Leech** (Lifesteal 8%), **Hardened Hide**
+      (DamageMitigation 8%), **Quick Reflexes** (AutoDodge, 0.3s
+      invulnerability every 8s) — wired onto the existing `Leather Cap`/
+      `Leather Chestplate`/`Leather Greaves` items respectively (Head/
+      Chest/Pants), which previously had no passive since the field didn't
+      exist when they were authored.
+- [x] 1 new `DeflectDefinition` (`Quick Parry`, default 0.5s window) and 1
+      new Gloves item (`Worn Wraps`) wired to it — the Gloves slot had zero
+      items before this.
+- [x] 1 new Stat Shard item (`Tempering Shard`) — same 6-affix pool as
+      every other item, no special active/passive, matching the slot's
+      "carries the old numeric-affix system" role.
+- [x] All 3 new item assets added to `Enemy.prefab`'s `LootableCorpse.
+      possibleItems` so they can actually drop, same as every prior item.
+      Hand-authored directly as `.asset`/`.meta` YAML — safe since these
+      ScriptableObjects' script GUIDs were already committed (unlike a
+      brand-new script, no Unity-generated GUID gap to work around) —
+      verified with a project-wide GUID collision scan plus the same
+      per-doc YAML parse/reference check used all session.
+- [ ] All values (8% lifesteal/mitigation, 0.3s/8s auto-dodge, 0.5s parry
+      window) are first-pass guesses, untuned.
+
+## Finisher (Execute) presentation — code-only slice
+- [x] `HitStop` gained `TriggerFinisher(freezeDuration, rampDuration,
+      rampStartTimeScale)` alongside the existing `Trigger()` — a longer
+      freeze-frame than a normal hit, then a slow-motion ramp back up to
+      full speed (`Time.timeScale` eased from `rampStartTimeScale` to
+      normal) instead of snapping back instantly. `Health.Execute()` now
+      calls this instead of a plain doubled `HitStop.Trigger()`.
+      Deliberately no camera/VFX work — camera zoom/framing is explicitly
+      deferred (see `docs/combat-redesign-plan.md`'s Open Questions), so
+      this is pure `Time.timeScale` sequencing, nothing scene-side needed.
+- [ ] `finisherRampDuration` (0.4s) / `finisherRampStartTimeScale` (0.15)
+      are first-pass guesses — needs an actual kill in play to judge feel.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

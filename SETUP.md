@@ -697,6 +697,32 @@ should be — Unity prefabs freeze field values at the time they're saved, and
 a hand-edited script default only take effect for *new* instances or fields
 that never existed on the prefab before.
 
+## Perilous attacks, gear assets, finisher presentation — verify before trusting
+
+No new Inspector wiring required — all three are code + hand-authored
+`.asset`/`.meta`/prefab-array YAML, no new components or scene objects.
+
+1. **Perilous attacks**: get to wave 3+ and let an enemy attack you a few
+   times. Occasionally it should flicker **orange** (not the usual red)
+   during windup, then either slam down (Downslam) or sweep a wide arc
+   (Side swing) instead of the normal single-target swing — and it should
+   land even if you're mid-Deflect/Block (unblockable by design). Below
+   wave 3, enemies should never do this.
+2. **Gear assets**: open `Assets/Definitions/Item/Worn Wraps.asset` and
+   `Tempering Shard.asset` in the Inspector — confirm they show as a real
+   `ItemDefinition` (not "missing script"), correct Slot dropdown (Gloves /
+   Stat Shard), and `Worn Wraps` has a `Deflect Definition` reference
+   assigned. Same check for `Leather Cap`/`Chestplate`/`Greaves` — each
+   should now show a `Passive Effect Definition` assigned. In play: kill
+   enough enemies that a corpse drops one of the 2 new items and confirm
+   it's equippable and behaves (Gloves grants Deflect timing, Head/Chest/
+   Pants passives actually proc — heal on hit, reduced damage taken, or
+   periodic brief invulnerability).
+3. **Finisher presentation**: break an enemy's stagger and land the
+   killing blow — should freeze briefly then visibly ease back up to
+   normal speed over about half a second, not snap back instantly like a
+   normal hit's freeze does.
+
 ## Combat HUD (installed)
 - SampleScene Canvas/Combat HUD contains framed vitals, wave status, centered skill slots, and five compact gear slots.
 - Original eight HUD text objects are preserved and inactive; GameUI now references replacement labels.
