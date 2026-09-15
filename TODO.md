@@ -869,6 +869,15 @@ breaks and finishers, not a slow tank-and-spank.
       - Confirmed working in play, but `shuffleDecisionTime`/`shuffleSpeed`
         are untuned guesses — needs a numbers pass once it's clear how
         long a shuffle should feel before committing.
+- [x] Found while chasing the Slide fix above: the dodge-out/sprint-attack
+      lunge (`TryLightAttack()`, fires on a Light attack right after a
+      Dash/Slide *or* just while sprinting — no actual dodge input
+      required) moved with a single instant `CharacterController.Move()`,
+      which read as a teleport rather than a lunge. Landing the Slide fix
+      made this far more reachable (dodge-out timing lines up correctly
+      now), which is what surfaced it. Spread the same distance
+      (`attackLungeDistance`) over a new `attackLungeDuration` (0.12s)
+      via a coroutine, same incremental-Move pattern as `PerformSlide`.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.

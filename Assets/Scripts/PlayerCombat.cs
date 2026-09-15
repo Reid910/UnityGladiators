@@ -88,6 +88,8 @@ public class PlayerCombat : MonoBehaviour
     [Tooltip("Window after a Dash/Slide ends where the next Light attack becomes a dodge-out attack. No distinct animation exists yet (see docs/combat-redesign-plan.md) — a forward lunge burst is the placeholder mechanical effect that makes the variant real and testable already.")]
     [SerializeField] private float dodgeOutWindow = 0.25f;
     [SerializeField] private float attackLungeDistance = 1.2f;
+    [Tooltip("How long the lunge burst takes to cover Attack Lunge Distance. A single-frame CharacterController.Move() covering the full distance instantly read as a teleport rather than a lunge — spreading it over this short window instead.")]
+    [SerializeField] private float attackLungeDuration = 0.12f;
 
     [Header("SFX (assign clips once you have them — see AudioManager)")]
     [SerializeField] private AudioClip lightAttackClip;
@@ -112,6 +114,7 @@ public class PlayerCombat : MonoBehaviour
 
     private InputSystem_Actions inputSystemActions;
     private Coroutine attackCoroutine;
+    private Coroutine attackLungeCoroutine;
 
     private int comboStep;
     private float comboResetTime;
@@ -302,10 +305,32 @@ public class PlayerCombat : MonoBehaviour
                 ? playerController.MovementDirection
                 : transform.forward;
 
-            characterController.Move(lungeDirection * attackLungeDistance);
+            if (attackLungeCoroutine != null)
+            {
+                StopCoroutine(attackLungeCoroutine);
+            }
+
+            attackLungeCoroutine = StartCoroutine(PerformAttackLunge(lungeDirection, attackLungeDistance));
         }
 
         comboResetTime = nextAttackTime + comboWindow;
+    }
+
+    // Covers Attack Lunge Distance over Attack Lunge Duration instead of one
+    // instant CharacterController.Move() call, which read as a teleport
+    // rather than a lunge — same incremental-Move pattern as PerformSlide.
+    private IEnumerator PerformAttackLunge(Vector3 direction, float distance)
+    {
+        float elapsed = 0f;
+        float speed = distance / Mathf.Max(0.01f, attackLungeDuration);
+
+        while (elapsed < attackLungeDuration)
+        {
+            float step = Mathf.Min(Time.deltaTime, attackLungeDuration - elapsed);
+            characterController.Move(direction * speed * step);
+            elapsed += step;
+            yield return null;
+        }
     }
 
     private void TryHeavyAttack()
