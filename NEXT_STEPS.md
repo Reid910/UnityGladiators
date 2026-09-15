@@ -25,8 +25,14 @@ Slide, Deflect/Block/Ultimate meter, gear itemization). What's left:
    (windups, stagger, shuffle timing, lunge distance, etc.) are first-guess
    placeholders that need a real playtest pass.
 
+## In progress
+- **NavMeshAgent switch** — no longer deferred. Filler arena obstacles are
+  in `SampleScene`, `EnemyController`'s Sprint phase now paths via
+  `NavMeshAgent` when one's present, and everything falls back safely
+  until it is. **Blocked on manual Editor steps** — see `SETUP.md`: add a
+  `NavMeshSurface` + Bake, then add `NavMeshAgent` to `Enemy.prefab`.
+
 ## Explicitly deferred (don't start until asked)
-- NavMeshAgent switch for enemy movement (no arena/obstacles yet to need it)
 - Camera work: collision/occlusion, combat-assist framing, zoom
 - Champion/Legionary "beefy" enemy archetype
 - Peer-to-peer multiplayer (`TODO.md`'s M8, last priority)

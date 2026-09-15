@@ -623,17 +623,32 @@ breaks and finishers, not a slow tank-and-spank.
       opening — new `ShuffleAroundTarget()`) once inside `Shuffle Distance`
       but not yet in `Stopping Distance`, then **Attack** once in range.
       Flips shuffle direction every `Shuffle Flip Interval` seconds.
-- [ ] **Deferred: the actual NavMeshAgent switch.** The original plan was
-      NavMesh for both obstacle pathfinding and free agent-to-agent
-      avoidance, but there's no arena/obstacles built yet and no NavMesh
-      baked in `SampleScene` — adding a `NavMeshAgent` component via hand
-      -edited YAML blind (many finicky fields, no way to verify without the
-      Editor) for zero current visible benefit (nothing to path around) was
-      judged not worth the risk right now. Shuffle above uses the existing
-      `CharacterController`-based movement instead, which already reliably
-      does "move toward the player." Revisit NavMeshAgent once there's
-      either real arena geometry to path around, or enemy-clumping in
-      testing shows agent-to-agent avoidance is actually needed on its own.
+- [x] **NavMeshAgent switch, now picked back up.** Was deferred earlier
+      since there was no arena geometry to path around and no NavMesh baked
+      — revisited now that a filler arena exists (see below).
+      - Added 5 filler "Obstacle" pillars to `SampleScene` (plain boxes
+        reusing the arena floor's material) in the lane between the player
+        start and the enemy spawn cluster, under a new `Obstacles`
+        GameObject, marked Navigation Static.
+      - `EnemyController` gained an optional `navMeshAgent` field
+        (self-finds via `GetComponent` if left empty). When present and on
+        a baked NavMesh, the **Sprint phase only** now paths via
+        `NavMeshAgent.SetDestination`/`desiredVelocity` instead of a
+        straight line — Shuffle/Attack are untouched, matching
+        `docs/combat-redesign-plan.md`'s "pathfinding is the only job of
+        the NavMesh switch, not shuffle/attack logic."
+      - Deliberately did **not** hand-edit a `NavMeshAgent` component's
+        YAML onto `Enemy.prefab` blind (too many finicky native fields, no
+        way to verify without the Editor — same reasoning as before). The
+        code gracefully falls back to the old straight-line movement until
+        that component actually exists, so nothing breaks in the meantime.
+      - **Manual Editor steps still required, see `SETUP.md`**: add a
+        `NavMeshSurface` component and Bake, then add `NavMeshAgent` to
+        `Enemy.prefab`.
+      - CharacterController stays the sole thing that actually moves the
+        Transform (`agent.updatePosition/updateRotation = false`) — the
+        agent only supplies a pathfinding-aware direction, avoiding the
+        classic "two systems fighting over the same Transform" bug.
 
 ## Combat identity redesign, step 4: movement additions — see docs/combat-redesign-plan.md
 - [x] **Unlimited sprint, no stamina meter.** `PlayerController` reads the

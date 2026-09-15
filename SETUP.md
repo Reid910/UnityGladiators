@@ -178,15 +178,50 @@ currently drop for these slots or grant these effects. To test:
 4. Add that `ItemDefinition` to some `LootableCorpse.Possible Items` list so
    it can actually drop, or assign it directly for manual testing.
 
-## Combat identity redesign — NavMeshAgent switch deferred
+## Combat identity redesign — NavMeshAgent switch, Editor steps needed
 
-Not done — see `TODO.md`. If picking this up later: add a `NavMeshAgent`
-component to `Enemy.prefab` in the Editor (don't hand-edit this one, too
-many fields to get right blind), bake a NavMesh for the arena/ground
-(Window → AI → Navigation, mark ground as Navigation Static, Bake), then
-swap `EnemyController`'s movement calls to use the agent instead of
-`CharacterController`. Until then, movement works fine via the existing
-`CharacterController` path — this isn't blocking anything, just deferred.
+Code side is done: `EnemyController` now has an optional `navMeshAgent`
+field (`Awake()` also falls back to `GetComponent<NavMeshAgent>()` if left
+empty) and, when one is present and on a baked NavMesh, uses it during the
+Sprint phase only — Shuffle/Attack are untouched, still direct
+`CharacterController` movement, per `docs/combat-redesign-plan.md`. Until
+the steps below are done, there's no `NavMeshAgent` on `Enemy.prefab` yet,
+so this silently falls back to the old straight-line movement — nothing
+breaks in the meantime.
+
+Also added: 5 filler "Obstacle" pillars (plain boxes, reusing the arena
+floor's own material) in `SampleScene` under a new `Obstacles` GameObject,
+scattered in the lane between the player start and the enemy spawn
+cluster, each already marked **Navigation Static**. Placeholder geometry
+only — replace/rearrange freely once real arena art exists.
+
+This project is on Unity 6 with the `com.unity.ai.navigation` package
+already installed, so baking goes through a `NavMeshSurface` component, not
+the old Window → AI → Navigation panel (removed in Unity 6). Steps:
+
+1. Select `Arena_Floor` in `SampleScene` (or create an empty "Navigation"
+   GameObject) and **Add Component → Nav Mesh Surface**.
+2. In its Inspector, set **Collect Objects** to **All** (simplest — bakes
+   from every collider in the scene regardless of static flags, so the
+   Navigation Static flag on the obstacles is a nice-to-have here, not
+   required).
+3. Click **Bake** at the bottom of the Nav Mesh Surface Inspector. Confirm
+   the blue NavMesh overlay covers the floor and routes around the 5
+   Obstacle pillars (visible in the Scene view once baked).
+4. Select `Enemy.prefab` and **Add Component → Nav Mesh Agent**. Rough
+   starting values to match the existing tuning (all in `EnemyController`):
+   - **Speed**: match `Movement Speed` (2.5 by default)
+   - **Radius**: ~0.4, **Height**: ~2 (roughly the character's size)
+   - **Stopping Distance**: 0 — `EnemyController`'s own three-phase
+     distance logic already handles stopping/Shuffle/Attack; the agent
+     should never think it's "arrived" on its own before that.
+   - Everything else can stay default.
+5. No field wiring needed on `EnemyController` itself — leave `Nav Mesh
+   Agent` empty in the Inspector and it self-finds via `GetComponent`.
+6. Playtest: an enemy approaching from beyond Shuffle Distance should walk
+   around an Obstacle pillar instead of clipping through it. If it ignores
+   the pillars entirely, re-bake (step 3) — the NavMesh may predate the
+   Obstacles being added.
 
 ## Corpse loot-rarity glow — verify Visual Renderer assignment
 

@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class EnemyController : MonoBehaviour
 {
@@ -22,6 +23,8 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float shuffleFlipInterval = 0.8f;
     [Tooltip("How long the enemy circles/feints (Shuffle) before committing to close the distance and attack — a 'sizing you up' beat, not an indefinite circle. Without a commit, an enemy that stays just outside Stopping Distance would shuffle forever and never actually attack unless the player closed the gap themselves. See docs/combat-redesign-plan.md.")]
     [SerializeField] private float shuffleDecisionTime = 1.2f;
+    [Tooltip("Optional. When present (and a NavMesh is baked — see SETUP.md), the Sprint phase paths around obstacles/other enemies instead of walking straight at the player. Shuffle/Attack still move via CharacterController directly, per docs/combat-redesign-plan.md — pathfinding is the only job of the NavMesh switch. Falls back to straight-line movement if left empty or off-mesh, so nothing breaks before the Editor-side setup is done.")]
+    [SerializeField] private NavMeshAgent navMeshAgent;
 
     [Header("Combat")]
     [SerializeField] private int attackDamage = 10;
@@ -90,6 +93,21 @@ public class EnemyController : MonoBehaviour
             visualRenderer = GetComponentInChildren<Renderer>();
         }
 
+        if (navMeshAgent == null)
+        {
+            navMeshAgent = GetComponent<NavMeshAgent>();
+        }
+
+        if (navMeshAgent != null)
+        {
+            // CharacterController stays the sole authority on actual
+            // position/rotation — the agent only computes a pathfinding
+            // -aware desired direction (see MoveTowardTarget), avoiding the
+            // classic "two systems both moving the same Transform" fight.
+            navMeshAgent.updatePosition = false;
+            navMeshAgent.updateRotation = false;
+        }
+
         TintByTier();
 
         GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
@@ -127,6 +145,14 @@ public class EnemyController : MonoBehaviour
 
     private void Update()
     {
+        // Keeps the agent's internal steering aware of where the
+        // CharacterController actually put us, since updatePosition is off
+        // and the agent never moves the Transform itself.
+        if (navMeshAgent != null)
+        {
+            navMeshAgent.nextPosition = transform.position;
+        }
+
         if (target == null)
         {
             SetMoving(false);
@@ -201,8 +227,31 @@ public class EnemyController : MonoBehaviour
 
     private void MoveTowardTarget()
     {
-        Vector3 directionToTarget = target.position - transform.position;
-        directionToTarget.y = 0f;
+        Vector3 directionToTarget;
+
+        if (navMeshAgent != null && navMeshAgent.isOnNavMesh)
+        {
+            // The agent only supplies a pathfinding-aware direction to walk
+            // in (routing around obstacles/other enemies) — CharacterController
+            // still does the actual moving, same as the straight-line path below.
+            navMeshAgent.SetDestination(target.position);
+            directionToTarget = navMeshAgent.desiredVelocity;
+            directionToTarget.y = 0f;
+
+            if (directionToTarget.sqrMagnitude <= 0.01f)
+            {
+                // No path yet, or already at the last corridor point but
+                // still far from the target (e.g. NavMesh not baked right
+                // up to the target) — fall back rather than standing still.
+                directionToTarget = target.position - transform.position;
+                directionToTarget.y = 0f;
+            }
+        }
+        else
+        {
+            directionToTarget = target.position - transform.position;
+            directionToTarget.y = 0f;
+        }
 
         if (directionToTarget.sqrMagnitude <= 0.01f)
         {
