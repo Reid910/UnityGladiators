@@ -101,3 +101,23 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,unity
+
+### macOS ###
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+### Editor-regenerated solution/project files ###
+# .slnx is VS's newer solution format; *.sln/*.csproj above already cover the
+# older ones. Unity/the C# extension rewrites these per-machine (solution
+# name, paths), so tracking them just creates cross-machine diff noise.
+*.slnx
+
+### VS Code ###
+# settings.json gets rewritten by Unity/the C# extension per-machine
+# (e.g. dotnet.defaultSolution) — let each machine keep its own local copy
+# instead of fighting over it in git.
+.vscode/

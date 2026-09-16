@@ -131,7 +131,11 @@ public class LootableCorpse : MonoBehaviour
             itemPickup.Initialize(rolledItem);
         }
 
-        WaveManager waveManager = FindFirstObjectByType<WaveManager>();
+        // Only one WaveManager ever exists in the scene, so deterministic
+        // ordering (FindFirstObjectByType's whole reason to exist) doesn't
+        // matter here — FindAnyObjectByType is the faster, non-deprecated
+        // choice for a single-instance lookup like this.
+        WaveManager waveManager = FindAnyObjectByType<WaveManager>();
 
         if (waveManager != null)
         {

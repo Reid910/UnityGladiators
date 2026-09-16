@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f047661a0ac1f0b4d8ea815b6a4c2b89, type: 3}
-  m_Name: Leather Cap
+  m_Name: Tempering Shard
   m_EditorClassIdentifier: Assembly-CSharp::ItemDefinition
-  itemName: Leather Cap
-  slot: 0
+  itemName: Tempering Shard
+  slot: 6
   minDamage: 0
   maxDamage: 0
   possibleAffixes:
@@ -26,4 +26,4 @@ MonoBehaviour:
   abilityDefinition: {fileID: 0}
   dashDefinition: {fileID: 0}
   deflectDefinition: {fileID: 0}
-  passiveEffectDefinition: {fileID: 11400000, guid: 08f0ebd4950cddd9ce97b5bdf073eed1, type: 2}
+  passiveEffectDefinition: {fileID: 0}

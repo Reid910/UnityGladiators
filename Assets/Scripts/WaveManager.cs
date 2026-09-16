@@ -205,6 +205,12 @@ public class WaveManager : MonoBehaviour
         spawnedEnemies.Add(enemyObject);
         enemiesAlive++;
 
+        // Perilous attacks (Downslam/Side swing) gate in by the wave the
+        // enemy spawned in, same pattern as the T2/T3 tier gating above —
+        // see EnemyController.perilousUnlockWave.
+        EnemyController enemyController = enemyObject.GetComponent<EnemyController>();
+        enemyController?.SetSpawnWave(currentWave);
+
         Health enemyHealth = enemyObject.GetComponent<Health>();
 
         if (enemyHealth == null)

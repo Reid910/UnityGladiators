@@ -14,7 +14,7 @@ public static class CombatHUDBuilder
     [MenuItem("Gladiators/Build Combat HUD")]
     public static void Build()
     {
-        var gameUI = Object.FindFirstObjectByType<GameUI>();
+        var gameUI = Object.FindAnyObjectByType<GameUI>();
         if (gameUI == null) throw new System.InvalidOperationException("Scene needs a Canvas with GameUI.");
         if (gameUI.transform.Find("Combat HUD") != null) { UpgradeSlots(); return; }
         Undo.IncrementCurrentGroup();
@@ -59,7 +59,7 @@ public static class CombatHUDBuilder
         var gearText = Label("Equipment details", gear, "", 16, new Vector2(20,-58), new Vector2(270,410), Color.white);
         gearText.enableAutoSizing = true; gearText.fontSizeMin = 11; gearText.fontSizeMax = 16;
         Bind("equippedItemsText", gearText);
-        var player = Object.FindFirstObjectByType<PlayerCombat>();
+        var player = Object.FindAnyObjectByType<PlayerCombat>();
         if (player != null)
         {
             Bind("playerCombat", player); Bind("playerHealth", player.GetComponent<Health>());
@@ -74,7 +74,7 @@ public static class CombatHUDBuilder
     [MenuItem("Gladiators/Upgrade HUD Gear Slots")]
     public static void UpgradeSlots()
     {
-        var gameUI = Object.FindFirstObjectByType<GameUI>();
+        var gameUI = Object.FindAnyObjectByType<GameUI>();
         if (gameUI == null) return;
         var root = gameUI.transform.Find("Combat HUD");
         if (root == null) return;
@@ -133,7 +133,7 @@ public static class CombatHUDBuilder
     [MenuItem("Gladiators/Upgrade Attack Cooldown")]
     public static void UpgradeAttackCooldown()
     {
-        var gameUI = Object.FindFirstObjectByType<GameUI>();
+        var gameUI = Object.FindAnyObjectByType<GameUI>();
         if (gameUI == null) return;
         var skills = gameUI.transform.Find("Combat HUD/Skills");
         if (skills == null) return;
@@ -155,7 +155,7 @@ public static class CombatHUDBuilder
     [MenuItem("Gladiators/Upgrade HUD Feedback")]
     public static void UpgradeFeedback()
     {
-        var gameUI = Object.FindFirstObjectByType<GameUI>();
+        var gameUI = Object.FindAnyObjectByType<GameUI>();
         if (gameUI == null) return;
         var root = gameUI.transform.Find("Combat HUD");
         if (root == null || root.Find("Equip message") != null) return;

@@ -623,17 +623,32 @@ breaks and finishers, not a slow tank-and-spank.
       opening — new `ShuffleAroundTarget()`) once inside `Shuffle Distance`
       but not yet in `Stopping Distance`, then **Attack** once in range.
       Flips shuffle direction every `Shuffle Flip Interval` seconds.
-- [ ] **Deferred: the actual NavMeshAgent switch.** The original plan was
-      NavMesh for both obstacle pathfinding and free agent-to-agent
-      avoidance, but there's no arena/obstacles built yet and no NavMesh
-      baked in `SampleScene` — adding a `NavMeshAgent` component via hand
-      -edited YAML blind (many finicky fields, no way to verify without the
-      Editor) for zero current visible benefit (nothing to path around) was
-      judged not worth the risk right now. Shuffle above uses the existing
-      `CharacterController`-based movement instead, which already reliably
-      does "move toward the player." Revisit NavMeshAgent once there's
-      either real arena geometry to path around, or enemy-clumping in
-      testing shows agent-to-agent avoidance is actually needed on its own.
+- [x] **NavMeshAgent switch, now picked back up.** Was deferred earlier
+      since there was no arena geometry to path around and no NavMesh baked
+      — revisited now that a filler arena exists (see below).
+      - Added 5 filler "Obstacle" pillars to `SampleScene` (plain boxes
+        reusing the arena floor's material) in the lane between the player
+        start and the enemy spawn cluster, under a new `Obstacles`
+        GameObject, marked Navigation Static.
+      - `EnemyController` gained an optional `navMeshAgent` field
+        (self-finds via `GetComponent` if left empty). When present and on
+        a baked NavMesh, the **Sprint phase only** now paths via
+        `NavMeshAgent.SetDestination`/`desiredVelocity` instead of a
+        straight line — Shuffle/Attack are untouched, matching
+        `docs/combat-redesign-plan.md`'s "pathfinding is the only job of
+        the NavMesh switch, not shuffle/attack logic."
+      - Deliberately did **not** hand-edit a `NavMeshAgent` component's
+        YAML onto `Enemy.prefab` blind (too many finicky native fields, no
+        way to verify without the Editor — same reasoning as before). The
+        code gracefully falls back to the old straight-line movement until
+        that component actually exists, so nothing breaks in the meantime.
+      - **Manual Editor steps still required, see `SETUP.md`**: add a
+        `NavMeshSurface` component and Bake, then add `NavMeshAgent` to
+        `Enemy.prefab`.
+      - CharacterController stays the sole thing that actually moves the
+        Transform (`agent.updatePosition/updateRotation = false`) — the
+        agent only supplies a pathfinding-aware direction, avoiding the
+        classic "two systems fighting over the same Transform" bug.
 
 ## Combat identity redesign, step 4: movement additions — see docs/combat-redesign-plan.md
 - [x] **Unlimited sprint, no stamina meter.** `PlayerController` reads the
@@ -777,6 +792,188 @@ breaks and finishers, not a slow tank-and-spank.
       confirmed clear: Kenney's Impact Sounds, RPG Audio, and Interface
       Sounds/UI Audio packs (same publisher already used for the UI
       borders in this project).
+
+## First real playtest of the combat redesign — fixes
+- [x] **Sprint/Block/Broken animation restart bug**: `IsSprinting`,
+      `IsBlocking`, and the pre-existing `Broken` Any State transitions all
+      had `Can Transition To Self: 1` — fine for trigger-based transitions
+      (a trigger auto-consumes, so it can't refire), but for a bool that
+      stays continuously true, it means Unity kept re-entering/restarting
+      the destination state every evaluation. Fixed by setting it to 0 on
+      all three entry transitions in `LowPolyHumanAnimator.controller`.
+      `Broken`/`StunnedLoop` had this same latent bug since earlier this
+      session, just hadn't been reported — fixed proactively.
+- [x] **Could attack out of a mid-slide**: `TryDash()`'s Slide branch now
+      locks `nextAttackTime`/`nextDashTime` for the slide's full duration
+      minus `Dodge Out Window` — attacking or re-dashing mid-slide is
+      blocked, matching a Dark Souls-style "committed to your action" feel.
+      The dodge-out attack window now opens right at that lock's end (the
+      slide's tail), not at the slide's full physical completion, so the
+      very first input once the lock lifts already qualifies as a dodge-out
+      attack. Light/Heavy/Ultimate were already mutually locked via the
+      same `nextAttackTime`; Ability and Deflect/Block are deliberately
+      still exempt (weave-in-between-combos and always-available-defense
+      are existing design choices, not oversights).
+- [x] **UI showed Light and Heavy on two separate-looking cooldowns**: they
+      share one real cooldown (`PlayerCombat.nextAttackTime`) by design, but
+      `GameUI` was driving both `attackCooldownFill`/text and
+      `heavyCooldownFill`/text off the identical value, so both visibly
+      ticked down in lockstep — read like a bug in playtesting. Heavy's HUD
+      element no longer mirrors the countdown; the shared cooldown system
+      itself is unchanged.
+
+## Ability now commits like every other action — combat-feel follow-up
+- [x] `TryUseAbility()` was deliberately exempt from the shared
+      `nextAttackTime` lock ("weave between combo hits") — reversed per
+      playtest feedback, casting mid-swing didn't feel right. Now routes
+      through `BeginAttack()` exactly like Light/Heavy/Ultimate: blocked by
+      `nextAttackTime` (can't cast mid-swing or mid-slide), and sets it in
+      turn (casting locks other actions out for the Ability's own
+      duration). Still keeps its own independent cooldown
+      (`nextAbilityTime`) on top of that lock. Interrupts/resets the light
+      combo chain now too, same as Heavy/Ultimate.
+- [x] `AbilityDefinition` gained a `Recovery Time` field (default 0.3s) —
+      never needed one before since Ability bypassed the lock entirely;
+      now it needs a real recovery window like every other committed
+      action. Hyper armor was deliberately NOT added to Ability's cast —
+      that's a separate axis (risk/reward tuning) from commitment, not
+      asked for.
+
+## Enemy attack telegraph — interruption fix
+- [x] `EnemyController.FlickerTelegraph()` didn't check `IsIncapacitated`
+      inside its flicker loop, so staggering/breaking an enemy mid-windup
+      left it flickering the red warning tint on top of the Broken/
+      StunnedLoop pose instead of stopping. Now breaks out of the loop (and
+      restores the tier tint) the moment the enemy becomes incapacitated.
+- [ ] Known residual edge case, not fixed here: killing an enemy mid-windup
+      disables the whole `EnemyController` component in `Health.Die()`,
+      which halts the coroutine wherever it is between yields regardless of
+      any in-code check — a dead enemy can still render stuck on the red
+      tint for one frame. Self-heals once the corpse becomes lootable
+      (`LootableCorpse.PrepareLoot()` overwrites the tint), so left as-is
+      unless it's actually visible in play.
+
+## Second playtest pass — sprint/slide and enemy AI fixes
+- [x] Holding Sprint through a Dash still visibly interrupted the Slide
+      animation: `IsSprinting`'s Any-State transition (`m_HasExitTime: 0`,
+      `m_InterruptionSource: 0`) fires immediately whenever the bool reads
+      true, and it kept reading true throughout the slide since the Sprint
+      key was still physically held.
+      - First attempt suppressed the animator bool for a fixed
+        `slideDuration` (0.3s) — still got interrupted, because the actual
+        `RollForward` clip (46 frames) plays for noticeably longer than
+        that gameplay-timing number, so the mask expired mid-clip.
+      - Fixed properly by checking the Animator's real current/in-progress
+        state (`PlayerController.IsPlayingSlideAnimation`, via
+        `GetCurrentAnimatorStateInfo`/`GetNextAnimatorStateInfo` against a
+        cached `Animator.StringToHash("Slide")`) instead of any fixed
+        timer — the Sprint animator bool is masked for exactly as long as
+        the Slide state is actually playing, with no duration number that
+        can drift out of sync with the clip again.
+      - Note: this same Any-State bug class could in principle hijack
+        other committed animations too if Sprint is held through them
+        (e.g. a sprint-attack) — only Slide was reported/fixed so far;
+        worth watching for in play.
+- [x] `EnemyController`'s Shuffle phase only ever circled laterally and
+      never closed the gap on its own — an enemy sitting just outside
+      Stopping Distance would shuffle forever unless the player happened to
+      close the distance themselves. Added `shuffleDecisionTime` (default
+      1.2s): after sizing the player up for that long, the enemy commits
+      (`isClosingIn`) and moves straight in until within Stopping Distance,
+      then attacks as before.
+      - Confirmed working in play, but `shuffleDecisionTime`/`shuffleSpeed`
+        are untuned guesses — needs a numbers pass once it's clear how
+        long a shuffle should feel before committing.
+- [x] Found while chasing the Slide fix above: the dodge-out/sprint-attack
+      lunge (`TryLightAttack()`, fires on a Light attack right after a
+      Dash/Slide *or* just while sprinting — no actual dodge input
+      required) moved with a single instant `CharacterController.Move()`,
+      which read as a teleport rather than a lunge. Landing the Slide fix
+      made this far more reachable (dodge-out timing lines up correctly
+      now), which is what surfaced it. Spread the same distance
+      (`attackLungeDistance`) over a new `attackLungeDuration` (0.12s)
+      via a coroutine, same incremental-Move pattern as `PerformSlide`.
+
+## NavMeshAgent follow-up — enemy separation near the player
+- [x] Playtest with the NavMesh switch live surfaced a real gap: NavMesh's
+      agent-avoidance only applies during the Sprint phase (see above) —
+      Shuffle and the final close-in had zero awareness of other enemies,
+      so several enemies converging on the player physically jammed into
+      each other right around Stopping/Attack Range, taking a long time to
+      untangle and actually get a hit in.
+- [x] Added a lightweight local separation pass (`EnemyController.
+      GetSeparationVector()`, `enemySeparationRadius`/`enemySeparationStrength`)
+      — not full pathfinding, just a push-away-from-nearby-enemies vector
+      blended into whatever movement an enemy is already doing (Sprint/
+      closing-in/Shuffle). A static `activeEnemies` list (added/removed via
+      `OnEnable`/`OnDisable`) tracks who's currently active; a dead enemy's
+      disabled `EnemyController` (see `Health.Die()`) correctly drops out,
+      so corpses don't push anyone away. Facing still points straight at
+      the player — only the movement vector blends in separation, so
+      telegraphs/aim stay readable.
+- [ ] `enemySeparationRadius`/`enemySeparationStrength` (1.4 / 1.5) are
+      first-pass guesses. This is deliberately a cheap local nudge, not the
+      full "Standoff distance" ring-formation idea from
+      `docs/combat-redesign-plan.md` — revisit that separately if enemies
+      still read as clumping even with separation in play.
+
+## Perilous attacks — Downslam and Side swing
+- [x] `EnemyController` now has two Perilous moves, both unblockable/
+      undeflectable (`ResolveHit()` refactored to take `canBeDefended`) —
+      the only counter is being outside the affected area when it lands:
+      **Downslam** (AoE radius around the enemy's own position) and **Side
+      swing** (wide horizontal arc in front of it, range + angle check).
+      Both share one cooldown (`perilousCooldown`, 10s placeholder) rather
+      than tracked per-type, and use a distinct orange telegraph color
+      (`perilousFlickerColor`) so the read is teachable vs a normal swing —
+      `FlickerTelegraph()` now takes the color as a parameter instead of a
+      single fixed field.
+- [x] Gated by wave number, same pattern as `EnemyTier` T2/T3 unlocks:
+      `WaveManager.SpawnEnemy()` now calls the new
+      `EnemyController.SetSpawnWave()` once at spawn time, and Perilous
+      moves only become eligible once `spawnWave >= perilousUnlockWave`
+      (default wave 3). `AttackTarget()` rolls `perilousAttackChance`
+      (0.35 placeholder) to pick a Perilous move over a normal swing when
+      eligible and off cooldown.
+- [ ] All new numbers (radius/range/arc/damage/windup/chance/cooldown) are
+      first-pass guesses, untuned.
+
+## Gear assets — Gloves/passives/Stat Shard, first real content
+- [x] 3 new `PassiveEffectDefinition` assets (`Assets/Definitions/
+      PassiveEffect/`): **Minor Leech** (Lifesteal 8%), **Hardened Hide**
+      (DamageMitigation 8%), **Quick Reflexes** (AutoDodge, 0.3s
+      invulnerability every 8s) — wired onto the existing `Leather Cap`/
+      `Leather Chestplate`/`Leather Greaves` items respectively (Head/
+      Chest/Pants), which previously had no passive since the field didn't
+      exist when they were authored.
+- [x] 1 new `DeflectDefinition` (`Quick Parry`, default 0.5s window) and 1
+      new Gloves item (`Worn Wraps`) wired to it — the Gloves slot had zero
+      items before this.
+- [x] 1 new Stat Shard item (`Tempering Shard`) — same 6-affix pool as
+      every other item, no special active/passive, matching the slot's
+      "carries the old numeric-affix system" role.
+- [x] All 3 new item assets added to `Enemy.prefab`'s `LootableCorpse.
+      possibleItems` so they can actually drop, same as every prior item.
+      Hand-authored directly as `.asset`/`.meta` YAML — safe since these
+      ScriptableObjects' script GUIDs were already committed (unlike a
+      brand-new script, no Unity-generated GUID gap to work around) —
+      verified with a project-wide GUID collision scan plus the same
+      per-doc YAML parse/reference check used all session.
+- [ ] All values (8% lifesteal/mitigation, 0.3s/8s auto-dodge, 0.5s parry
+      window) are first-pass guesses, untuned.
+
+## Finisher (Execute) presentation — code-only slice
+- [x] `HitStop` gained `TriggerFinisher(freezeDuration, rampDuration,
+      rampStartTimeScale)` alongside the existing `Trigger()` — a longer
+      freeze-frame than a normal hit, then a slow-motion ramp back up to
+      full speed (`Time.timeScale` eased from `rampStartTimeScale` to
+      normal) instead of snapping back instantly. `Health.Execute()` now
+      calls this instead of a plain doubled `HitStop.Trigger()`.
+      Deliberately no camera/VFX work — camera zoom/framing is explicitly
+      deferred (see `docs/combat-redesign-plan.md`'s Open Questions), so
+      this is pure `Time.timeScale` sequencing, nothing scene-side needed.
+- [ ] `finisherRampDuration` (0.4s) / `finisherRampStartTimeScale` (0.15)
+      are first-pass guesses — needs an actual kill in play to judge feel.
 
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.

@@ -88,6 +88,8 @@ public class PlayerCombat : MonoBehaviour
     [Tooltip("Window after a Dash/Slide ends where the next Light attack becomes a dodge-out attack. No distinct animation exists yet (see docs/combat-redesign-plan.md) — a forward lunge burst is the placeholder mechanical effect that makes the variant real and testable already.")]
     [SerializeField] private float dodgeOutWindow = 0.25f;
     [SerializeField] private float attackLungeDistance = 1.2f;
+    [Tooltip("How long the lunge burst takes to cover Attack Lunge Distance. A single-frame CharacterController.Move() covering the full distance instantly read as a teleport rather than a lunge — spreading it over this short window instead.")]
+    [SerializeField] private float attackLungeDuration = 0.12f;
 
     [Header("SFX (assign clips once you have them — see AudioManager)")]
     [SerializeField] private AudioClip lightAttackClip;
@@ -112,6 +114,7 @@ public class PlayerCombat : MonoBehaviour
 
     private InputSystem_Actions inputSystemActions;
     private Coroutine attackCoroutine;
+    private Coroutine attackLungeCoroutine;
 
     private int comboStep;
     private float comboResetTime;
@@ -302,10 +305,32 @@ public class PlayerCombat : MonoBehaviour
                 ? playerController.MovementDirection
                 : transform.forward;
 
-            characterController.Move(lungeDirection * attackLungeDistance);
+            if (attackLungeCoroutine != null)
+            {
+                StopCoroutine(attackLungeCoroutine);
+            }
+
+            attackLungeCoroutine = StartCoroutine(PerformAttackLunge(lungeDirection, attackLungeDistance));
         }
 
         comboResetTime = nextAttackTime + comboWindow;
+    }
+
+    // Covers Attack Lunge Distance over Attack Lunge Duration instead of one
+    // instant CharacterController.Move() call, which read as a teleport
+    // rather than a lunge — same incremental-Move pattern as PerformSlide.
+    private IEnumerator PerformAttackLunge(Vector3 direction, float distance)
+    {
+        float elapsed = 0f;
+        float speed = distance / Mathf.Max(0.01f, attackLungeDuration);
+
+        while (elapsed < attackLungeDuration)
+        {
+            float step = Mathf.Min(Time.deltaTime, attackLungeDuration - elapsed);
+            characterController.Move(direction * speed * step);
+            elapsed += step;
+            yield return null;
+        }
     }
 
     private void TryHeavyAttack()
@@ -515,11 +540,14 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryUseAbility()
     {
-        // Deliberately not gated by IsIncapacitated/IsAttacking or nextAttackTime
-        // the way light/heavy are — the ability has its own independent
-        // cooldown (nextAbilityTime) and can be weaved between combo hits.
-        // It's still blocked while dead/stunned/broken via IsIncapacitated below.
-        if (IsIncapacitated || Time.time < nextAbilityTime)
+        // Now a real committed action like everything else (see
+        // docs/combat-redesign-plan.md) — shares the same nextAttackTime
+        // lock as Light/Heavy/Ultimate/Dash, so it can't be cast mid-swing
+        // or mid-slide, and casting it locks other actions out for its own
+        // duration in turn. Previously deliberately exempt ("weave between
+        // combo hits"); reversed per playtest feedback. Still has its own
+        // independent cooldown (nextAbilityTime) on top of that lock.
+        if (IsIncapacitated || Time.time < nextAttackTime || Time.time < nextAbilityTime)
         {
             return;
         }
@@ -539,21 +567,25 @@ public class PlayerCombat : MonoBehaviour
         nextAbilityTime = Time.time + effectiveCooldown;
         AudioManager.PlaySfx(abilityCastClip);
 
-        // An ability is a bigger, rarer hit than a normal swing — same
-        // windup/active-window pipeline as combo/heavy, just with its own
-        // damage/range from the weapon's AbilityDefinition. Doesn't touch
-        // nextAttackTime/comboStep, so it doesn't interrupt or reset the
-        // light combo chain. animatorTrigger ("AbilityCast" by default) now
-        // maps to a real state (SpellCast, filler from the Blink pack) —
-        // deliberately a different-looking motion from the punch/melee combo
-        // states so an ability reads as clearly distinct from a normal attack.
-        StartCoroutine(PerformAttack(
+        // A bigger, rarer hit than a normal swing, with its own damage/
+        // range/recovery from the weapon's AbilityDefinition. Interrupts
+        // and resets the light combo chain, same as Heavy/Ultimate — it's
+        // a real committed action now, not something weaved in between.
+        // animatorTrigger ("AbilityCast" by default) maps to a real state
+        // (SpellCast, filler from the Blink pack) — deliberately a
+        // different-looking motion from the punch/melee combo states so an
+        // ability reads as clearly distinct from a normal attack.
+        BeginAttack(
             abilityDefinition.Damage,
             abilityDefinition.HitstunDuration,
             abilityDefinition.AnimatorTrigger,
-            ApplyAttackSpeed(abilityDefinition.Windup),
-            ApplyAttackSpeed(abilityDefinition.ActiveDuration),
-            abilityDefinition.Range));
+            abilityDefinition.Windup,
+            abilityDefinition.ActiveDuration,
+            abilityDefinition.RecoveryTime,
+            range: abilityDefinition.Range);
+
+        comboStep = 0;
+        comboResetTime = nextAttackTime;
     }
 
     private void TryDash()
@@ -588,6 +620,19 @@ public class PlayerCombat : MonoBehaviour
         // button (see docs/combat-redesign-plan.md).
         if (playerController != null && playerController.IsSprinting)
         {
+            // Locked into the slide for its full duration except the last
+            // Dodge Out Window seconds — attacking or re-dashing mid-slide
+            // isn't allowed, matching a Dark Souls-style "committed to your
+            // action" feel. dashEndedTime opens the dodge-out attack window
+            // starting at the tail, not at the slide's full completion, so
+            // the very first input once the lock lifts already qualifies.
+            float slideLockDuration = Mathf.Max(0f, slideDuration - dodgeOutWindow);
+            float tailStartTime = Time.time + slideLockDuration;
+
+            nextAttackTime = Mathf.Max(nextAttackTime, tailStartTime);
+            nextDashTime = Mathf.Max(nextDashTime, tailStartTime);
+            dashEndedTime = tailStartTime;
+
             StartCoroutine(PerformSlide(dashDirection, dashDefinition.Distance));
             AudioManager.PlaySfx(slideClip);
         }
@@ -608,7 +653,9 @@ public class PlayerCombat : MonoBehaviour
             LootCorpses();
         }
 
-        nextDashTime = Time.time + dashDefinition.Cooldown;
+        // Mathf.Max so the slide's lock (set above) isn't shortened by a
+        // Dash cooldown that happens to be quicker than the slide itself.
+        nextDashTime = Mathf.Max(nextDashTime, Time.time + dashDefinition.Cooldown);
     }
 
     // Covers the same total distance as a normal dash, but over time
@@ -637,7 +684,9 @@ public class PlayerCombat : MonoBehaviour
             yield return null;
         }
 
-        dashEndedTime = Time.time;
+        // dashEndedTime/nextAttackTime/nextDashTime were already set upfront
+        // in TryDash() to open the tail/dodge-out window before the slide
+        // physically finishes — nothing to set here.
         playerController?.ApplyMomentumBoost(slideMomentumMultiplier, slideMomentumDuration);
     }
 

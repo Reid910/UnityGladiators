@@ -17,6 +17,8 @@ public class AbilityDefinition : ScriptableObject
     [SerializeField] private float hitstunDuration = 0.3f;
     [SerializeField] private float windup = 0.25f;
     [SerializeField] private float activeDuration = 0.15f;
+    [Tooltip("How long after the active window before the player can act again — casting an Ability now commits like every other action (see docs/combat-redesign-plan.md), it's no longer weaved freely between combo hits.")]
+    [SerializeField] private float recoveryTime = 0.3f;
     [Tooltip("Independent of the weapon's normal attackRange — abilities can hit wider (or narrower) than a regular swing.")]
     [SerializeField] private float range = 2.5f;
 
@@ -27,5 +29,6 @@ public class AbilityDefinition : ScriptableObject
     public float HitstunDuration => hitstunDuration;
     public float Windup => windup;
     public float ActiveDuration => activeDuration;
+    public float RecoveryTime => recoveryTime;
     public float Range => range;
 }

@@ -1815,6 +1815,7 @@ GameObject:
   - component: {fileID: -5497824766274923756}
   - component: {fileID: 619273841001122334}
   - component: {fileID: 619273841001122335}
+  - component: {fileID: -5518841389601322122}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -1904,6 +1905,7 @@ MonoBehaviour:
   movementSpeed: 5
   rotationSpeed: 12
   gravity: -20
+  sprintSpeedMultiplier: 1.6
   animationBlendSpeed: 10
   cameraTransform: {fileID: 0}
   animator: {fileID: 2359033824035277344}
@@ -1937,6 +1939,8 @@ MonoBehaviour:
   damageNumberSpawnOffset: {x: 0, y: 2, z: 0}
   damageNumberColor: {r: 1, g: 0.15, b: 0.15, a: 1}
   hitStopDuration: 0.05
+  hitClip: {fileID: 0}
+  deathClip: {fileID: 0}
 --- !u!114 &1655791083341687734
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1974,15 +1978,42 @@ MonoBehaviour:
   heavyWindup: 0.35
   heavyActiveDuration: 0.15
   heavyRecoveryTime: 0.4
+  heavyStaggerMultiplier: 2
+  ultimateDamage: 60
+  ultimateHitstunDuration: 0.4
+  ultimateWindup: 0.4
+  ultimateActiveDuration: 0.2
+  ultimateRecoveryTime: 0.6
+  ultimateRange: 3.5
+  ultimateStaggerMultiplier: 5
+  ultimateMeterMax: 100
+  ultimateMeterPerHit: 5
+  ultimateMeterPerDeflect: 20
+  ultimateMeterPerFinisher: 15
+  blockStaggerCostMultiplier: 0.75
   attackPoint: {fileID: 7513508204290518943}
   attackRange: 1.5
-  critDamageMultiplier: 1.5
   enemyLayer:
     serializedVersion: 2
     m_Bits: 64
+  critDamageMultiplier: 1.5
   corpseLayer:
     serializedVersion: 2
     m_Bits: 128
+  slideDuration: 0.3
+  slideMomentumMultiplier: 1.4
+  slideMomentumDuration: 0.25
+  dodgeOutWindow: 0.25
+  attackLungeDistance: 1.2
+  lightAttackClip: {fileID: 0}
+  heavyAttackClip: {fileID: 0}
+  ultimateClip: {fileID: 0}
+  hitImpactClip: {fileID: 0}
+  abilityCastClip: {fileID: 0}
+  dashClip: {fileID: 0}
+  slideClip: {fileID: 0}
+  deflectClip: {fileID: 0}
+  blockClip: {fileID: 0}
   animator: {fileID: 2359033824035277344}
   health: {fileID: 4456081547657716220}
   characterController: {fileID: 0}
@@ -1990,6 +2021,7 @@ MonoBehaviour:
   hitstun: {fileID: 0}
   playerStats: {fileID: 0}
   equipment: {fileID: 0}
+  playerController: {fileID: 0}
 --- !u!114 &9180044165183189459
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2006,6 +2038,8 @@ MonoBehaviour:
   decayPerSecond: 2
   brokenDuration: 2
   damageToStaggerMultiplier: 1
+  animator: {fileID: 0}
+  breakClip: {fileID: 0}
 --- !u!114 &-5497824766274923756
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2016,7 +2050,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: de9bc7c5eeca84047894d6800bd778df, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hitstun
 --- !u!114 &619273841001122334
 MonoBehaviour:
@@ -2028,7 +2062,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 092e87cee883652439e8b4ab816a1d03, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerStats
   equipment: {fileID: 0}
   health: {fileID: 0}
@@ -2043,8 +2077,26 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6bc60576c8a6ba4469fd48e6e12aac95, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerEquipment
+--- !u!114 &-5518841389601322122
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3595818344031245673}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 14d65b80169de49bfbf116e1b83c5b19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerLevel
+  health: {fileID: 0}
+  playerStats: {fileID: 0}
+  xpPerKill: 10
+  baseXpToLevel: 50
+  maxHealthPerLevel: 10
+  damagePerLevel: 2
 --- !u!1 &3665108354841131512
 GameObject:
   m_ObjectHideFlags: 0

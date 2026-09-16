@@ -46,6 +46,22 @@ public class PlayerController : MonoBehaviour
     private float momentumMultiplier = 1f;
     private float momentumUntilTime;
 
+    // Sprint's Any-State animator transition (no exit time, no interruption
+    // source) fires the instant IsSprinting reads true, which hijacked the
+    // Slide clip mid-play since holding Sprint is exactly what triggers a
+    // Slide. A fixed suppression timer isn't reliable here — it has to
+    // outlast whatever the Slide clip's actual length is, which can drift
+    // out of sync with the gameplay slideDuration tuning value. Checking
+    // the Animator's real current/in-progress state instead ties the mask
+    // exactly to how long the clip is actually playing, with no duration
+    // number to keep in sync. See docs/combat-redesign-plan.md.
+    private static readonly int SlideStateHash = Animator.StringToHash("Slide");
+
+    private bool IsPlayingSlideAnimation =>
+        animator != null &&
+        (animator.GetCurrentAnimatorStateInfo(0).shortNameHash == SlideStateHash ||
+         animator.GetNextAnimatorStateInfo(0).shortNameHash == SlideStateHash);
+
     // Called by PlayerCombat when a Slide ends — a brief residual speed
     // boost is the actual ingredient that makes chaining moves (slide into
     // another dash, into an attack) feel fast instead of the slide just
@@ -235,6 +251,7 @@ public class PlayerController : MonoBehaviour
         // compromise — the character already always rotates to face
         // MovementDirection above regardless of sprint state, so there's
         // never actually a "strafing while sprinting" case to represent.
-        animator.SetBool("IsSprinting", IsSprinting);
+        bool showSprintAnimation = IsSprinting && !IsPlayingSlideAnimation;
+        animator.SetBool("IsSprinting", showSprintAnimation);
     }
 }

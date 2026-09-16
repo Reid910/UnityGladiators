@@ -3,6 +3,31 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## First playtest fixes — verify before trusting
+
+No new Inspector wiring — all hand-edited YAML/code. Verify:
+
+1. **Sprint**: hold Sprint while moving for several seconds — the run
+   animation should play smoothly, not visibly restart/stutter every
+   fraction of a second like before.
+2. **Block**: hold the Deflect/Block input (Space) for a few seconds —
+   same check, `BlockingLoop` should hold steady, not restart.
+3. **Broken/StunnedLoop**: get an enemy (or yourself) staggered to full and
+   watch it for the ~2s broken duration — should hold the stunned pose
+   steadily rather than flickering/restarting (this bug predates this
+   session's Sprint/Block work, just wasn't noticed until now).
+4. **Slide commitment**: sprint, Dash to trigger a Slide, and try
+   attacking/dashing again immediately (mid-slide) — should be fully
+   locked out until near the end of the slide, where a Light attack should
+   land as a dodge-out attack (forward lunge) right as the lock lifts.
+5. **HUD**: Heavy's cooldown icon should no longer count down in lockstep
+   with the Attack (Light) icon.
+6. **Ability commitment**: try pressing Ability mid-Light-combo or
+   mid-slide — should be fully blocked (no cast) until the current action's
+   lock clears, unlike before where it fired immediately regardless.
+   Casting the Ability should also block Light/Heavy/Dash until its own
+   windup+active+recovery finishes.
+
 ## Combat identity redesign, step 1 — verify before trusting
 
 No new Inspector wiring needed — everything here is either a pure code
@@ -117,51 +142,50 @@ Same hand-edit technique, no new Inspector wiring. Verify:
    suppressed — see the note in `TODO.md`. Not broken, just a visual
    inconsistency worth knowing about if it looks odd in play.
 
-## Combat identity redesign, step 6 — REQUIRED manual step
+## Combat identity redesign — NavMeshAgent switch, Editor steps needed
 
-**`PlayerLevel` must be added to `Player.prefab` in the Editor** (Add
-Component → search "Player Level"). This is a brand-new script — I can't
-safely wire a new `MonoBehaviour` into a prefab's serialized YAML by hand,
-since its `.meta` GUID doesn't exist until Unity actually imports it once,
-and guessing one would produce a broken/missing-script reference. Without
-this step, killing enemies grants no XP at all (`WaveManager`'s lookup for
-the component just returns null, silently).
+Code side is done: `EnemyController` now has an optional `navMeshAgent`
+field (`Awake()` also falls back to `GetComponent<NavMeshAgent>()` if left
+empty) and, when one is present and on a baked NavMesh, uses it during the
+Sprint phase only — Shuffle/Attack are untouched, still direct
+`CharacterController` movement, per `docs/combat-redesign-plan.md`. Until
+the steps below are done, there's no `NavMeshAgent` on `Enemy.prefab` yet,
+so this silently falls back to the old straight-line movement — nothing
+breaks in the meantime.
 
-1. Open `Player.prefab`, Add Component → `Player Level`.
-2. Its `Health`/`Player Stats` reference fields auto-fill via
-   `GetComponent` in `Awake()` if left empty — no need to manually assign
-   unless they're on a different GameObject than expected.
-3. Verify: kill a few enemies, check `Player Level`'s `Level`/`Current Xp`
-   in the Inspector during Play mode climb — there's no HUD element for
-   this yet.
+Also added: 5 filler "Obstacle" pillars (plain boxes, reusing the arena
+floor's own material) in `SampleScene` under a new `Obstacles` GameObject,
+scattered in the lane between the player start and the enemy spawn
+cluster, each already marked **Navigation Static**. Placeholder geometry
+only — replace/rearrange freely once real arena art exists.
 
-## Combat identity redesign, step 6 — content not yet authored
+This project is on Unity 6 with the `com.unity.ai.navigation` package
+already installed, so baking goes through a `NavMeshSurface` component, not
+the old Window → AI → Navigation panel (removed in Unity 6). Steps:
 
-The new `Gloves`/`StatShard` slots and the `DeflectDefinition`/
-`PassiveEffectDefinition` types are code-only right now — no actual
-`ItemDefinition` `.asset` instances reference them yet, so nothing will
-currently drop for these slots or grant these effects. To test:
-
-1. Create a `PassiveEffectDefinition` asset (`Assets → Create →
-   UnityGladiators → Passive Effect`) — e.g. Effect Type = Lifesteal,
-   Value = 0.15 (heals 15% of damage dealt).
-2. Create a `DeflectDefinition` asset (`Assets → Create → UnityGladiators →
-   Deflect`).
-3. Create (or edit an existing) `ItemDefinition` with Slot = Head/Gloves and
-   assign the above in the new "Head/Chest/Pants slot only" / "Gloves slot
-   only" Inspector fields.
-4. Add that `ItemDefinition` to some `LootableCorpse.Possible Items` list so
-   it can actually drop, or assign it directly for manual testing.
-
-## Combat identity redesign — NavMeshAgent switch deferred
-
-Not done — see `TODO.md`. If picking this up later: add a `NavMeshAgent`
-component to `Enemy.prefab` in the Editor (don't hand-edit this one, too
-many fields to get right blind), bake a NavMesh for the arena/ground
-(Window → AI → Navigation, mark ground as Navigation Static, Bake), then
-swap `EnemyController`'s movement calls to use the agent instead of
-`CharacterController`. Until then, movement works fine via the existing
-`CharacterController` path — this isn't blocking anything, just deferred.
+1. Select `Arena_Floor` in `SampleScene` (or create an empty "Navigation"
+   GameObject) and **Add Component → Nav Mesh Surface**.
+2. In its Inspector, set **Collect Objects** to **All** (simplest — bakes
+   from every collider in the scene regardless of static flags, so the
+   Navigation Static flag on the obstacles is a nice-to-have here, not
+   required).
+3. Click **Bake** at the bottom of the Nav Mesh Surface Inspector. Confirm
+   the blue NavMesh overlay covers the floor and routes around the 5
+   Obstacle pillars (visible in the Scene view once baked).
+4. Select `Enemy.prefab` and **Add Component → Nav Mesh Agent**. Rough
+   starting values to match the existing tuning (all in `EnemyController`):
+   - **Speed**: match `Movement Speed` (2.5 by default)
+   - **Radius**: ~0.4, **Height**: ~2 (roughly the character's size)
+   - **Stopping Distance**: 0 — `EnemyController`'s own three-phase
+     distance logic already handles stopping/Shuffle/Attack; the agent
+     should never think it's "arrived" on its own before that.
+   - Everything else can stay default.
+5. No field wiring needed on `EnemyController` itself — leave `Nav Mesh
+   Agent` empty in the Inspector and it self-finds via `GetComponent`.
+6. Playtest: an enemy approaching from beyond Shuffle Distance should walk
+   around an Obstacle pillar instead of clipping through it. If it ignores
+   the pillars entirely, re-bake (step 3) — the NavMesh may predate the
+   Obstacles being added.
 
 ## Corpse loot-rarity glow — verify Visual Renderer assignment
 
@@ -636,6 +660,32 @@ defaults if a number ever seems to not match what a `TODO.md` note says it
 should be — Unity prefabs freeze field values at the time they're saved, and
 a hand-edited script default only take effect for *new* instances or fields
 that never existed on the prefab before.
+
+## Perilous attacks, gear assets, finisher presentation — verify before trusting
+
+No new Inspector wiring required — all three are code + hand-authored
+`.asset`/`.meta`/prefab-array YAML, no new components or scene objects.
+
+1. **Perilous attacks**: get to wave 3+ and let an enemy attack you a few
+   times. Occasionally it should flicker **orange** (not the usual red)
+   during windup, then either slam down (Downslam) or sweep a wide arc
+   (Side swing) instead of the normal single-target swing — and it should
+   land even if you're mid-Deflect/Block (unblockable by design). Below
+   wave 3, enemies should never do this.
+2. **Gear assets**: open `Assets/Definitions/Item/Worn Wraps.asset` and
+   `Tempering Shard.asset` in the Inspector — confirm they show as a real
+   `ItemDefinition` (not "missing script"), correct Slot dropdown (Gloves /
+   Stat Shard), and `Worn Wraps` has a `Deflect Definition` reference
+   assigned. Same check for `Leather Cap`/`Chestplate`/`Greaves` — each
+   should now show a `Passive Effect Definition` assigned. In play: kill
+   enough enemies that a corpse drops one of the 2 new items and confirm
+   it's equippable and behaves (Gloves grants Deflect timing, Head/Chest/
+   Pants passives actually proc — heal on hit, reduced damage taken, or
+   periodic brief invulnerability).
+3. **Finisher presentation**: break an enemy's stagger and land the
+   killing blow — should freeze briefly then visibly ease back up to
+   normal speed over about half a second, not snap back instantly like a
+   normal hit's freeze does.
 
 ## Combat HUD (installed)
 - SampleScene Canvas/Combat HUD contains framed vitals, wave status, centered skill slots, and five compact gear slots.
