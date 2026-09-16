@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -25,6 +26,17 @@ public class EnemyController : MonoBehaviour
     [SerializeField] private float shuffleDecisionTime = 1.2f;
     [Tooltip("Optional. When present (and a NavMesh is baked — see SETUP.md), the Sprint phase paths around obstacles/other enemies instead of walking straight at the player. Shuffle/Attack still move via CharacterController directly, per docs/combat-redesign-plan.md — pathfinding is the only job of the NavMesh switch. Falls back to straight-line movement if left empty or off-mesh, so nothing breaks before the Editor-side setup is done.")]
     [SerializeField] private NavMeshAgent navMeshAgent;
+    [Tooltip("Distance under which enemies gently push apart from each other. NavMesh's own agent-avoidance only steers around other enemies during the Sprint phase (see above) — Shuffle and the final close-in otherwise had zero awareness of nearby enemies, so several enemies converging on the player would physically jam into each other right around Stopping/Attack Range. This is a lightweight separation nudge blended into whatever movement an enemy is already doing (Sprint/closing-in/Shuffle), not a full pathfinding pass.")]
+    [SerializeField] private float enemySeparationRadius = 1.4f;
+    [Tooltip("How strongly the separation push above competes with the enemy's actual movement goal (closing distance / shuffling) — higher values prioritize not overlapping other enemies over beelining at the player.")]
+    [SerializeField] private float enemySeparationStrength = 1.5f;
+
+    // All enabled EnemyController instances — used only for the cheap local
+    // separation pass above. A dead enemy has EnemyController disabled by
+    // Health.Die() (see OnDisable), so corpses correctly stop pushing others
+    // away. Wave sizes are small (see WaveManager), so an O(n) scan per
+    // enemy per frame is fine — no spatial partitioning needed.
+    private static readonly List<EnemyController> activeEnemies = new List<EnemyController>();
 
     [Header("Combat")]
     [SerializeField] private int attackDamage = 10;
@@ -105,6 +117,16 @@ public class EnemyController : MonoBehaviour
         (health != null && health.IsDead) ||
         (hitstun != null && hitstun.IsStunned) ||
         (stagger != null && stagger.IsBroken);
+
+    private void OnEnable()
+    {
+        activeEnemies.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        activeEnemies.Remove(this);
+    }
 
     private void Awake()
     {
@@ -291,7 +313,41 @@ public class EnemyController : MonoBehaviour
         directionToTarget.Normalize();
         RotateToFaceDirection(directionToTarget);
 
-        characterController.Move(directionToTarget * movementSpeed * Time.deltaTime);
+        // Facing stays purely toward the target (readable, doesn't jitter),
+        // but the actual movement blends in a push away from nearby
+        // enemies — otherwise several enemies converging on the same point
+        // just physically jam into each other once close, regardless of
+        // how well NavMesh routed the approach.
+        Vector3 moveDirection = (directionToTarget + GetSeparationVector() * enemySeparationStrength).normalized;
+
+        characterController.Move(moveDirection * movementSpeed * Time.deltaTime);
+    }
+
+    // Sums a push-away vector from every other active enemy within
+    // Enemy Separation Radius, stronger the closer they are. Zero when no
+    // one's close enough to matter. See enemySeparationRadius' tooltip.
+    private Vector3 GetSeparationVector()
+    {
+        Vector3 separation = Vector3.zero;
+
+        foreach (EnemyController other in activeEnemies)
+        {
+            if (other == this || other == null)
+            {
+                continue;
+            }
+
+            Vector3 offset = transform.position - other.transform.position;
+            offset.y = 0f;
+            float distance = offset.magnitude;
+
+            if (distance > 0.01f && distance < enemySeparationRadius)
+            {
+                separation += offset.normalized * (1f - distance / enemySeparationRadius);
+            }
+        }
+
+        return separation;
     }
 
     // Moves side to side while still facing the player, like real sword
@@ -318,7 +374,8 @@ public class EnemyController : MonoBehaviour
         }
 
         Vector3 lateralDirection = Vector3.Cross(Vector3.up, directionToTarget).normalized;
-        characterController.Move(lateralDirection * shuffleDirection * shuffleSpeed * Time.deltaTime);
+        Vector3 moveDirection = (lateralDirection * shuffleDirection + GetSeparationVector() * enemySeparationStrength).normalized;
+        characterController.Move(moveDirection * shuffleSpeed * Time.deltaTime);
     }
 
     private void RotateToFaceDirection(Vector3 direction)

@@ -894,6 +894,29 @@ breaks and finishers, not a slow tank-and-spank.
       (`attackLungeDistance`) over a new `attackLungeDuration` (0.12s)
       via a coroutine, same incremental-Move pattern as `PerformSlide`.
 
+## NavMeshAgent follow-up — enemy separation near the player
+- [x] Playtest with the NavMesh switch live surfaced a real gap: NavMesh's
+      agent-avoidance only applies during the Sprint phase (see above) —
+      Shuffle and the final close-in had zero awareness of other enemies,
+      so several enemies converging on the player physically jammed into
+      each other right around Stopping/Attack Range, taking a long time to
+      untangle and actually get a hit in.
+- [x] Added a lightweight local separation pass (`EnemyController.
+      GetSeparationVector()`, `enemySeparationRadius`/`enemySeparationStrength`)
+      — not full pathfinding, just a push-away-from-nearby-enemies vector
+      blended into whatever movement an enemy is already doing (Sprint/
+      closing-in/Shuffle). A static `activeEnemies` list (added/removed via
+      `OnEnable`/`OnDisable`) tracks who's currently active; a dead enemy's
+      disabled `EnemyController` (see `Health.Die()`) correctly drops out,
+      so corpses don't push anyone away. Facing still points straight at
+      the player — only the movement vector blends in separation, so
+      telegraphs/aim stay readable.
+- [ ] `enemySeparationRadius`/`enemySeparationStrength` (1.4 / 1.5) are
+      first-pass guesses. This is deliberately a cheap local nudge, not the
+      full "Standoff distance" ring-formation idea from
+      `docs/combat-redesign-plan.md` — revisit that separately if enemies
+      still read as clumping even with separation in play.
+
 ## Perilous attacks — Downslam and Side swing
 - [x] `EnemyController` now has two Perilous moves, both unblockable/
       undeflectable (`ResolveHit()` refactored to take `canBeDefended`) —
