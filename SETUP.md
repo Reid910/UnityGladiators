@@ -661,6 +661,20 @@ should be — Unity prefabs freeze field values at the time they're saved, and
 a hand-edited script default only take effect for *new* instances or fields
 that never existed on the prefab before.
 
+## Deflect feedback — verify Visual Renderer assignment
+
+`PlayerCombat` now flashes gold briefly on a successful Deflect (see
+`TODO.md`). Same caveat as `EnemyController`'s Visual Renderer field:
+
+1. Check `PlayerCombat`'s new **Visual Renderer** field on `Player.prefab`
+   — falls back to `GetComponentInChildren<Renderer>()` if left empty,
+   which can grab the wrong mesh on a multi-part rig (e.g. a weapon or
+   hair renderer instead of the body). Assign the body mesh explicitly if
+   the flash looks wrong (tints the wrong part, or nothing visibly flashes).
+2. In play: press Deflect (Space, tap not hold) right as a hit lands —
+   should briefly flash gold and feel a tiny freeze-frame, distinct from
+   just holding Block (no flash, just absorbs the hit).
+
 ## Perilous attacks, gear assets, finisher presentation — verify before trusting
 
 No new Inspector wiring required — all three are code + hand-authored

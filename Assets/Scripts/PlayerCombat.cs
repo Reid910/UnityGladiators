@@ -67,6 +67,16 @@ public class PlayerCombat : MonoBehaviour
     [Header("Deflect / Block")]
     [Tooltip("Same input handles both, repurposing the unused stock 'Jump' action (bound to Space) — see docs/combat-redesign-plan.md's 'no jump' decision. A fresh press within the equipped Gloves item's Deflect Window of an incoming hit becomes a perfect Deflect (no cost, fills the Ultimate meter fast, requires a Gloves item with a DeflectDefinition); just holding the button Blocks HP damage but costs the player Stagger instead, no gear required — this is how Sekiro's actual posture-on-block works.")]
     [SerializeField] private float blockStaggerCostMultiplier = 0.75f;
+    [Tooltip("Optional. A successful Deflect had no feedback at all otherwise (no clip assigned yet, no visual cue), making it indistinguishable from a plain Block in playtesting. Falls back to the first Renderer found in children if left empty.")]
+    [SerializeField] private Renderer visualRenderer;
+    [Tooltip("Cheap placeholder tell for a successful Deflect until real VFX exists — briefly tints Visual Renderer this color, same MaterialPropertyBlock technique EnemyController already uses for its telegraph flicker.")]
+    [SerializeField] private Color deflectFlashColor = new Color(1f, 0.85f, 0.2f);
+    [SerializeField] private float deflectFlashDuration = 0.15f;
+    [Tooltip("A very brief freeze-frame (see HitStop.cs) sells a perfect-timing parry the same way a bigger one sells a finisher — much shorter since this should happen often, not read as a big event.")]
+    [SerializeField] private float deflectHitStopDuration = 0.04f;
+    [Tooltip("Pants AutoDodge proc flash (see the AutoDodge Update() below) — fires every time the passive triggers, not just when it happens to block real damage, since it's a blind timer independent of incoming attacks and would otherwise be unverifiable in play.")]
+    [SerializeField] private Color autoDodgeFlashColor = new Color(0.3f, 0.85f, 1f);
+    [SerializeField] private float autoDodgeFlashDuration = 0.2f;
 
     [Header("Attack")]
     [SerializeField] private Transform attackPoint;
@@ -115,6 +125,8 @@ public class PlayerCombat : MonoBehaviour
     private InputSystem_Actions inputSystemActions;
     private Coroutine attackCoroutine;
     private Coroutine attackLungeCoroutine;
+    private Coroutine visualFlashCoroutine;
+    private MaterialPropertyBlock propertyBlock;
 
     private int comboStep;
     private float comboResetTime;
@@ -169,6 +181,11 @@ public class PlayerCombat : MonoBehaviour
         if (animator == null)
         {
             animator = GetComponentInChildren<Animator>();
+        }
+
+        if (visualRenderer == null)
+        {
+            visualRenderer = GetComponentInChildren<Renderer>();
         }
 
         if (health == null)
@@ -412,6 +429,15 @@ public class PlayerCombat : MonoBehaviour
 
         nextAutoDodgeTime = Time.time + pantsEffect.Cooldown;
         invulnerableUntilTime = Mathf.Max(invulnerableUntilTime, Time.time + pantsEffect.Value);
+
+        // This procs on a blind timer regardless of whether an attack is
+        // actually incoming — with a short window (Value) on a long
+        // cooldown, most procs won't happen to overlap an actual hit, which
+        // made it read as "not working at all" in playtesting even though
+        // it fires exactly on schedule. Flashing on every proc (not just
+        // ones that block real damage) makes it verifiable independent of
+        // luck. Same technique as Deflect's flash above, different color.
+        FlashTint(autoDodgeFlashColor, autoDodgeFlashDuration);
     }
 
     // Called by whatever resolves a hit against the player (see
@@ -435,6 +461,8 @@ public class PlayerCombat : MonoBehaviour
         {
             AddUltimateMeter(ultimateMeterPerDeflect);
             AudioManager.PlaySfx(deflectClip);
+            HitStop.Trigger(deflectHitStopDuration);
+            FlashTint(deflectFlashColor, deflectFlashDuration);
             return true;
         }
 
@@ -455,6 +483,45 @@ public class PlayerCombat : MonoBehaviour
         }
 
         return false;
+    }
+
+    // Cheap placeholder tell for a successful Deflect until real VFX exists —
+    // a perfect Deflect otherwise had zero feedback (no clip assigned yet,
+    // no visual cue), making it indistinguishable from a plain Block in
+    // playtesting. Same MaterialPropertyBlock technique EnemyController
+    // already uses for its telegraph flicker. Shared with the Pants
+    // AutoDodge proc below (different color) since both are "something
+    // happened, here's proof" cues with the same needs.
+    private void FlashTint(Color color, float duration)
+    {
+        if (visualRenderer == null)
+        {
+            return;
+        }
+
+        if (visualFlashCoroutine != null)
+        {
+            StopCoroutine(visualFlashCoroutine);
+        }
+
+        visualFlashCoroutine = StartCoroutine(FlashTintRoutine(color, duration));
+    }
+
+    private IEnumerator FlashTintRoutine(Color color, float duration)
+    {
+        propertyBlock ??= new MaterialPropertyBlock();
+        visualRenderer.GetPropertyBlock(propertyBlock);
+        propertyBlock.SetColor("_BaseColor", color);
+        propertyBlock.SetColor("_Color", color);
+        visualRenderer.SetPropertyBlock(propertyBlock);
+
+        yield return new WaitForSeconds(duration);
+
+        // Clears the override rather than restoring a hardcoded "neutral"
+        // color — unlike EnemyController's tier tint, the player's actual
+        // base appearance isn't something this script should need to know.
+        visualRenderer.SetPropertyBlock(null);
+        visualFlashCoroutine = null;
     }
 
     // Attack Speed affix (Head-flavored, see TODO.md) shortens recovery time.
