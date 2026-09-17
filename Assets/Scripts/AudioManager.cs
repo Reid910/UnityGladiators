@@ -1,12 +1,11 @@
 using UnityEngine;
 
 // Global one-shot SFX + background music player — call AudioManager.PlaySfx(clip)
-// or PlayMusic(clip) from anywhere, no scene wiring needed (same
-// lazily-creates-its-own-persistent-runner pattern as HitStop.Trigger()).
-// Individual scripts hold their own AudioClip fields (see Health's Hit/Death
-// clips, PlayerCombat's per-move clips, etc.) the same way they already hold
-// their own hitStopDuration — intentionally plumbing for now. A null clip is
-// a no-op, so nothing breaks before real sound files are assigned.
+// or PlayMusic(clip) from anywhere, no scene wiring needed (lazily creates
+// its own persistent runner object on first use). Individual scripts hold
+// their own AudioClip fields (see Health's Hit/Death clips, PlayerCombat's
+// per-move clips, etc.) — intentionally plumbing for now. A null clip is a
+// no-op, so nothing breaks before real sound files are assigned.
 public static class AudioManager
 {
     private static AudioManagerRunner runner;

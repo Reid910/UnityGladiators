@@ -20,6 +20,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Stagger stagger;
     [SerializeField] private Hitstun hitstun;
     [SerializeField] private PlayerStats playerStats;
+    [SerializeField] private PlayerCombat playerCombat;
 
     private CharacterController characterController;
     private InputSystem_Actions inputSystemActions;
@@ -73,11 +74,19 @@ public class PlayerController : MonoBehaviour
     }
 
     // Movement is locked while stunned from a hit, broken from stagger, or
-    // dead — mirrors the same restriction EnemyController applies to enemies.
+    // dead — mirrors the same restriction EnemyController applies to
+    // enemies. Also locked for any committed action (see
+    // PlayerCombat.IsActionLocked — every attack roots the player in place
+    // now, not just Finishers) and while holding Block. A dodge-out/sprint
+    // attack's initial lunge still moves the player during this window
+    // since it drives CharacterController.Move() directly from PlayerCombat,
+    // bypassing this script entirely — only manual WASD input is locked.
     private bool IsIncapacitated =>
         (health != null && health.IsDead) ||
         (hitstun != null && hitstun.IsStunned) ||
-        (stagger != null && stagger.IsBroken);
+        (stagger != null && stagger.IsBroken) ||
+        (playerCombat != null && playerCombat.IsActionLocked) ||
+        (playerCombat != null && playerCombat.IsBlocking);
 
     private void Awake()
     {
@@ -106,6 +115,11 @@ public class PlayerController : MonoBehaviour
         if (playerStats == null)
         {
             playerStats = GetComponent<PlayerStats>();
+        }
+
+        if (playerCombat == null)
+        {
+            playerCombat = GetComponent<PlayerCombat>();
         }
 
         if (Camera.main != null)

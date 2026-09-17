@@ -264,9 +264,6 @@ MonoBehaviour:
   damageNumberPrefab: {fileID: 100000000000000006, guid: c40f6fe30b3124ac19f51330d979dee5, type: 3}
   damageNumberSpawnOffset: {x: 0, y: 2, z: 0}
   damageNumberColor: {r: 1, g: 1, b: 1, a: 1}
-  hitStopDuration: 0.05
-  finisherRampDuration: 0.4
-  finisherRampStartTimeScale: 0.15
   hitClip: {fileID: 8300000, guid: 0a1d0d2cbdc3f1949a0d8bbad3bcc9a9, type: 3}
   deathClip: {fileID: 8300000, guid: 9e776e7a690cfc64d9ac03717b2e079c, type: 3}
 --- !u!114 &8192296093957660327

@@ -14,6 +14,17 @@ Everything else (camera, Champion enemy, the numbers/tuning pass,
 multiplayer) is deferred — see below for the order.
 
 ## Recently done
+- **Combat lock/cancel/freeze rework** — every player attack (not just
+  Finishers) now locks movement for its whole windup+active+recovery, and
+  holding Block does too; a Light attack comboed out of a Sprint/Slide
+  still keeps its small forward lunge since that bypasses the lock
+  directly. Getting stunned/broken/killed mid-swing now cancels it through
+  one consistent method (`PlayerCombat.CancelCurrentAction()`) instead of
+  scattered checks. `HitStop.cs` (all `Time.timeScale` freeze-frame/slow-mo
+  effects, including the Finisher's) is deleted entirely, not just tuned
+  down — pause-based effects don't work in a multiplayer future. Finisher
+  stays an instant kill with full invulnerability, no flashy VFX yet (real
+  presentation deferred until real assets exist). See `SETUP.md`.
 - **Audio hookup** — every `AudioClip` field (attacks/hit/death/break/
   dash/slide/deflect/block/ability/ultimate/music) assigned real clips from
   the Kenney RPG Audio, Kenney Interface Sounds, and Alexander Ehlers music
@@ -31,9 +42,6 @@ multiplayer) is deferred — see below for the order.
 - **Gear assets** — Gloves item + Deflect, 3 armor passives (Lifesteal/
   DamageMitigation/AutoDodge) wired onto the existing Head/Chest/Pants
   items, 1 Stat Shard item. All droppable in play now. Untuned.
-- **Finisher presentation** — `HitStop.TriggerFinisher()`: longer freeze +
-  slow-mo ramp back to speed on an Execute kill. Code-only, no camera/VFX
-  (camera work stays deferred, see below). Untuned.
 - **Dedicated finisher action + narrower Light Attack range** — Light
   attack pre-empts the normal combo with its own action when a Broken
   enemy is in range, instead of the execute happening buried inside a
