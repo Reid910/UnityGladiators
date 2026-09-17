@@ -124,22 +124,31 @@ in the Input Actions asset, just unused until now. Verify:
    **Light attack on a broken enemy** still plays the same instant-kill
    (no dedicated cinematic exists yet — that's still open, see `TODO.md`).
 
-## Audio hookup — assign clips, no code changes needed
+## Audio hookup — done, verify in play — no Inspector wiring needed
 
-All the SFX/music plumbing is in place (`AudioManager` + per-script
-`AudioClip` fields), but every field is currently empty — nothing plays
-until real sound files are assigned. To wire up real audio:
+All `AudioClip` fields are now assigned directly in the prefab/scene YAML
+(same hand-edit approach used elsewhere this project) using clips from the
+Kenney RPG Audio, Kenney Interface Sounds, and Alexander Ehlers Free Music
+Pack folders under `Assets/AssetPacks/`. Best-fit picks, not custom combat
+SFX — swap any of these later if a better-fitting sound turns up:
 
-1. Download whichever Kenney packs you want (Impact Sounds, RPG Audio,
-   Interface Sounds/UI Audio — all confirmed CC0, links given in chat)
-   and import the `.ogg` files into the project (e.g. `Assets/Audio/`).
-2. Assign clips in the Inspector: `PlayerCombat` (Light/Heavy/Ultimate
-   attack, Hit Impact, Ability Cast, Dash, Slide, Deflect, Block),
-   `Health` (Hit, Death — on both Player and Enemy prefabs), `Stagger`
-   (Break), `EnemyController` (Attack Swing), `WaveManager` (Background
-   Music + Music Volume).
-3. Play and confirm each sound fires at the right moment — no clip
-   assigned just means silence for that action, not an error.
+- `PlayerCombat` (Player.prefab): Light = `knifeSlice`, Heavy = `chop`,
+  Ultimate = `bong_001`, Hit Impact = `metalPot2`, Ability Cast =
+  `glitch_001`, Dash = `cloth1`, Slide = `cloth3`, Deflect = `metalClick`,
+  Block = `metalLatch`.
+- `Health` (Player.prefab + Enemy.prefab): Hit = `tick_001` (short, quiet —
+  played at explicit 0.4 volume in code since it fires on every hit taken),
+  Death = `dropLeather`.
+- `Stagger` (Player.prefab + Enemy.prefab): Break = `glass_001` (a
+  "shatter" sound doubling as the Broken-state cue).
+- `EnemyController` (Enemy.prefab): Attack Swing = `knifeSlice2`.
+- `WaveManager` (SampleScene): Background Music = Alexander Ehlers -
+  "Doomed", Music Volume set to 0.2 for testing (was 0.5).
+
+Verify: play a wave and confirm each sound actually fires at the moment it
+should (swing on attack, thud on getting hit, shatter on stagger break,
+music starts on wave 1, etc.) and that nothing is jarringly loud/quiet
+relative to the rest — none of these volumes have been tuned by ear yet.
 
 ## Slide animation — verify before trusting
 

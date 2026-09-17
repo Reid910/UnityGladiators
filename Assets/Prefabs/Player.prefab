@@ -1939,8 +1939,8 @@ MonoBehaviour:
   damageNumberSpawnOffset: {x: 0, y: 2, z: 0}
   damageNumberColor: {r: 1, g: 0.15, b: 0.15, a: 1}
   hitStopDuration: 0.05
-  hitClip: {fileID: 0}
-  deathClip: {fileID: 0}
+  hitClip: {fileID: 8300000, guid: 0a1d0d2cbdc3f1949a0d8bbad3bcc9a9, type: 3}
+  deathClip: {fileID: 8300000, guid: 9e776e7a690cfc64d9ac03717b2e079c, type: 3}
 --- !u!114 &1655791083341687734
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2005,15 +2005,15 @@ MonoBehaviour:
   slideMomentumDuration: 0.25
   dodgeOutWindow: 0.25
   attackLungeDistance: 1.2
-  lightAttackClip: {fileID: 0}
-  heavyAttackClip: {fileID: 0}
-  ultimateClip: {fileID: 0}
-  hitImpactClip: {fileID: 0}
-  abilityCastClip: {fileID: 0}
-  dashClip: {fileID: 0}
-  slideClip: {fileID: 0}
-  deflectClip: {fileID: 0}
-  blockClip: {fileID: 0}
+  lightAttackClip: {fileID: 8300000, guid: d78c714c5f6bd9442acf153fa1f50fc0, type: 3}
+  heavyAttackClip: {fileID: 8300000, guid: 09420056c29d1a048a5358e9af5a4bba, type: 3}
+  ultimateClip: {fileID: 8300000, guid: 357fe8982ecf2614a883dd164dc79529, type: 3}
+  hitImpactClip: {fileID: 8300000, guid: 423a67ef82a683a44a9b6b5b83c99a45, type: 3}
+  abilityCastClip: {fileID: 8300000, guid: 233d03a8cdf33e040b6b46b94dc78245, type: 3}
+  dashClip: {fileID: 8300000, guid: b8329592c92e040438a2dbdae4a5cecc, type: 3}
+  slideClip: {fileID: 8300000, guid: 6e7406bb8e0497d48948f9fbeee1919b, type: 3}
+  deflectClip: {fileID: 8300000, guid: a77542677c88aa44cab68ac985ac94c1, type: 3}
+  blockClip: {fileID: 8300000, guid: 1ee33cde3f46be1438ac8e5ccfa8cf49, type: 3}
   animator: {fileID: 2359033824035277344}
   health: {fileID: 4456081547657716220}
   characterController: {fileID: 0}
@@ -2039,7 +2039,7 @@ MonoBehaviour:
   brokenDuration: 2
   damageToStaggerMultiplier: 1
   animator: {fileID: 0}
-  breakClip: {fileID: 0}
+  breakClip: {fileID: 8300000, guid: f333b1cfe4d89f648b234360214dee32, type: 3}
 --- !u!114 &-5497824766274923756
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -7,16 +7,23 @@ this whenever priorities shift; it should stay short.
 
 All 6 build-order steps in `docs/combat-redesign-plan.md`'s "Implementation
 approach" are done (hyper armor/tuning, dash direction, enemy AI, movement/
-Slide, Deflect/Block/Ultimate meter, gear itemization). What's left:
-
-1. **Assign real audio clips** — `AudioManager` plumbing exists everywhere
-   (light/heavy/ultimate/hit/ability/dash/slide/deflect/block/break/music),
-   but every `AudioClip` field is still empty.
+Slide, Deflect/Block/Ultimate meter, gear itemization). Audio is wired too
+(see below) — nothing left on the active list right now.
 
 Everything else (camera, Champion enemy, the numbers/tuning pass,
 multiplayer) is deferred — see below for the order.
 
 ## Recently done
+- **Audio hookup** — every `AudioClip` field (attacks/hit/death/break/
+  dash/slide/deflect/block/ability/ultimate/music) assigned real clips from
+  the Kenney RPG Audio, Kenney Interface Sounds, and Alexander Ehlers music
+  packs. Best-fit placeholder picks, not custom SFX — untuned volumes, swap
+  any that don't land right. See `SETUP.md`.
+- **Full UI pass** — main menu, pause menu, HUD visual refresh.
+- **NavMeshAgent switch** — no longer blocked. `Enemy.prefab` has a real
+  `NavMeshAgent`, `SampleScene`'s NavMesh is baked, and a follow-up
+  separation pass (`EnemyController.GetSeparationVector()`) fixed enemies
+  jamming into each other near the player.
 - **Full UI pass** — main menu, pause menu, ultimate gauge, enemy stagger
   nameplates, stat shard/gloves gear slots, result screens. Merged (PR #19).
 - **NavMeshAgent switch** — no longer blocked. `Enemy.prefab` has a real

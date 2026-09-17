@@ -5656,8 +5656,8 @@ MonoBehaviour:
   enemiesAddedPerWave: 1
   timeBetweenSpawns: 0.5
   timeBetweenWaves: 2
-  backgroundMusic: {fileID: 0}
-  musicVolume: 0.5
+  backgroundMusic: {fileID: 8300000, guid: 9ea04c25e0e4451498bc88c1d5df0fbc, type: 3}
+  musicVolume: 0.2
   t2UnlockWave: 2
   t3UnlockWave: 3
   currentWave: 0

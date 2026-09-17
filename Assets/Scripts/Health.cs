@@ -184,7 +184,7 @@ public class Health : MonoBehaviour
         if (animator != null && !IsDead)
         {
             animator.SetTrigger("Hit");
-            AudioManager.PlaySfx(hitClip);
+            AudioManager.PlaySfx(hitClip, 0.4f);
         }
 
         if (IsDead)
