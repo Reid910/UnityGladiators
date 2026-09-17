@@ -226,46 +226,36 @@ the old Window → AI → Navigation panel (removed in Unity 6). Steps:
    the pillars entirely, re-bake (step 3) — the NavMesh may predate the
    Obstacles being added.
 
-## Corpse loot-rarity glow — verify Visual Renderer assignment
+## Corpse loot glow, tier tint, and Deflect/AutoDodge flash — fixed, verify
 
-`LootableCorpse` now tints the enemy's renderer once the corpse becomes
-lootable (post-wave-clear): rarity color if it holds an item (same
-`RarityColor` mapping as item pickups — white/blue/orange), a dim grey if it
-rolled empty, untinted while still not lootable.
+Two real bugs found and fixed after "I still don't see a corpse loot glow"
+in play — see `TODO.md` for the full root-cause writeup. Short version:
+(1) the loot glow pulsed toward white, a no-op for the exact white-on-white
+case it was meant to fix; (2) the character model is a 20+ piece rig
+(separate `SkinnedMeshRenderer`s per hair/clothes/weapon/etc.), and every
+tint effect in the project — this one, `EnemyController`'s tier tint +
+telegraph flicker, and `PlayerCombat`'s Deflect/AutoDodge flash — was only
+tinting *one* piece via `GetComponentInChildren<Renderer>()`. All four now
+use `Renderer[]`/`GetComponentsInChildren<Renderer>()` and tint every
+piece. No Inspector wiring needed — none of the old singular fields were
+ever manually assigned (confirmed via the prefab YAML), so the rename is
+safe; each new array field self-populates via the same fallback pattern.
 
-1. On `Enemy.prefab`, check the `LootableCorpse` component's **Visual
-   Renderer** field. It falls back to `GetComponentInChildren<Renderer>()` if
-   left empty, which may grab the wrong renderer on a multi-part character
-   rig (e.g. a weapon mesh instead of the body). Assign the actual body
-   mesh renderer explicitly if the auto-picked one looks wrong in play.
-2. Kill an enemy, wait for the wave to clear, and confirm the corpse tints
-   before you attack it (not after) — the color should match what actually
-   drops when you loot it, since the roll now happens once at wave-clear
-   instead of on-hit.
-3. Confirm a corpse that rolls no drop shows the dim grey tint, not white
-   (white is reserved for an actual Common-rarity drop) — a same-color
-   result here would make "empty" indistinguishable from "Common item."
-4. **New**: a corpse holding an item now also pulses toward white and
-   back — added because a Common drop on a T1 enemy (the only tier that
-   exists as real content) is the exact same white as the enemy's own
-   live tint, making it invisible otherwise. Confirm the pulse stops the
-   instant you actually loot the corpse (settles to a static tint), and
-   that an empty corpse never pulses.
-
-## Enemy tier tint — verify Visual Renderer assignment
-
-`EnemyController` now tints itself by `Tier` on spawn (white/orange/red for
-T1/T2/T3 — see `EnemyTierColor`), a cheap placeholder tell until real
-per-tier prefabs/models exist. Same caveat as the corpse glow above:
-
-1. Check `EnemyController`'s **Visual Renderer** field on `Enemy.prefab` —
-   falls back to `GetComponentInChildren<Renderer>()` if left empty, which
-   can grab the wrong renderer on a multi-part rig. Assign the body mesh
-   explicitly if the auto-picked one looks wrong.
-2. Since only T1 enemies exist as actual content right now (no T2/T3 prefab
-   built yet — see `TODO.md`), there's nothing to visually compare against
-   yet; this is confirmed correct once a T2 or T3 prefab actually exists and
-   spawns with a different tint than T1.
+1. Kill an enemy, wait for the wave to clear, and confirm the *whole*
+   corpse (not just one piece of it) now visibly pulses gold if it holds
+   an item — including on a plain Common drop, which previously showed no
+   change at all. An empty corpse should show a dim grey tint (no pulse).
+   Confirm the pulse stops (settles to a static tint) once you actually
+   loot it.
+2. Watch an enemy about to attack — the telegraph flicker (and the tier
+   tint generally) should now visibly affect its whole body, not just one
+   part.
+3. Land a perfect Deflect or trigger AutoDodge (Pants passive) — the
+   gold/cyan flash should now cover the whole player model.
+4. If any of these still look wrong (wrong piece tinted, or nothing at
+   all), check that `Visual Renderer`/`Visual Renderers` isn't pointed at
+   something unexpected on the relevant prefab — should be empty/auto
+   -populated by default now.
 
 ## Player health regen — verify before trusting
 
