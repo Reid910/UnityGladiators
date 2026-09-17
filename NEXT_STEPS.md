@@ -19,11 +19,6 @@ multiplayer) is deferred — see below for the order.
   the Kenney RPG Audio, Kenney Interface Sounds, and Alexander Ehlers music
   packs. Best-fit placeholder picks, not custom SFX — untuned volumes, swap
   any that don't land right. See `SETUP.md`.
-- **Full UI pass** — main menu, pause menu, HUD visual refresh.
-- **NavMeshAgent switch** — no longer blocked. `Enemy.prefab` has a real
-  `NavMeshAgent`, `SampleScene`'s NavMesh is baked, and a follow-up
-  separation pass (`EnemyController.GetSeparationVector()`) fixed enemies
-  jamming into each other near the player.
 - **Full UI pass** — main menu, pause menu, ultimate gauge, enemy stagger
   nameplates, stat shard/gloves gear slots, result screens. Merged (PR #19).
 - **NavMeshAgent switch** — no longer blocked. `Enemy.prefab` has a real
@@ -39,6 +34,15 @@ multiplayer) is deferred — see below for the order.
 - **Finisher presentation** — `HitStop.TriggerFinisher()`: longer freeze +
   slow-mo ramp back to speed on an Execute kill. Code-only, no camera/VFX
   (camera work stays deferred, see below). Untuned.
+- **Dedicated finisher action + narrower Light Attack range** — Light
+  attack pre-empts the normal combo with its own action when a Broken
+  enemy is in range, instead of the execute happening buried inside a
+  normal swing. Untuned.
+- **Deflect/AutoDodge feedback** — both now flash a distinct tint on
+  proc (gold/cyan) since neither had any visible feedback before.
+- **Corpse loot pulse glow** — fixed the rarity glow being invisible on
+  T1/Common (both plain white) by pulsing any lootable corpse holding an
+  item, independent of its actual color.
 
 ## Explicitly deferred (don't start until asked) — in priority order
 1. Camera work: collision/occlusion, combat-assist framing, zoom
