@@ -206,6 +206,12 @@ rolled empty, untinted while still not lootable.
 3. Confirm a corpse that rolls no drop shows the dim grey tint, not white
    (white is reserved for an actual Common-rarity drop) — a same-color
    result here would make "empty" indistinguishable from "Common item."
+4. **New**: a corpse holding an item now also pulses toward white and
+   back — added because a Common drop on a T1 enemy (the only tier that
+   exists as real content) is the exact same white as the enemy's own
+   live tint, making it invisible otherwise. Confirm the pulse stops the
+   instant you actually loot the corpse (settles to a static tint), and
+   that an empty corpse never pulses.
 
 ## Enemy tier tint — verify Visual Renderer assignment
 

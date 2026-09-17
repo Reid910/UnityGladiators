@@ -17,6 +17,10 @@ public class LootableCorpse : MonoBehaviour
 
     [Tooltip("Optional. Tinted once the corpse becomes lootable — rarity color if it holds an item, a dim grey if it's empty — so looting doesn't require guessing. Not lootable yet = untinted.")]
     [SerializeField] private Renderer visualRenderer;
+    [Tooltip("A Common drop on a T1 enemy is the same plain white as the enemy's own pre-death tint (see RarityColor/EnemyTierColor) — with only T1 existing as real content right now, that made a lootable corpse holding an item look identical to one that doesn't. Pulsing toward white and back while unlooted makes 'something's here' visible regardless of what color it happens to be.")]
+    [SerializeField] private float lootGlowPulseSpeed = 2f;
+    [Range(0f, 1f)]
+    [SerializeField] private float lootGlowPulseIntensity = 0.4f;
 
     private static readonly Color EmptyLootTint = new Color(0.25f, 0.25f, 0.25f);
 
@@ -25,6 +29,8 @@ public class LootableCorpse : MonoBehaviour
     private bool looted;
     private bool lootPrepared;
     private bool hasDrop;
+    private bool isPulsing;
+    private Color baseTint;
     private ItemDefinition preparedDefinition;
     private ItemRarity preparedRarity;
 
@@ -71,6 +77,8 @@ public class LootableCorpse : MonoBehaviour
         }
 
         looted = true;
+        isPulsing = false;
+        ApplyTint(baseTint);
 
         if (!hasDrop)
         {
@@ -106,7 +114,34 @@ public class LootableCorpse : MonoBehaviour
             return;
         }
 
-        Color tint = hasDrop ? RarityColor.Get(preparedRarity) : EmptyLootTint;
+        baseTint = hasDrop ? RarityColor.Get(preparedRarity) : EmptyLootTint;
+        // Only pulse when there's actually something to grab — a pulsing
+        // empty corpse would falsely read as "come loot me."
+        isPulsing = hasDrop;
+
+        ApplyTint(baseTint);
+    }
+
+    // Pulses toward white and back while a lootable corpse still holds an
+    // unclaimed item — see lootGlowPulseSpeed's tooltip for why this exists
+    // independent of the rarity color itself.
+    private void Update()
+    {
+        if (!isPulsing)
+        {
+            return;
+        }
+
+        float pulse = (Mathf.Sin(Time.time * lootGlowPulseSpeed) + 1f) * 0.5f;
+        ApplyTint(Color.Lerp(baseTint, Color.white, pulse * lootGlowPulseIntensity));
+    }
+
+    private void ApplyTint(Color tint)
+    {
+        if (visualRenderer == null)
+        {
+            return;
+        }
 
         propertyBlock ??= new MaterialPropertyBlock();
         visualRenderer.GetPropertyBlock(propertyBlock);

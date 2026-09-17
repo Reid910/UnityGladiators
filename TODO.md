@@ -1045,6 +1045,27 @@ breaks and finishers, not a slow tank-and-spank.
 - [ ] `lightAttackRange` (1.0), `finisherWindup`/`finisherRecoveryTime`
       (0.3/0.4) are first-pass guesses, untuned.
 
+## Corpse loot glow — pulsing fix for the white-on-white case
+- [x] Reported directly: the corpse loot-rarity glow (M3/M5) was never
+      actually noticeable in play. Root cause, not a bug: `EnemyTierColor.
+      Get(EnemyTier.T1)` (a live T1 enemy's tint) and `RarityColor.
+      Get(ItemRarity.Common)` are both plain white, and T1 enemies —
+      currently the *only* tier that exists as real content — always roll
+      Common (`LootableCorpse.RollRarity()`). So a T1 corpse holding loot
+      got tinted the exact same white it already was: zero visible change.
+      Would start working the moment T2 (blue)/T3 (orange) content exists,
+      but that's blocked on prefabs that were never built.
+- [x] Fixed independent of that: `LootableCorpse` now pulses any lootable
+      corpse that actually holds an item toward white and back
+      (`lootGlowPulseSpeed`/`lootGlowPulseIntensity`), regardless of what
+      color it happens to be — makes "something's here" visible even in
+      the white-on-white case. Only pulses while `hasDrop && !looted`; an
+      empty corpse stays static (a pulsing empty corpse would falsely read
+      as "come loot me"), and it stops pulsing (settles back to the static
+      tint) the instant it's actually looted.
+- [ ] `lootGlowPulseSpeed`/`lootGlowPulseIntensity` (2 / 0.4) are
+      first-pass guesses, untuned.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
