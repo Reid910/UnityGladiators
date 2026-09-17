@@ -251,7 +251,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 843bd8ee6ac57654c92020f02e5f1125, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  maxHealth: 100
+  maxHealth: 200
   healthText: {fileID: 7772536656465544302}
   destroyOnDeath: 0
   destroyDelay: 2.5
@@ -292,6 +292,8 @@ MonoBehaviour:
   shuffleFlipInterval: 0.8
   shuffleDecisionTime: 1.2
   navMeshAgent: {fileID: 0}
+  enemySeparationRadius: 1.4
+  enemySeparationStrength: 1.5
   attackDamage: 10
   attackHitstunDuration: 0.2
   attackWindup: 0.4

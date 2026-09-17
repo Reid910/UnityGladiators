@@ -53,6 +53,13 @@ public class GameUI : MonoBehaviour
     private float abilityCooldownPeak;
     private float dashCooldownPeak;
 
+    [Header("Arena UI")]
+    [SerializeField] private ArenaMenuController menus;
+    [SerializeField] private Image ultimateFill;
+    [SerializeField] private TextMeshProUGUI ultimateText;
+    [SerializeField] private HUDFlash ultimateReadyFlash;
+    private bool ultimateWasReady;
+
     private void Start()
     {
         victoryPanel.SetActive(false);
@@ -140,6 +147,19 @@ public class GameUI : MonoBehaviour
             staggerFill.color = playerStagger.IsBroken ? new Color(1f, .25f, .15f) : new Color(.9f, .65f, .23f);
         }
         if (playerCombat == null) return;
+        if (ultimateFill != null)
+        {
+            float fraction = Mathf.Clamp01(playerCombat.UltimateMeter / Mathf.Max(1f, playerCombat.UltimateMeterMax));
+            ultimateFill.rectTransform.localScale = new Vector3(fraction, 1f, 1f);
+            ultimateFill.color = playerCombat.IsUltimateReady ? new Color(1f,.78f,.32f) : new Color(.64f,.37f,.16f);
+            if (ultimateText != null)
+            {
+                ultimateText.text = playerCombat.IsUltimateReady ? "[C]  ULTIMATE READY" : "ULTIMATE  /  " + Mathf.FloorToInt(fraction * 100f) + "%";
+                ultimateText.color = playerCombat.IsUltimateReady ? new Color(.12f,.08f,.035f) : new Color(.94f,.9f,.8f);
+            }
+            if (playerCombat.IsUltimateReady && !ultimateWasReady) ultimateReadyFlash?.Trigger();
+            ultimateWasReady = playerCombat.IsUltimateReady;
+        }
         float attackRemaining = playerCombat.AttackCooldownRemaining;
         if (attackCooldownFill != null)
             attackCooldownFill.fillAmount = playerCombat.AttackCooldownDuration > 0f
@@ -287,6 +307,7 @@ public class GameUI : MonoBehaviour
 
         gameEnded = true;
         victoryPanel.SetActive(true);
+        if (menus != null) menus.ShowResult(victoryPanel);
     }
 
     private void ShowGameOver()
@@ -298,10 +319,13 @@ public class GameUI : MonoBehaviour
 
         gameEnded = true;
         gameOverPanel.SetActive(true);
+        if (menus != null) menus.ShowResult(gameOverPanel);
     }
 
     public void RestartGame()
     {
+        if (menus != null) { menus.RestartRun(); return; }
+        Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
