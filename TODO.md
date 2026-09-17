@@ -894,6 +894,45 @@ breaks and finishers, not a slow tank-and-spank.
       (`attackLungeDistance`) over a new `attackLungeDuration` (0.12s)
       via a coroutine, same incremental-Move pattern as `PerformSlide`.
 
+## Deflect feedback — third playtest pass finding
+- [x] A successful Deflect had zero feedback (no clip assigned yet, and no
+      visual cue existed at all), making it indistinguishable from just
+      holding Block in playtesting — reported directly from play.
+      `PlayerCombat` now briefly tints itself (`deflectFlashColor`, gold by
+      default) via `MaterialPropertyBlock` on a perfect Deflect, plus a very
+      short `HitStop` pulse (`deflectHitStopDuration`, 0.04s — much shorter
+      than a finisher's, since this should happen often, not read as a big
+      event). Same placeholder-tint technique `EnemyController` already
+      uses for its telegraph flicker.
+- [ ] `deflectFlashColor`/`deflectFlashDuration`/`deflectHitStopDuration`
+      are first-pass guesses, untuned.
+- [ ] Block itself still has no distinct feedback of its own beyond the
+      `BlockingLoop` animation (which only clearly shows while held, not on
+      a quick tap) — not addressed here since it wasn't the reported
+      complaint, but worth revisiting if Block also reads as unclear.
+- [x] Follow-up from the same playtest round: Pants AutoDodge was also hard
+      to verify ("can't tell if it's working, don't see an attack land and
+      deal no damage"). Root cause isn't a bug — `AutoDodge` procs on a
+      blind timer (`Value` seconds of invulnerability every `Cooldown`
+      seconds) completely independent of whether an attack is actually
+      incoming, so with a short window on a long cooldown most procs simply
+      never happen to overlap a real hit. Refactored the Deflect flash into
+      a shared `FlashTint(color, duration)` helper and reused it for
+      AutoDodge (`autoDodgeFlashColor`, cyan by default) — it now flashes
+      on every proc, not just ones that happen to block real damage, so
+      it's verifiable independent of luck.
+- [ ] Reported "finisher presentation not seen at all" — most likely not a
+      bug either: `Health.Execute()` (the finisher/slow-mo path) only fires
+      when hitting a target that's already Broken (`Stagger.IsBroken`), not
+      on a normal kill via cumulative damage. There's also no enemy stagger
+      UI yet (existing open item, M6/M7), so it's easy to miss an enemy
+      actually entering the `StunnedLoop`/Broken pose mid-fight. To
+      reliably trigger it: Heavy/Ultimate an enemy (higher stagger
+      multipliers) until it visibly staggers, then land any hit on it while
+      still in that pose. Revisit if it still doesn't fire under that exact
+      sequence — that would point at an actual bug in `Stagger`/`Execute()`
+      rather than a testing-methodology gap.
+
 ## NavMeshAgent follow-up — enemy separation near the player
 - [x] Playtest with the NavMesh switch live surfaced a real gap: NavMesh's
       agent-avoidance only applies during the Sprint phase (see above) —
