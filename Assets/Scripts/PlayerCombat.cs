@@ -248,6 +248,25 @@ public class PlayerCombat : MonoBehaviour
         inputSystemActions.Player.Crouch.performed += OnUltimatePerformed;
     }
 
+    // Lets ArenaMenuController suspend/restore gameplay input while pausing
+    // without disabling this whole component (combos/cooldowns/etc. should
+    // keep their state, just stop reading input) — routes through this
+    // instance's own InputSystem_Actions wrapper instead of reaching into
+    // the global InputSystem action list, which would desync the wrapper's
+    // own enable/disable bookkeeping from the action's real state and trip
+    // its leak-detection finalizer.
+    public void SetGameplayInputEnabled(bool isEnabled)
+    {
+        if (isEnabled)
+        {
+            inputSystemActions.Player.Enable();
+        }
+        else
+        {
+            inputSystemActions.Player.Disable();
+        }
+    }
+
     private void OnDisable()
     {
         inputSystemActions.Player.Attack.performed -= OnAttackPerformed;

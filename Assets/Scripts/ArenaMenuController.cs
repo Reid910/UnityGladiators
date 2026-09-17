@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -15,12 +14,13 @@ public class ArenaMenuController : MonoBehaviour
     public Button playButton;
     public Button resumeButton;
     public ThirdPersonCamera orbitCamera;
+    public PlayerCombat playerCombat;
+    public PlayerController playerController;
     public GameUI gameUI;
 
     public bool IsMenuOpen => mainMenu.activeSelf || pauseMenu.activeSelf;
     public bool IsSuspended { get; private set; }
     private static bool startNextRun;
-    private readonly List<InputAction> suspendedActions = new List<InputAction>();
     private bool cameraWasEnabled;
     private bool audioWasPaused;
     private bool ending;
@@ -108,12 +108,14 @@ public class ArenaMenuController : MonoBehaviour
         if (IsSuspended) return;
         IsSuspended = true;
         audioWasPaused = AudioListener.pause;
-        suspendedActions.Clear();
-        // Every gameplay component owns its own generated input instance.
-        // Disable enabled Player actions, preserving the UI action maps.
-        foreach (var action in InputSystem.ListEnabledActions())
-            if (action.actionMap != null && action.actionMap.name == "Player") suspendedActions.Add(action);
-        foreach (var action in suspendedActions) action.Disable();
+        // Each gameplay component owns its own generated InputSystem_Actions
+        // wrapper instance, so suspension has to go through each one's own
+        // Disable() rather than the global InputSystem action list — that
+        // would desync the wrapper's own enable/disable bookkeeping from
+        // the action's actual state and trip its leak-detection finalizer
+        // ("Player.Disable() has not been called") the next time it's GC'd.
+        if (playerCombat != null) playerCombat.SetGameplayInputEnabled(false);
+        if (playerController != null) playerController.SetGameplayInputEnabled(false);
         cameraWasEnabled = orbitCamera != null && orbitCamera.enabled;
         if (orbitCamera != null) orbitCamera.enabled = false;
         AudioListener.pause = true;
@@ -128,8 +130,8 @@ public class ArenaMenuController : MonoBehaviour
         IsSuspended = false;
         Time.timeScale = 1f;
         AudioListener.pause = audioWasPaused;
-        foreach (var action in suspendedActions) action.Enable();
-        suspendedActions.Clear();
+        if (playerCombat != null) playerCombat.SetGameplayInputEnabled(true);
+        if (playerController != null) playerController.SetGameplayInputEnabled(true);
         if (orbitCamera != null) orbitCamera.enabled = cameraWasEnabled;
         if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
     }

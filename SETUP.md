@@ -3,6 +3,35 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Input-leak fix (ArenaMenuController) — verify before trusting
+
+No Editor steps needed — wired directly in `SampleScene.unity`'s YAML
+(new stripped reference for `PlayerController`, reusing the existing one
+for `PlayerCombat`). Verify:
+
+1. Play a run, pause (Escape), resume, then either die or clear enough
+   waves to reach a result screen, then Return to Main Menu or Fight
+   Again — the Console should show no more `This will cause a leak and
+   performance issues, InputSystem_Actions.Player.Disable() has not been
+   called` assert. Root cause: `ArenaMenuController.Suspend()`/`Restore()`
+   used to disable/enable the "Player" input map via the low-level
+   `InputSystem.ListEnabledActions()` API directly, bypassing
+   `PlayerCombat`/`PlayerController`'s own `InputSystem_Actions` wrapper
+   instances entirely — that desynced each wrapper's own lifecycle
+   tracking from the action's real state. Fixed by adding a
+   `SetGameplayInputEnabled(bool)` method to both scripts (routes through
+   their own wrapper) and wiring `ArenaMenuController`'s two new
+   `Player Combat`/`Player Controller` fields to call those instead.
+   `ThirdPersonCamera` didn't need this — it was already toggled via whole
+   component enable/disable, which correctly fires its own
+   `OnEnable`/`OnDisable`.
+2. Also worth cleaning up separately (not touched here, not the cause of
+   this leak since it's never activated): a long-deactivated leftover
+   `PlayerCombat`/`Health`/`Animator` still sits on an old, inactive
+   duplicate Player-like object in `SampleScene.unity` (`m_IsActive: 0`,
+   dating back to early in the project before `Player.prefab` was wired up
+   correctly) — dead weight, safe to delete whenever convenient.
+
 ## First playtest fixes — verify before trusting
 
 No new Inspector wiring — all hand-edited YAML/code. Verify:
