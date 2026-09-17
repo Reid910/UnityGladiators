@@ -74,16 +74,19 @@ public class PlayerController : MonoBehaviour
     }
 
     // Movement is locked while stunned from a hit, broken from stagger, or
-    // dead — mirrors the same restriction EnemyController applies to enemies.
-    // Also locked for the duration of a Finisher execute (see
-    // PlayerCombat.IsPerformingFinisher) — a Sekiro-style execute is a
-    // committed cinematic beat, not a normal attack (which deliberately
-    // stays mobile/interruptible).
+    // dead — mirrors the same restriction EnemyController applies to
+    // enemies. Also locked for any committed action (see
+    // PlayerCombat.IsActionLocked — every attack roots the player in place
+    // now, not just Finishers) and while holding Block. A dodge-out/sprint
+    // attack's initial lunge still moves the player during this window
+    // since it drives CharacterController.Move() directly from PlayerCombat,
+    // bypassing this script entirely — only manual WASD input is locked.
     private bool IsIncapacitated =>
         (health != null && health.IsDead) ||
         (hitstun != null && hitstun.IsStunned) ||
         (stagger != null && stagger.IsBroken) ||
-        (playerCombat != null && playerCombat.IsPerformingFinisher);
+        (playerCombat != null && playerCombat.IsActionLocked) ||
+        (playerCombat != null && playerCombat.IsBlocking);
 
     private void Awake()
     {

@@ -3,34 +3,40 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
-## Finisher lock + hitstun cancel-action fix + hit-freeze tuning — verify before trusting
+## Combat lock/cancel/freeze rework — verify before trusting
 
-No Editor steps needed — new `PlayerController.playerCombat` field is
-auto-fetched via `GetComponent<PlayerCombat>()` in `Awake()`, same pattern
-as every other reference on that script. Verify:
+No Editor steps needed — same auto-fetch pattern as everything else on
+these scripts. This supersedes the previous version of this section (same
+branch, revised after more feedback): the "Finisher-only" movement lock and
+the freeze-frame *tuning* are gone, replaced with "no time-freeze effects
+at all" and "every attack locks you in place," not just Finishers. Verify:
 
-1. **Finisher is now a real committed execute (Sekiro-style)**: Light
-   attack a Broken enemy — you should be unable to move and unable to take
-   damage/stagger/hitstun from anything else for the whole windup+recovery
-   (`PlayerCombat.IsPerformingFinisher`), not just hyper-armor's hitstun
-   immunity like before. A normal Light/Heavy/Ultimate/Ability attack
-   should still let you move freely mid-swing — this lock is scoped to
-   Finishers only.
-2. **Getting stunned/broken mid-swing now actually cancels the swing**:
-   get hit hard enough to break your Stagger (or get stunned by anything
-   that still applies Hitstun) while mid-combo — the attack you were
-   performing should stop landing further hits immediately instead of
-   finishing its active window in the background. Previously this was only
-   checked once, right after the windup wait, so a stun landing during the
-   active-hit window or recovery didn't stop anything.
-3. **Hit-freeze is way less naggy now**: the global freeze-frame that used
-   to fire on every single landed hit (`Health.hitStopDuration`, was 0.05s)
-   is now 0 by default on both `Player.prefab` and `Enemy.prefab` — light
-   combos and enemy hits shouldn't cause the constant micro-stutter they
-   did before. The Finisher's own freeze+slow-mo (a deliberate cinematic
-   beat, not the thing that was complained about) is untouched — still
-   0.1s freeze + 0.4s slow-mo ramp, now via its own `finisherFreezeDuration`
-   field instead of being derived from the per-hit one.
+1. **No more pause-time effects anywhere, period** — `HitStop.cs` is
+   deleted (was `Time.timeScale = 0` freeze-frames on every hit, plus a
+   slow-mo ramp on Finishers). Multiplayer-unsafe by nature, so it's gone
+   entirely rather than just tuned down. Confirm: no freeze/slow-mo on any
+   normal hit, Deflect, or Finisher anymore.
+2. **Every player attack now locks you in place** (`PlayerCombat.IsActionLocked`,
+   true for the whole windup+active+recovery of Light/Heavy/Ultimate/
+   Ability/Finisher alike) — not just Finishers like the previous version
+   of this change. Holding Block also locks you in place
+   (`PlayerCombat.IsBlocking`). A Light attack comboed out of a Sprint/Slide
+   should still cover its small forward lunge (`PerformAttackLunge`, bypasses
+   this lock since it moves the CharacterController directly) — the lock
+   only stops *manual* movement input, so the lunge's own momentum plays out
+   normally before you're rooted for the rest of the swing.
+3. **Getting stunned/broken/killed mid-swing cancels it** — one method now
+   (`PlayerCombat.CancelCurrentAction()`, called from `Update()` the instant
+   `IsIncapacitated` is true), not scattered logic. Get hit hard enough to
+   break Stagger mid-combo — the swing you were on should stop landing
+   further hits immediately instead of finishing its active window in the
+   background.
+4. **Finisher is still an instant kill with no flashy VFX yet** — full
+   invulnerability during it is unchanged (`invulnerableUntilTime`), the
+   movement lock now comes from the same general mechanism as every other
+   attack rather than a dedicated Finisher-only flag. "Flashy" execute
+   presentation (VFX/camera, not time manipulation) is intentionally
+   deferred until real assets exist for it.
 
 ## Input-leak fix (ArenaMenuController) — verify before trusting
 

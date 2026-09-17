@@ -72,8 +72,6 @@ public class PlayerCombat : MonoBehaviour
     [Tooltip("Cheap placeholder tell for a successful Deflect until real VFX exists — briefly tints Visual Renderer this color, same MaterialPropertyBlock technique EnemyController already uses for its telegraph flicker.")]
     [SerializeField] private Color deflectFlashColor = new Color(1f, 0.85f, 0.2f);
     [SerializeField] private float deflectFlashDuration = 0.15f;
-    [Tooltip("A very brief freeze-frame (see HitStop.cs) sells a perfect-timing parry the same way a bigger one sells a finisher — much shorter since this should happen often, not read as a big event.")]
-    [SerializeField] private float deflectHitStopDuration = 0.04f;
     [Tooltip("Pants AutoDodge proc flash (see the AutoDodge Update() below) — fires every time the passive triggers, not just when it happens to block real damage, since it's a blind timer independent of incoming attacks and would otherwise be unverifiable in play.")]
     [SerializeField] private Color autoDodgeFlashColor = new Color(0.3f, 0.85f, 1f);
     [SerializeField] private float autoDodgeFlashDuration = 0.2f;
@@ -143,7 +141,6 @@ public class PlayerCombat : MonoBehaviour
     private float nextAbilityTime;
     private float nextDashTime;
     private float invulnerableUntilTime;
-    private float finisherLockUntilTime;
     private float dashEndedTime = float.NegativeInfinity;
     private float lastDeflectPressTime = float.NegativeInfinity;
     private bool isBlockHeld;
@@ -174,14 +171,20 @@ public class PlayerCombat : MonoBehaviour
     // at all.
     public bool IsInvulnerable => Time.time < invulnerableUntilTime;
 
-    // Sekiro-style: a Finisher execute is a committed cinematic beat, not
-    // just another swing — the player can't be hit (see PerformFinisherAttack
-    // setting invulnerableUntilTime alongside this) and can't move (see
-    // PlayerController.IsIncapacitated) for its full windup+recovery. Normal
-    // attacks stay mobile/interruptible on purpose (see docs/combat-redesign-plan.md's
-    // "stay fast and mobile" identity) — this is deliberately scoped to
-    // Finishers only, not attacks in general.
-    public bool IsPerformingFinisher => Time.time < finisherLockUntilTime;
+    // True for the full windup+active+recovery of ANY committed action
+    // (Light/Heavy/Ultimate/Ability/Finisher all route through BeginAttack
+    // or PerformFinisherAttack, both of which push nextAttackTime out to
+    // cover the whole thing) — see PlayerController.IsIncapacitated, which
+    // uses this to lock movement for the duration. A dodge-out/sprint
+    // attack's initial lunge (PerformAttackLunge) still moves the player
+    // during this window since it drives CharacterController.Move()
+    // directly, bypassing PlayerController entirely — only manual
+    // WASD/rotation input is locked out.
+    public bool IsActionLocked => Time.time < nextAttackTime;
+
+    // Holding Block (see OnDeflectStarted/Canceled) also roots the player —
+    // same PlayerController.IsIncapacitated consumer as IsActionLocked.
+    public bool IsBlocking => isBlockHeld;
 
     private bool IsDead => health != null && health.IsDead;
 
@@ -446,10 +449,10 @@ public class PlayerCombat : MonoBehaviour
         AttackCooldownDuration = scaledWindup + scaledRecoveryTime;
         nextAttackTime = Time.time + AttackCooldownDuration;
         hyperArmorUntilTime = nextAttackTime;
-        // Full invulnerability (not just hyper armor's hitstun immunity) and
-        // a movement lock for the whole execute — see IsPerformingFinisher.
+        // Full invulnerability (not just hyper armor's hitstun immunity) for
+        // the whole execute — movement lock comes for free via IsActionLocked
+        // since this also pushes nextAttackTime out like any other action.
         invulnerableUntilTime = Mathf.Max(invulnerableUntilTime, nextAttackTime);
-        finisherLockUntilTime = nextAttackTime;
         comboStep = 0;
         comboResetTime = nextAttackTime;
 
@@ -568,26 +571,15 @@ public class PlayerCombat : MonoBehaviour
     // standing cooldown, not a reaction to something happening.
     private void Update()
     {
-        // Getting stunned, broken, or dying mid-swing used to leave the
-        // in-progress attack coroutine running behind the scenes regardless
-        // — it only ever checked IsIncapacitated once, right after its own
-        // windup wait. A stun landing during the active-hit window or
-        // recovery didn't actually stop anything. Cancelling here as soon as
-        // it happens, every frame, makes "hitstun cancels your action" true
-        // for the whole swing, not just its windup.
+        // Getting stunned, broken, or dying mid-swing needs to cancel
+        // whatever action was in progress — see CancelCurrentAction(). This
+        // is the one place that happens, checked every frame rather than
+        // once after windup, so a stun landing during the active-hit window
+        // or recovery actually stops it instead of letting it keep
+        // resolving hits in the background.
         if (IsIncapacitated)
         {
-            if (attackCoroutine != null)
-            {
-                StopCoroutine(attackCoroutine);
-                attackCoroutine = null;
-            }
-
-            if (attackLungeCoroutine != null)
-            {
-                StopCoroutine(attackLungeCoroutine);
-                attackLungeCoroutine = null;
-            }
+            CancelCurrentAction();
         }
 
         if (IsIncapacitated || Time.time < nextAutoDodgeTime)
@@ -615,6 +607,31 @@ public class PlayerCombat : MonoBehaviour
         FlashTint(autoDodgeFlashColor, autoDodgeFlashDuration);
     }
 
+    // Single, consistent place for "an action got interrupted" — stops
+    // whatever attack/lunge coroutine is running so it can't keep resolving
+    // hits or moving the player in the background. Doesn't need to touch
+    // the Animator itself: Hit/Broken/Death each already have their own
+    // Any State transition in the controller with no exit time, so they
+    // forcibly override whatever's currently playing regardless of what the
+    // code side does. If a future incapacitation cause is added that
+    // *doesn't* have that guarantee, this is the one place to also force an
+    // Animator transition, instead of that logic getting duplicated
+    // wherever the new cause is checked.
+    private void CancelCurrentAction()
+    {
+        if (attackCoroutine != null)
+        {
+            StopCoroutine(attackCoroutine);
+            attackCoroutine = null;
+        }
+
+        if (attackLungeCoroutine != null)
+        {
+            StopCoroutine(attackLungeCoroutine);
+            attackLungeCoroutine = null;
+        }
+    }
+
     // Called by whatever resolves a hit against the player (see
     // EnemyController.ResolveHit()) before applying damage/stagger/hitstun —
     // returns true if the hit was fully absorbed (Deflect or Block), meaning
@@ -636,7 +653,6 @@ public class PlayerCombat : MonoBehaviour
         {
             AddUltimateMeter(ultimateMeterPerDeflect);
             AudioManager.PlaySfx(deflectClip);
-            HitStop.Trigger(deflectHitStopDuration);
             FlashTint(deflectFlashColor, deflectFlashDuration);
             return true;
         }
