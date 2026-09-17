@@ -45,13 +45,27 @@ public class Health : MonoBehaviour
 
     private int maxHealthBonus;
     private int levelMaxHealthBonus;
+    private float healthScaleMultiplier = 1f;
     private float armor;
     private float damageMitigation;
     private float regenRemainder;
 
     public int CurrentHealth { get; private set; }
-    public int MaxHealth => maxHealth + maxHealthBonus + levelMaxHealthBonus;
+    public int MaxHealth => Mathf.RoundToInt((maxHealth + maxHealthBonus + levelMaxHealthBonus) * healthScaleMultiplier);
     public bool IsDead => CurrentHealth <= 0;
+
+    // Called once by WaveManager right after spawning an enemy, before
+    // anything else touches its health — scales Max Health for the wave it
+    // spawned in (see WaveManager.enemyHealthScalingPerWave), on top of
+    // whatever gear/level bonuses apply. A fresh spawn has no existing
+    // health to preserve through a delta like SetMaxHealthBonus/
+    // SetLevelMaxHealthBonus do for an already-live player, so this just
+    // sets CurrentHealth to the new (scaled) max outright.
+    public void SetHealthScaleMultiplier(float multiplier)
+    {
+        healthScaleMultiplier = multiplier;
+        CurrentHealth = MaxHealth;
+    }
 
     // Called by PlayerStats when equipped gear's MaxHealth affix total changes.
     // Preserves the player's current health rather than clamping it down/up

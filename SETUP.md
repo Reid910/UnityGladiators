@@ -706,6 +706,22 @@ should be — Unity prefabs freeze field values at the time they're saved, and
 a hand-edited script default only take effect for *new* instances or fields
 that never existed on the prefab before.
 
+## Enemy scaling, stagger, and chase-speed — no Editor steps needed, but verify
+
+No new Inspector wiring — pure code (`WaveManager`/`Health`/
+`EnemyController`) plus tuning values already on `Enemy.prefab`.
+
+1. Play into wave 3-4+ — enemies should visibly take more hits to kill and
+   hit harder than wave 1, on top of there being more of them.
+2. Hold Sprint and run directly away from an approaching enemy — it should
+   now keep pace instead of falling behind; only Dash/Slide should
+   actually create separation.
+3. Confirm both enemies and the player now take noticeably more hits to
+   Stagger-break than before (roughly double each) — if either feels like
+   nothing changed, double-check that prefab's `Stagger.Damage To Stagger
+   Multiplier` reads `0.5`, not `1` (`Enemy.prefab` and `Player.prefab`
+   both changed).
+
 ## Dedicated finisher action — no Editor steps needed, but verify
 
 No new Inspector wiring — pure code, all new fields (`Light Attack Range`,

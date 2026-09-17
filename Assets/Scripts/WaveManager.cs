@@ -31,6 +31,12 @@ public class WaveManager : MonoBehaviour
     [Tooltip("T3 enemy prefabs won't be picked before this wave number.")]
     [SerializeField] private int t3UnlockWave = 3;
 
+    [Header("Enemy Scaling")]
+    [Tooltip("Extra enemy Max Health per wave beyond wave 1, as a fraction (0.15 = +15% per wave, so wave 4 spawns at 1 + 3*0.15 = 145% health). Keeps 'more enemies per wave' from being the only difficulty lever — see Health.SetHealthScaleMultiplier().")]
+    [SerializeField] private float enemyHealthScalingPerWave = 0.15f;
+    [Tooltip("Same idea as above, applied to every damage source an enemy deals (normal attack, Downslam, Side swing) — see EnemyController.SetDamageScaleMultiplier().")]
+    [SerializeField] private float enemyDamageScalingPerWave = 0.15f;
+
     [Header("State")]
     [SerializeField] private int currentWave = 0;
     [SerializeField] private int enemiesAlive = 0;
@@ -211,12 +217,20 @@ public class WaveManager : MonoBehaviour
         EnemyController enemyController = enemyObject.GetComponent<EnemyController>();
         enemyController?.SetSpawnWave(currentWave);
 
+        // Wave-based enemy scaling — see enemyHealthScalingPerWave/
+        // enemyDamageScalingPerWave's tooltips. Wave 1 stays at the
+        // prefab's base stats (multiplier 1).
+        float waveScalingSteps = Mathf.Max(0, currentWave - 1);
+        enemyController?.SetDamageScaleMultiplier(1f + waveScalingSteps * enemyDamageScalingPerWave);
+
         Health enemyHealth = enemyObject.GetComponent<Health>();
 
         if (enemyHealth == null)
         {
             enemyHealth = enemyObject.GetComponentInChildren<Health>();
         }
+
+        enemyHealth?.SetHealthScaleMultiplier(1f + waveScalingSteps * enemyHealthScalingPerWave);
 
         if (enemyHealth != null)
         {
