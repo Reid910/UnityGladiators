@@ -24,6 +24,13 @@ multiplayer) is deferred — see below for the order.
   `NavMeshAgent`, `SampleScene`'s NavMesh is baked, and a follow-up
   separation pass (`EnemyController.GetSeparationVector()`) fixed enemies
   jamming into each other near the player.
+- **Full UI pass** — main menu, pause menu, ultimate gauge, enemy stagger
+  nameplates, stat shard/gloves gear slots, result screens. Merged (PR #19).
+- **NavMeshAgent switch** — no longer blocked. `Enemy.prefab` has a real
+  `NavMeshAgent`, `SampleScene`'s NavMesh is baked, and a follow-up
+  separation pass (`EnemyController.GetSeparationVector()`) fixed enemies
+  jamming into each other near the player. `SETUP.md`'s old "blocked on
+  manual Editor steps" note for this is stale — already done.
 - **Perilous attacks** (Downslam / Side swing) — implemented, gated to
   wave 3+, unblockable/undeflectable, distinct orange telegraph. Untuned.
 - **Gear assets** — Gloves item + Deflect, 3 armor passives (Lifesteal/
