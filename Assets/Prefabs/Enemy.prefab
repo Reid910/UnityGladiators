@@ -267,8 +267,8 @@ MonoBehaviour:
   hitStopDuration: 0.05
   finisherRampDuration: 0.4
   finisherRampStartTimeScale: 0.15
-  hitClip: {fileID: 0}
-  deathClip: {fileID: 0}
+  hitClip: {fileID: 8300000, guid: 8dde54c428cad1a448635198e7bcf7b4, type: 3}
+  deathClip: {fileID: 8300000, guid: 9e776e7a690cfc64d9ac03717b2e079c, type: 3}
 --- !u!114 &8192296093957660327
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -300,7 +300,7 @@ MonoBehaviour:
   attackActiveDuration: 0.15
   attackRange: 1.8
   attackCooldown: 1.2
-  attackSwingClip: {fileID: 0}
+  attackSwingClip: {fileID: 8300000, guid: 931fc93745c6a8e49b15813fc03324b2, type: 3}
   perilousUnlockWave: 3
   perilousAttackChance: 0.35
   perilousCooldown: 10
@@ -333,7 +333,7 @@ MonoBehaviour:
   brokenDuration: 2
   damageToStaggerMultiplier: 1
   animator: {fileID: 0}
-  breakClip: {fileID: 0}
+  breakClip: {fileID: 8300000, guid: f333b1cfe4d89f648b234360214dee32, type: 3}
 --- !u!114 &8831477279848598167
 MonoBehaviour:
   m_ObjectHideFlags: 0
