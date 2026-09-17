@@ -661,6 +661,24 @@ should be — Unity prefabs freeze field values at the time they're saved, and
 a hand-edited script default only take effect for *new* instances or fields
 that never existed on the prefab before.
 
+## Dedicated finisher action — no Editor steps needed, but verify
+
+No new Inspector wiring — pure code, all new fields (`Light Attack Range`,
+`Finisher Animator Trigger`/`Windup`/`Recovery Time`) default sensibly.
+
+1. Stagger an enemy to Broken (Heavy/Ultimate build stagger fastest), then
+   press Light Attack while it's in range — should play a distinct,
+   heavier-looking swing (reusing `AttackHeavy`'s animation for now) instead
+   of the normal light-combo swing, then the enemy dies with the finisher
+   slow-mo presentation.
+2. With multiple enemies around, only a Broken one directly in front
+   should trigger this — a Broken enemy off to the side (outside the new,
+   smaller `Light Attack Range`) shouldn't.
+3. A normal Light attack (no Broken enemy nearby) should feel unchanged
+   apart from a slightly smaller hit range — it should now mostly only
+   catch the one enemy directly in front instead of also clipping ones
+   just off to the side.
+
 ## Perilous attacks, gear assets, finisher presentation — verify before trusting
 
 No new Inspector wiring required — all three are code + hand-authored

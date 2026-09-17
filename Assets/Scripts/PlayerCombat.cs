@@ -71,11 +71,19 @@ public class PlayerCombat : MonoBehaviour
     [Header("Attack")]
     [SerializeField] private Transform attackPoint;
     [SerializeField] private float attackRange = 1.5f;
+    [Tooltip("Light Attack's own, smaller range — Heavy/Ultimate/Ability still use the wider Attack Range above (they're the AoE/crowd tools, see docs/combat-redesign-plan.md). A full-size sphere on a Light swing was catching enemies well off to the side, not just the one in front.")]
+    [SerializeField] private float lightAttackRange = 1.0f;
     [SerializeField] private LayerMask enemyLayer;
     [Tooltip("Damage multiplier applied on a crit (see Crit Chance affix, StatType.CritChance).")]
     [SerializeField] private float critDamageMultiplier = 1.5f;
     [Tooltip("Separate from enemyLayer — dead enemies' corpse hitboxes (see Health.corpseHitbox) live here so attacks can loot them instead of dealing damage.")]
     [SerializeField] private LayerMask corpseLayer;
+
+    [Header("Finisher")]
+    [Tooltip("Light Attack triggers this dedicated action instead of a normal combo swing whenever a Broken enemy is within Light Attack Range — see PerformFinisherAttack(). No dedicated finisher animation exists yet, so this reuses AttackHeavy's swing as a placeholder.")]
+    [SerializeField] private string finisherAnimatorTrigger = "AttackHeavy";
+    [SerializeField] private float finisherWindup = 0.3f;
+    [SerializeField] private float finisherRecoveryTime = 0.4f;
 
     [Header("Slide")]
     [Tooltip("Dash while sprinting triggers a Slide instead of the normal instant-burst dash — same distance/cooldown/i-frames from the equipped DashDefinition, but covered over this duration instead of one instant Move(). See docs/combat-redesign-plan.md.")]
@@ -274,7 +282,23 @@ public class PlayerCombat : MonoBehaviour
 
     private void TryLightAttack()
     {
-        if (IsIncapacitated || Time.time < nextAttackTime || lightComboHits.Length == 0)
+        if (IsIncapacitated || Time.time < nextAttackTime)
+        {
+            return;
+        }
+
+        // A Broken enemy in Light Attack Range pre-empts the normal combo
+        // entirely with a dedicated finisher action (see
+        // PerformFinisherAttack()) — the kill should read as a deliberate
+        // execute, not happen buried inside a regular swing that just
+        // happens to one-shot whatever it lands on.
+        if (TryFindNearbyBrokenEnemy(out Health brokenTarget))
+        {
+            PerformFinisherAttack(brokenTarget);
+            return;
+        }
+
+        if (lightComboHits.Length == 0)
         {
             return;
         }
@@ -296,7 +320,7 @@ public class PlayerCombat : MonoBehaviour
         bool isDodgeOutAttack = Time.time - dashEndedTime <= dodgeOutWindow;
         bool isSprintAttack = !isDodgeOutAttack && playerController != null && playerController.IsSprinting;
 
-        BeginAttack(hit.damage, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime, isLightAttack: true);
+        BeginAttack(hit.damage, hit.hitstunDuration, hit.animatorTrigger, hit.windup, hit.activeDuration, hit.recoveryTime, range: lightAttackRange, isLightAttack: true);
         AudioManager.PlaySfx(lightAttackClip);
 
         if (isDodgeOutAttack || isSprintAttack)
@@ -314,6 +338,102 @@ public class PlayerCombat : MonoBehaviour
         }
 
         comboResetTime = nextAttackTime + comboWindow;
+    }
+
+    // Used by TryLightAttack() to pre-empt the normal combo with a
+    // dedicated finisher action — see PerformFinisherAttack(). Deliberately
+    // uses Light Attack Range (not the wider Attack Range) so this can't
+    // trigger on a Broken enemy off to the side while a different enemy is
+    // actually in front.
+    private bool TryFindNearbyBrokenEnemy(out Health brokenHealth)
+    {
+        brokenHealth = null;
+
+        if (attackPoint == null)
+        {
+            return false;
+        }
+
+        Collider[] nearbyColliders = Physics.OverlapSphere(attackPoint.position, lightAttackRange, enemyLayer);
+        float closestDistance = float.MaxValue;
+
+        foreach (Collider candidateCollider in nearbyColliders)
+        {
+            Health candidateHealth = candidateCollider.GetComponentInParent<Health>();
+
+            if (candidateHealth == null || candidateHealth.IsDead)
+            {
+                continue;
+            }
+
+            Stagger candidateStagger = candidateCollider.GetComponentInParent<Stagger>();
+
+            if (candidateStagger == null || !candidateStagger.IsBroken)
+            {
+                continue;
+            }
+
+            float distance = Vector3.Distance(attackPoint.position, candidateHealth.transform.position);
+
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                brokenHealth = candidateHealth;
+            }
+        }
+
+        return brokenHealth != null;
+    }
+
+    // Dedicated action for finishing a Broken enemy — separate from the
+    // normal light combo entirely (own animator trigger, own timing, no
+    // normal damage roll, guaranteed single known target) so the kill reads
+    // as a deliberate execute instead of happening buried inside a regular
+    // swing. No dedicated finisher animation exists yet — reuses
+    // AttackHeavy's swing as a placeholder (see TODO.md). Grants hyper
+    // armor like every other committed big action (Heavy/Ultimate/Ability).
+    private void PerformFinisherAttack(Health targetHealth)
+    {
+        float scaledWindup = ApplyAttackSpeed(finisherWindup);
+        float scaledRecoveryTime = ApplyAttackSpeed(finisherRecoveryTime);
+
+        AttackCooldownDuration = scaledWindup + scaledRecoveryTime;
+        nextAttackTime = Time.time + AttackCooldownDuration;
+        hyperArmorUntilTime = nextAttackTime;
+        comboStep = 0;
+        comboResetTime = nextAttackTime;
+
+        if (attackCoroutine != null)
+        {
+            StopCoroutine(attackCoroutine);
+        }
+
+        attackCoroutine = StartCoroutine(PerformFinisherRoutine(targetHealth, scaledWindup));
+    }
+
+    private IEnumerator PerformFinisherRoutine(Health targetHealth, float windup)
+    {
+        if (animator != null)
+        {
+            animator.SetTrigger(finisherAnimatorTrigger);
+        }
+
+        AudioManager.PlaySfx(lightAttackClip);
+
+        if (windup > 0f)
+        {
+            yield return new WaitForSeconds(windup);
+        }
+
+        // Getting broken mid-windup cancels the finisher, same rule as
+        // every other attack — and the target might have already been
+        // finished by something else (an AoE Heavy/Ultimate, say) in the
+        // meantime.
+        if (!IsIncapacitated && targetHealth != null && !targetHealth.IsDead)
+        {
+            targetHealth.Execute();
+            AddUltimateMeter(ultimateMeterPerFinisher);
+        }
     }
 
     // Covers Attack Lunge Distance over Attack Lunge Duration instead of one
@@ -772,6 +892,9 @@ public class PlayerCombat : MonoBehaviour
             return;
         }
 
+        Gizmos.color = Color.white;
         Gizmos.DrawWireSphere(attackPoint.position, attackRange);
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(attackPoint.position, lightAttackRange);
     }
 }
