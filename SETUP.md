@@ -716,10 +716,11 @@ No new Inspector wiring — pure code (`WaveManager`/`Health`/
 2. Hold Sprint and run directly away from an approaching enemy — it should
    now keep pace instead of falling behind; only Dash/Slide should
    actually create separation.
-3. Confirm enemies still take noticeably more hits to Stagger-break than
-   before (roughly double) — if it feels like nothing changed, double
-   -check `Enemy.prefab`'s `Stagger.Damage To Stagger Multiplier` reads
-   `0.5`, not `1`.
+3. Confirm both enemies and the player now take noticeably more hits to
+   Stagger-break than before (roughly double each) — if either feels like
+   nothing changed, double-check that prefab's `Stagger.Damage To Stagger
+   Multiplier` reads `0.5`, not `1` (`Enemy.prefab` and `Player.prefab`
+   both changed).
 
 ## Dedicated finisher action — no Editor steps needed, but verify
 

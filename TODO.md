@@ -1078,10 +1078,14 @@ breaks and finishers, not a slow tank-and-spank.
       needing to scale each damage field separately). Wave 1 stays at the
       prefab's base stats; `enemiesAddedPerWave` (headcount) is unchanged
       and still stacks on top of this.
-- [x] **Enemy Stagger vulnerability halved** — reported as feeling like
-      too much: `Enemy.prefab`'s `Stagger.damageToStaggerMultiplier`
-      1 → 0.5, so enemies now take roughly twice as many hits to break.
-      Player's own Stagger is untouched.
+- [x] **Both enemy and player Stagger vulnerability halved** — the
+      original ask was actually about the player's own Stagger feeling
+      like too much (enemy was a bonus, separately confirmed good); both
+      prefabs' `Stagger.damageToStaggerMultiplier` are now `0.5` (was 1),
+      so both sides take roughly twice as many hits to break. Deliberately
+      just the existing per-prefab number on each, not a new
+      code-level multiplier/system — same simple lever `damageToStagger
+      Multiplier` already was.
 - [x] **Enemy chase speed now matches the player's Sprint speed**
       (`Enemy.prefab`'s `EnemyController.movementSpeed` 3 → 8, matching
       `PlayerController`'s `movementSpeed × sprintSpeedMultiplier` =

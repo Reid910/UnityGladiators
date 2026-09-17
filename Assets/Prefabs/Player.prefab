@@ -2037,7 +2037,7 @@ MonoBehaviour:
   maxStagger: 200
   decayPerSecond: 2
   brokenDuration: 2
-  damageToStaggerMultiplier: 1
+  damageToStaggerMultiplier: 0.5
   animator: {fileID: 0}
   breakClip: {fileID: 8300000, guid: f333b1cfe4d89f648b234360214dee32, type: 3}
 --- !u!114 &-5497824766274923756
