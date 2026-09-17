@@ -74,6 +74,9 @@ public class PlayerCombat : MonoBehaviour
     [SerializeField] private float deflectFlashDuration = 0.15f;
     [Tooltip("A very brief freeze-frame (see HitStop.cs) sells a perfect-timing parry the same way a bigger one sells a finisher — much shorter since this should happen often, not read as a big event.")]
     [SerializeField] private float deflectHitStopDuration = 0.04f;
+    [Tooltip("Pants AutoDodge proc flash (see the AutoDodge Update() below) — fires every time the passive triggers, not just when it happens to block real damage, since it's a blind timer independent of incoming attacks and would otherwise be unverifiable in play.")]
+    [SerializeField] private Color autoDodgeFlashColor = new Color(0.3f, 0.85f, 1f);
+    [SerializeField] private float autoDodgeFlashDuration = 0.2f;
 
     [Header("Attack")]
     [SerializeField] private Transform attackPoint;
@@ -122,7 +125,7 @@ public class PlayerCombat : MonoBehaviour
     private InputSystem_Actions inputSystemActions;
     private Coroutine attackCoroutine;
     private Coroutine attackLungeCoroutine;
-    private Coroutine deflectFlashCoroutine;
+    private Coroutine visualFlashCoroutine;
     private MaterialPropertyBlock propertyBlock;
 
     private int comboStep;
@@ -426,6 +429,15 @@ public class PlayerCombat : MonoBehaviour
 
         nextAutoDodgeTime = Time.time + pantsEffect.Cooldown;
         invulnerableUntilTime = Mathf.Max(invulnerableUntilTime, Time.time + pantsEffect.Value);
+
+        // This procs on a blind timer regardless of whether an attack is
+        // actually incoming — with a short window (Value) on a long
+        // cooldown, most procs won't happen to overlap an actual hit, which
+        // made it read as "not working at all" in playtesting even though
+        // it fires exactly on schedule. Flashing on every proc (not just
+        // ones that block real damage) makes it verifiable independent of
+        // luck. Same technique as Deflect's flash above, different color.
+        FlashTint(autoDodgeFlashColor, autoDodgeFlashDuration);
     }
 
     // Called by whatever resolves a hit against the player (see
@@ -450,7 +462,7 @@ public class PlayerCombat : MonoBehaviour
             AddUltimateMeter(ultimateMeterPerDeflect);
             AudioManager.PlaySfx(deflectClip);
             HitStop.Trigger(deflectHitStopDuration);
-            FlashDeflect();
+            FlashTint(deflectFlashColor, deflectFlashDuration);
             return true;
         }
 
@@ -477,37 +489,39 @@ public class PlayerCombat : MonoBehaviour
     // a perfect Deflect otherwise had zero feedback (no clip assigned yet,
     // no visual cue), making it indistinguishable from a plain Block in
     // playtesting. Same MaterialPropertyBlock technique EnemyController
-    // already uses for its telegraph flicker.
-    private void FlashDeflect()
+    // already uses for its telegraph flicker. Shared with the Pants
+    // AutoDodge proc below (different color) since both are "something
+    // happened, here's proof" cues with the same needs.
+    private void FlashTint(Color color, float duration)
     {
         if (visualRenderer == null)
         {
             return;
         }
 
-        if (deflectFlashCoroutine != null)
+        if (visualFlashCoroutine != null)
         {
-            StopCoroutine(deflectFlashCoroutine);
+            StopCoroutine(visualFlashCoroutine);
         }
 
-        deflectFlashCoroutine = StartCoroutine(DeflectFlashRoutine());
+        visualFlashCoroutine = StartCoroutine(FlashTintRoutine(color, duration));
     }
 
-    private IEnumerator DeflectFlashRoutine()
+    private IEnumerator FlashTintRoutine(Color color, float duration)
     {
         propertyBlock ??= new MaterialPropertyBlock();
         visualRenderer.GetPropertyBlock(propertyBlock);
-        propertyBlock.SetColor("_BaseColor", deflectFlashColor);
-        propertyBlock.SetColor("_Color", deflectFlashColor);
+        propertyBlock.SetColor("_BaseColor", color);
+        propertyBlock.SetColor("_Color", color);
         visualRenderer.SetPropertyBlock(propertyBlock);
 
-        yield return new WaitForSeconds(deflectFlashDuration);
+        yield return new WaitForSeconds(duration);
 
         // Clears the override rather than restoring a hardcoded "neutral"
         // color — unlike EnemyController's tier tint, the player's actual
         // base appearance isn't something this script should need to know.
         visualRenderer.SetPropertyBlock(null);
-        deflectFlashCoroutine = null;
+        visualFlashCoroutine = null;
     }
 
     // Attack Speed affix (Head-flavored, see TODO.md) shortens recovery time.
