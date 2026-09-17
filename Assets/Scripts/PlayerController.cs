@@ -20,6 +20,7 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private Stagger stagger;
     [SerializeField] private Hitstun hitstun;
     [SerializeField] private PlayerStats playerStats;
+    [SerializeField] private PlayerCombat playerCombat;
 
     private CharacterController characterController;
     private InputSystem_Actions inputSystemActions;
@@ -74,10 +75,15 @@ public class PlayerController : MonoBehaviour
 
     // Movement is locked while stunned from a hit, broken from stagger, or
     // dead — mirrors the same restriction EnemyController applies to enemies.
+    // Also locked for the duration of a Finisher execute (see
+    // PlayerCombat.IsPerformingFinisher) — a Sekiro-style execute is a
+    // committed cinematic beat, not a normal attack (which deliberately
+    // stays mobile/interruptible).
     private bool IsIncapacitated =>
         (health != null && health.IsDead) ||
         (hitstun != null && hitstun.IsStunned) ||
-        (stagger != null && stagger.IsBroken);
+        (stagger != null && stagger.IsBroken) ||
+        (playerCombat != null && playerCombat.IsPerformingFinisher);
 
     private void Awake()
     {
@@ -106,6 +112,11 @@ public class PlayerController : MonoBehaviour
         if (playerStats == null)
         {
             playerStats = GetComponent<PlayerStats>();
+        }
+
+        if (playerCombat == null)
+        {
+            playerCombat = GetComponent<PlayerCombat>();
         }
 
         if (Camera.main != null)

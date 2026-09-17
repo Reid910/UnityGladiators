@@ -143,6 +143,7 @@ public class PlayerCombat : MonoBehaviour
     private float nextAbilityTime;
     private float nextDashTime;
     private float invulnerableUntilTime;
+    private float finisherLockUntilTime;
     private float dashEndedTime = float.NegativeInfinity;
     private float lastDeflectPressTime = float.NegativeInfinity;
     private bool isBlockHeld;
@@ -172,6 +173,15 @@ public class PlayerCombat : MonoBehaviour
     // not just hitstun. EnemyController checks this before resolving a hit
     // at all.
     public bool IsInvulnerable => Time.time < invulnerableUntilTime;
+
+    // Sekiro-style: a Finisher execute is a committed cinematic beat, not
+    // just another swing — the player can't be hit (see PerformFinisherAttack
+    // setting invulnerableUntilTime alongside this) and can't move (see
+    // PlayerController.IsIncapacitated) for its full windup+recovery. Normal
+    // attacks stay mobile/interruptible on purpose (see docs/combat-redesign-plan.md's
+    // "stay fast and mobile" identity) — this is deliberately scoped to
+    // Finishers only, not attacks in general.
+    public bool IsPerformingFinisher => Time.time < finisherLockUntilTime;
 
     private bool IsDead => health != null && health.IsDead;
 
@@ -436,6 +446,10 @@ public class PlayerCombat : MonoBehaviour
         AttackCooldownDuration = scaledWindup + scaledRecoveryTime;
         nextAttackTime = Time.time + AttackCooldownDuration;
         hyperArmorUntilTime = nextAttackTime;
+        // Full invulnerability (not just hyper armor's hitstun immunity) and
+        // a movement lock for the whole execute — see IsPerformingFinisher.
+        invulnerableUntilTime = Mathf.Max(invulnerableUntilTime, nextAttackTime);
+        finisherLockUntilTime = nextAttackTime;
         comboStep = 0;
         comboResetTime = nextAttackTime;
 
@@ -554,6 +568,28 @@ public class PlayerCombat : MonoBehaviour
     // standing cooldown, not a reaction to something happening.
     private void Update()
     {
+        // Getting stunned, broken, or dying mid-swing used to leave the
+        // in-progress attack coroutine running behind the scenes regardless
+        // — it only ever checked IsIncapacitated once, right after its own
+        // windup wait. A stun landing during the active-hit window or
+        // recovery didn't actually stop anything. Cancelling here as soon as
+        // it happens, every frame, makes "hitstun cancels your action" true
+        // for the whole swing, not just its windup.
+        if (IsIncapacitated)
+        {
+            if (attackCoroutine != null)
+            {
+                StopCoroutine(attackCoroutine);
+                attackCoroutine = null;
+            }
+
+            if (attackLungeCoroutine != null)
+            {
+                StopCoroutine(attackLungeCoroutine);
+                attackLungeCoroutine = null;
+            }
+        }
+
         if (IsIncapacitated || Time.time < nextAutoDodgeTime)
         {
             return;

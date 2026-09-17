@@ -3,6 +3,35 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Finisher lock + hitstun cancel-action fix + hit-freeze tuning — verify before trusting
+
+No Editor steps needed — new `PlayerController.playerCombat` field is
+auto-fetched via `GetComponent<PlayerCombat>()` in `Awake()`, same pattern
+as every other reference on that script. Verify:
+
+1. **Finisher is now a real committed execute (Sekiro-style)**: Light
+   attack a Broken enemy — you should be unable to move and unable to take
+   damage/stagger/hitstun from anything else for the whole windup+recovery
+   (`PlayerCombat.IsPerformingFinisher`), not just hyper-armor's hitstun
+   immunity like before. A normal Light/Heavy/Ultimate/Ability attack
+   should still let you move freely mid-swing — this lock is scoped to
+   Finishers only.
+2. **Getting stunned/broken mid-swing now actually cancels the swing**:
+   get hit hard enough to break your Stagger (or get stunned by anything
+   that still applies Hitstun) while mid-combo — the attack you were
+   performing should stop landing further hits immediately instead of
+   finishing its active window in the background. Previously this was only
+   checked once, right after the windup wait, so a stun landing during the
+   active-hit window or recovery didn't stop anything.
+3. **Hit-freeze is way less naggy now**: the global freeze-frame that used
+   to fire on every single landed hit (`Health.hitStopDuration`, was 0.05s)
+   is now 0 by default on both `Player.prefab` and `Enemy.prefab` — light
+   combos and enemy hits shouldn't cause the constant micro-stutter they
+   did before. The Finisher's own freeze+slow-mo (a deliberate cinematic
+   beat, not the thing that was complained about) is untouched — still
+   0.1s freeze + 0.4s slow-mo ramp, now via its own `finisherFreezeDuration`
+   field instead of being derived from the per-hit one.
+
 ## Input-leak fix (ArenaMenuController) — verify before trusting
 
 No Editor steps needed — wired directly in `SampleScene.unity`'s YAML

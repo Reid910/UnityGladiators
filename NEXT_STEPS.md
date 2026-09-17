@@ -14,6 +14,16 @@ Everything else (camera, Champion enemy, the numbers/tuning pass,
 multiplayer) is deferred — see below for the order.
 
 ## Recently done
+- **Finisher lock + hitstun cancel-action fix + hit-freeze tuning** — a
+  Finisher execute now fully locks movement and blocks all damage/stagger/
+  hitstun for its whole duration (Sekiro-style committed execute), not just
+  hyper armor's hitstun immunity. Getting stunned/broken mid-swing now
+  actually cancels the in-progress attack instead of only being checked
+  once after windup. The global per-hit freeze-frame (fired on every
+  landed hit, including every light combo tick) is now 0 by default —
+  it's what was actually causing the "game freezes" complaint, not
+  hitstun itself. Finisher's own freeze+slow-mo is untouched, now on its
+  own decoupled field. See `SETUP.md`.
 - **Audio hookup** — every `AudioClip` field (attacks/hit/death/break/
   dash/slide/deflect/block/ability/ultimate/music) assigned real clips from
   the Kenney RPG Audio, Kenney Interface Sounds, and Alexander Ehlers music

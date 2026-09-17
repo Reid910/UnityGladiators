@@ -33,8 +33,10 @@ public class Health : MonoBehaviour
     [SerializeField] private DamageNumber damageNumberPrefab;
     [SerializeField] private Vector3 damageNumberSpawnOffset = new Vector3(0f, 2f, 0f);
     [SerializeField] private Color damageNumberColor = Color.white;
-    [Tooltip("Brief global freeze-frame applied on every hit that lands (see HitStop.cs). 0 disables it.")]
-    [SerializeField] private float hitStopDuration = 0.05f;
+    [Tooltip("Brief global freeze-frame applied on every hit that lands (see HitStop.cs). 0 disables it. Defaulted to 0 — at 0.05s this fired on every single landed hit (light combos land 3 within ~1s, on top of every enemy hit too), which read as constant stuttering rather than punchy feedback. Finisher's freeze is a separate field below, not derived from this one.")]
+    [SerializeField] private float hitStopDuration = 0f;
+    [Tooltip("Finisher (Execute) presentation — the hard-freeze portion before the slow-motion ramp starts. Decoupled from Hit Stop Duration above (which is now 0 by default) so this stays a deliberate cinematic beat independent of normal-hit feedback.")]
+    [SerializeField] private float finisherFreezeDuration = 0.1f;
     [Tooltip("Finisher (Execute) presentation — a longer freeze than a normal hit, then a slow-motion ramp back to full speed instead of snapping back instantly. See HitStop.TriggerFinisher(). No new camera/VFX work — camera zoom/framing is explicitly deferred.")]
     [SerializeField] private float finisherRampDuration = 0.4f;
     [Tooltip("Time.timeScale the slow-motion ramp starts at right after the freeze (e.g. 0.15 = 15% speed), easing back up to normal over Finisher Ramp Duration.")]
@@ -208,7 +210,7 @@ public class Health : MonoBehaviour
         // than snapping back instantly. A finisher should read as more
         // impactful than a regular combo tick.
         SpawnDamageNumber(CurrentHealth);
-        HitStop.TriggerFinisher(hitStopDuration * 2f, finisherRampDuration, finisherRampStartTimeScale);
+        HitStop.TriggerFinisher(finisherFreezeDuration, finisherRampDuration, finisherRampStartTimeScale);
 
         CurrentHealth = 0;
         UpdateHealthText();
