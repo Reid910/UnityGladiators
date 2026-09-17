@@ -1066,6 +1066,42 @@ breaks and finishers, not a slow tank-and-spank.
 - [ ] `lootGlowPulseSpeed`/`lootGlowPulseIntensity` (2 / 0.4) are
       first-pass guesses, untuned.
 
+## Enemy scaling, stagger tuning, and chase-speed parity
+- [x] **Enemies now get stronger per wave**, not just more numerous.
+      `WaveManager` gained `enemyHealthScalingPerWave`/
+      `enemyDamageScalingPerWave` (0.15 each, i.e. +15%/wave) applied once
+      per enemy at spawn time via two new setters: `Health.
+      SetHealthScaleMultiplier()` (multiplies the existing
+      base+gear+level Max Health formula) and `EnemyController.
+      SetDamageScaleMultiplier()` (applied once in `ResolveHit()`, so it
+      covers normal attacks, Downslam, and Side swing uniformly instead of
+      needing to scale each damage field separately). Wave 1 stays at the
+      prefab's base stats; `enemiesAddedPerWave` (headcount) is unchanged
+      and still stacks on top of this.
+- [x] **Enemy Stagger vulnerability halved** — reported as feeling like
+      too much: `Enemy.prefab`'s `Stagger.damageToStaggerMultiplier`
+      1 → 0.5, so enemies now take roughly twice as many hits to break.
+      Player's own Stagger is untouched.
+- [x] **Enemy chase speed now matches the player's Sprint speed**
+      (`Enemy.prefab`'s `EnemyController.movementSpeed` 3 → 8, matching
+      `PlayerController`'s `movementSpeed × sprintSpeedMultiplier` =
+      5 × 1.6 = 8) — previously enemies chased far slower than a sprinting
+      player, so simply holding Sprint was a free, skill-less escape.
+      Deliberate design intent (per direct request): sprinting alone no
+      longer creates distance, so Dash/Slide become the actual answer to
+      "I need to get away," not just a bonus. Also bumped the
+      `NavMeshAgent`'s own `Speed` to 8 to match, for internal steering
+      consistency (doesn't affect actual movement — see
+      `EnemyController.MoveTowardTarget()`, which only reads the agent's
+      direction, not its speed).
+- [ ] All three are first-pass numbers/direct requests, not measured
+      against real extended play — `enemyHealthScalingPerWave`/
+      `enemyDamageScalingPerWave` (0.15) especially need a real endless
+      -mode session to see how far the curve should climb before it
+      becomes unfair rather than tense. Enemy chase speed exactly equal to
+      Sprint speed means Shuffle-phase positioning/reading windups matters
+      more now — worth confirming that still feels fair, not just fast.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

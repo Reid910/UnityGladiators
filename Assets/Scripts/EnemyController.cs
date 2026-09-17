@@ -100,6 +100,7 @@ public class EnemyController : MonoBehaviour
     private bool isClosingIn;
     private int spawnWave;
     private float nextPerilousTime;
+    private float damageScaleMultiplier = 1f;
 
     public EnemyTier Tier => tier;
 
@@ -109,6 +110,15 @@ public class EnemyController : MonoBehaviour
     public void SetSpawnWave(int wave)
     {
         spawnWave = wave;
+    }
+
+    // Set once by WaveManager.SpawnEnemy() at spawn time (see
+    // WaveManager.enemyDamageScalingPerWave) — scales every damage source
+    // this enemy deals (normal attack, Downslam, Side swing), applied once
+    // in ResolveHit() so nothing has to scale each field individually.
+    public void SetDamageScaleMultiplier(float multiplier)
+    {
+        damageScaleMultiplier = multiplier;
     }
 
     // Enemies can't move or attack while stunned from a hit or broken from
@@ -577,6 +587,8 @@ public class EnemyController : MonoBehaviour
     // timing. See docs/combat-redesign-plan.md.
     private void ResolveHit(int damage, float hitstunDuration, bool canBeDefended)
     {
+        damage = Mathf.RoundToInt(damage * damageScaleMultiplier);
+
         if (targetHealth == null || targetHealth.IsDead)
         {
             return;

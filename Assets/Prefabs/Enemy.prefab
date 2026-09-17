@@ -283,7 +283,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: '::'
   tier: 0
   visualRenderer: {fileID: 0}
-  movementSpeed: 3
+  movementSpeed: 8
   rotationSpeed: 10
   stoppingDistance: 1.5
   gravity: -20
@@ -331,7 +331,7 @@ MonoBehaviour:
   maxStagger: 100
   decayPerSecond: 2
   brokenDuration: 2
-  damageToStaggerMultiplier: 1
+  damageToStaggerMultiplier: 0.5
   animator: {fileID: 0}
   breakClip: {fileID: 8300000, guid: f333b1cfe4d89f648b234360214dee32, type: 3}
 --- !u!114 &8831477279848598167
@@ -380,7 +380,7 @@ NavMeshAgent:
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.35
-  m_Speed: 3.5
+  m_Speed: 8
   m_Acceleration: 8
   avoidancePriority: 50
   m_AngularSpeed: 120
