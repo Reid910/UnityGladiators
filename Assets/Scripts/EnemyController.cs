@@ -8,8 +8,8 @@ public class EnemyController : MonoBehaviour
     [Header("Tier")]
     [Tooltip("Drives loot rarity (see LootableCorpse, which reads this), tints Visual Renderer by tier on spawn (see EnemyTierColor — a placeholder until real per-tier prefabs/models exist), and is a label for tuning this prefab's own stats — it doesn't auto-scale stats itself. Fast/low-hp = T1, slow/high-damage = T2, ranged/tankier = T3 is the suggested split.")]
     [SerializeField] private EnemyTier tier = EnemyTier.T1;
-    [Tooltip("Optional. Tinted by Tier on spawn (see EnemyTierColor). Falls back to the first Renderer found in children if left empty.")]
-    [SerializeField] private Renderer visualRenderer;
+    [Tooltip("Optional. Tinted by Tier on spawn (see EnemyTierColor) and flickered during attack telegraphs. Falls back to EVERY Renderer/SkinnedMeshRenderer found in children if left empty — this character model is a multi-part rig (hair/clothes/weapon as separate pieces), so tinting only one left most of the body untinted.")]
+    [SerializeField] private Renderer[] visualRenderers;
 
     [Header("Movement")]
     [SerializeField] private float movementSpeed = 2.5f;
@@ -150,9 +150,9 @@ public class EnemyController : MonoBehaviour
             animator = GetComponentInChildren<Animator>();
         }
 
-        if (visualRenderer == null)
+        if (visualRenderers == null || visualRenderers.Length == 0)
         {
-            visualRenderer = GetComponentInChildren<Renderer>();
+            visualRenderers = GetComponentsInChildren<Renderer>();
         }
 
         if (navMeshAgent == null)
@@ -191,18 +191,31 @@ public class EnemyController : MonoBehaviour
         SetTint(EnemyTierColor.Get(tier));
     }
 
+    // Applies to every renderer, not just one — this character model is a
+    // multi-part rig (many separate SkinnedMeshRenderers for hair/clothes/
+    // weapon/etc.), so tinting a single Renderer left most of the body
+    // untinted and both the tier tint and telegraph flicker easy to miss.
     private void SetTint(Color tint)
     {
-        if (visualRenderer == null)
+        if (visualRenderers == null)
         {
             return;
         }
 
         propertyBlock ??= new MaterialPropertyBlock();
-        visualRenderer.GetPropertyBlock(propertyBlock);
-        propertyBlock.SetColor("_BaseColor", tint);
-        propertyBlock.SetColor("_Color", tint);
-        visualRenderer.SetPropertyBlock(propertyBlock);
+
+        foreach (Renderer renderer in visualRenderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            renderer.GetPropertyBlock(propertyBlock);
+            propertyBlock.SetColor("_BaseColor", tint);
+            propertyBlock.SetColor("_Color", tint);
+            renderer.SetPropertyBlock(propertyBlock);
+        }
     }
 
     private void Update()

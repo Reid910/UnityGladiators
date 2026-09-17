@@ -67,8 +67,8 @@ public class PlayerCombat : MonoBehaviour
     [Header("Deflect / Block")]
     [Tooltip("Same input handles both, repurposing the unused stock 'Jump' action (bound to Space) — see docs/combat-redesign-plan.md's 'no jump' decision. A fresh press within the equipped Gloves item's Deflect Window of an incoming hit becomes a perfect Deflect (no cost, fills the Ultimate meter fast, requires a Gloves item with a DeflectDefinition); just holding the button Blocks HP damage but costs the player Stagger instead, no gear required — this is how Sekiro's actual posture-on-block works.")]
     [SerializeField] private float blockStaggerCostMultiplier = 0.75f;
-    [Tooltip("Optional. A successful Deflect had no feedback at all otherwise (no clip assigned yet, no visual cue), making it indistinguishable from a plain Block in playtesting. Falls back to the first Renderer found in children if left empty.")]
-    [SerializeField] private Renderer visualRenderer;
+    [Tooltip("Optional. A successful Deflect had no feedback at all otherwise (no clip assigned yet, no visual cue), making it indistinguishable from a plain Block in playtesting. Falls back to EVERY Renderer/SkinnedMeshRenderer found in children if left empty — this character model is a multi-part rig (hair/clothes/weapon as separate pieces), so tinting only one left most of the body untinted.")]
+    [SerializeField] private Renderer[] visualRenderers;
     [Tooltip("Cheap placeholder tell for a successful Deflect until real VFX exists — briefly tints Visual Renderer this color, same MaterialPropertyBlock technique EnemyController already uses for its telegraph flicker.")]
     [SerializeField] private Color deflectFlashColor = new Color(1f, 0.85f, 0.2f);
     [SerializeField] private float deflectFlashDuration = 0.15f;
@@ -191,9 +191,9 @@ public class PlayerCombat : MonoBehaviour
             animator = GetComponentInChildren<Animator>();
         }
 
-        if (visualRenderer == null)
+        if (visualRenderers == null || visualRenderers.Length == 0)
         {
-            visualRenderer = GetComponentInChildren<Renderer>();
+            visualRenderers = GetComponentsInChildren<Renderer>();
         }
 
         if (health == null)
@@ -633,7 +633,7 @@ public class PlayerCombat : MonoBehaviour
     // happened, here's proof" cues with the same needs.
     private void FlashTint(Color color, float duration)
     {
-        if (visualRenderer == null)
+        if (visualRenderers == null || visualRenderers.Length == 0)
         {
             return;
         }
@@ -646,20 +646,40 @@ public class PlayerCombat : MonoBehaviour
         visualFlashCoroutine = StartCoroutine(FlashTintRoutine(color, duration));
     }
 
+    // Applies to every renderer, not just one — this character model is a
+    // multi-part rig (many separate SkinnedMeshRenderers for hair/clothes/
+    // weapon/etc.), so tinting a single Renderer left most of the body
+    // untinted and the flash easy to miss entirely.
     private IEnumerator FlashTintRoutine(Color color, float duration)
     {
         propertyBlock ??= new MaterialPropertyBlock();
-        visualRenderer.GetPropertyBlock(propertyBlock);
-        propertyBlock.SetColor("_BaseColor", color);
-        propertyBlock.SetColor("_Color", color);
-        visualRenderer.SetPropertyBlock(propertyBlock);
+
+        foreach (Renderer renderer in visualRenderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            renderer.GetPropertyBlock(propertyBlock);
+            propertyBlock.SetColor("_BaseColor", color);
+            propertyBlock.SetColor("_Color", color);
+            renderer.SetPropertyBlock(propertyBlock);
+        }
 
         yield return new WaitForSeconds(duration);
 
         // Clears the override rather than restoring a hardcoded "neutral"
         // color — unlike EnemyController's tier tint, the player's actual
         // base appearance isn't something this script should need to know.
-        visualRenderer.SetPropertyBlock(null);
+        foreach (Renderer renderer in visualRenderers)
+        {
+            if (renderer != null)
+            {
+                renderer.SetPropertyBlock(null);
+            }
+        }
+
         visualFlashCoroutine = null;
     }
 

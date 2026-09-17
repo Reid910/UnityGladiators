@@ -1106,6 +1106,32 @@ breaks and finishers, not a slow tank-and-spank.
       Sprint speed means Shuffle-phase positioning/reading windups matters
       more now — worth confirming that still feels fair, not just fast.
 
+## Fixed: two real bugs behind "I still don't see any corpse loot glow"
+- [x] **My own pulse fix from the previous round was broken by
+      construction.** It pulsed `baseTint` toward `Color.white`, but
+      `_BaseColor`/`_Color` is a *multiplicative* tint — for the exact case
+      being fixed (a Common drop on a T1 enemy, both already plain white),
+      `Lerp(white, white, t)` is a no-op. The fix visibly helped Rare/
+      SuperRare/empty corpses and did nothing at all for the one case it
+      was written for. Now pulses toward a new `Loot Glow Pulse Color`
+      (warm gold, default) instead of white, which produces a visible
+      shift regardless of what the base tint happens to be.
+- [x] **The character model is a 20+ piece rig** (separate
+      `SkinnedMeshRenderer`s for hair/clothes/weapon/etc., confirmed by
+      counting on both `Enemy.prefab` and `Player.prefab`), and every
+      tint-based feedback effect in the project (`LootableCorpse`'s loot
+      glow, `EnemyController`'s tier tint + telegraph flicker,
+      `PlayerCombat`'s Deflect/AutoDodge flash) was only tinting *one*
+      piece via `GetComponentInChildren<Renderer>()` — nearly invisible
+      regardless of color. All four now use `Renderer[]`/
+      `GetComponentsInChildren<Renderer>()` and apply the tint to every
+      piece. None of the old singular fields were ever manually assigned
+      in either prefab (confirmed via the serialized YAML), so this is a
+      safe rename with no lost Inspector wiring.
+- [ ] `lootGlowPulseColor`/`lootGlowPulseIntensity` (now 0.6, up from 0.4)
+      are still first-pass guesses — worth another look now that the
+      pulse actually does something in every case.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
