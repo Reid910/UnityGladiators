@@ -133,9 +133,10 @@ Pack folders under `Assets/AssetPacks/`. Best-fit picks, not custom combat
 SFX — swap any of these later if a better-fitting sound turns up:
 
 - `PlayerCombat` (Player.prefab): Light = `knifeSlice`, Heavy = `chop`,
-  Ultimate = `bong_001`, Hit Impact = `metalPot2`, Ability Cast =
-  `glitch_001`, Dash = `cloth1`, Slide = `cloth3`, Deflect = `metalClick`,
-  Block = `metalLatch`.
+  Ultimate = `bong_001`, Hit Impact = `metalPot2` (played at explicit 0.35
+  volume in code — it fires on every landed hit, was too loud at full
+  volume), Ability Cast = `glitch_001`, Dash = `cloth1`, Slide = `cloth3`,
+  Deflect = `metalClick`, Block = `metalLatch`.
 - `Health` (Player.prefab + Enemy.prefab): Hit = `tick_001` (short, quiet —
   played at explicit 0.4 volume in code since it fires on every hit taken),
   Death = `dropLeather`.
@@ -143,7 +144,7 @@ SFX — swap any of these later if a better-fitting sound turns up:
   "shatter" sound doubling as the Broken-state cue).
 - `EnemyController` (Enemy.prefab): Attack Swing = `knifeSlice2`.
 - `WaveManager` (SampleScene): Background Music = Alexander Ehlers -
-  "Doomed", Music Volume set to 0.2 for testing (was 0.5).
+  "Doomed", Music Volume set to 0.1 for testing (was 0.5).
 
 Verify: play a wave and confirm each sound actually fires at the moment it
 should (swing on attack, thud on getting hit, shatter on stagger break,
