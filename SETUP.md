@@ -692,7 +692,7 @@ No new Inspector wiring required — all three are code + hand-authored
 - Original eight HUD text objects are preserved and inactive; GameUI now references replacement labels.
 - Skill icons use LMB (basic attack), Q (Ability), and Left Ctrl (Dash). The basic attack box is smaller. Equip a weapon with AbilityDefinition and boots with DashDefinition to enable those skills.
 - Basic attack has a radial cooldown and centered countdown tied to actual windup, hit window, and recovery, including attack-speed modifiers and the shared heavy-attack recovery. GameUI Attack Cooldown Fill/Text are wired; use Gladiators > Upgrade Attack Cooldown for an older HUD.
-- RMB Heavy has its own small box beside LMB, with the same shared attack recovery overlay. Ability/dash borders flash white for 0.65 seconds when their cooldown completes, then return to gold.
+- RMB Heavy has its own static box beside LMB; only the basic-attack box displays the shared recovery timer. Ability/dash borders flash white for 0.65 seconds when their cooldown completes, then return to gold.
 - Equipping gear flashes the matching rarity frame and shows a fading "Equipped: item name" message above the skills for 2.2 seconds. EquipmentHUD listens to PlayerEquipment.ItemEquipped; no swap input changes are needed.
 - Feedback is wired in SampleScene. Use Gladiators > Upgrade HUD Feedback for an older HUD; HUDFlash components control flash duration on the skill/gear borders.
 - Art and layout can be adjusted directly on Canvas/Combat HUD. GameUI Visual HUD fields drive bars and cooldown overlays.
@@ -700,3 +700,19 @@ No new Inspector wiring required — all three are code + hand-authored
 - Swap comparison appears only for the nearby pickup targeted by PlayerEquipment. It shows current and incoming item stats and [E] Equip/Swap. No inventory screen is needed.
 - EquipmentHUD on Canvas/Combat HUD/Gear slots references PlayerEquipment, five slot views, and the Swap comparison panel. These references are already wired in SampleScene.
 - For another scene with an existing GameUI Canvas, use Gladiators > Build Combat HUD. For the original HUD, use Gladiators > Upgrade HUD Gear Slots. Both skip the gear upgrade if Gear slots already exists.
+
+### Full arena UI pass (installed in SampleScene)
+
+- **Stat Shard display:** Combat HUD/Stat shard shows the equipped shard name, rarity, and rolled bonuses. EquipmentHUD's Slots array includes StatShard and Shard Bonuses references Stat shard/Bonuses. The card uses the existing rarity flash and equip notification; shard pickups use the existing [E] swap comparison below the card. Install on an older HUD with **Gladiators > Install Shard Display**.
+- **Gloves display:** the gear row now fits six slots, including GLOVES. Its name, rarity, and flash use EquipmentHUD's Gloves slot binding. The shard installer adds Gloves too, or use **Gladiators > Install Gloves Display** independently.
+
+- Enter Play mode to open the main menu. **Enter the Arena** starts the run; **Quit Game** exits the player (or stops Play mode in the Editor).
+- **Escape / gamepad Start** toggles pause. Resume continues the run; Leave Run / Main Menu reloads a fresh menu state. The menu freezes time, suspends enabled gameplay input actions, releases the camera cursor, and pauses audio while keeping UI input active. It also holds the pause through realtime hit-stop completion.
+- `ArenaMenuController` on Canvas references the main/pause panels, Play/Resume buttons, Combat HUD, GameUI, and ThirdPersonCamera. Existing combat scripts and tuning are unchanged. This is a menu state in SampleScene, so no additional build scene is needed.
+- `GameUI` **Arena UI** fields: Menus = Canvas's ArenaMenuController; Ultimate Fill = Combat HUD/Ultimate/Track/Fill; Ultimate Text = Ultimate/Charge; Ultimate Ready Flash = Ultimate/Frame. The gauge reads PlayerCombat's existing UltimateMeter, UltimateMeterMax, and IsUltimateReady. At full charge it says **[C] ULTIMATE READY** and flashes the frame; spending charge empties it.
+- The skill strip includes a **SPACE / DEFLECT / BLOCK** hint. Tap/hold behavior is unchanged. Equip notifications sit above the ultimate gauge.
+- `EnemyStaggerHUD` on Canvas/Enemy stagger bars discovers spawned EnemyController objects and reads their Health/Stagger. Its inactive Template contains Status and Track/Fill. Bars project above each living enemy within 28 units, hide behind geometry/offscreen/in menus, and show **BROKEN - FINISHER** while broken. No enemy prefab wiring is needed.
+- Enemy nameplates now show numeric health above a red health bar, followed by numeric stagger above its amber bar. Template adds Health value and Health track/Fill. The old matching world-space health text is hidden (not deleted) while the nameplate system is active. Use **Gladiators > Install Enemy Health Display** to upgrade older scene templates.
+- VictoryPanel and DefeatPanel retain their original children, hidden. New Arena result cards provide Fight Again and Return to Main Menu, with cursor and keyboard selection enabled.
+- CanvasScaler uses **Scale With Screen Size / Expand / 1920 x 1080** to retain layout space on narrow and wide views. HUDSafeArea on Combat HUD respects the device safe area.
+- To install on another copy of the existing HUD, use **Gladiators > Install Full Arena UI** in Edit mode, then save the scene. The installer preserves the original GameUI bindings and skips scenes that already have ArenaMenuController. Panels, labels, colors, and offsets remain editable in the Canvas hierarchy.

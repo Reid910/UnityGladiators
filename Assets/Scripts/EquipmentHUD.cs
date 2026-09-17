@@ -25,8 +25,9 @@ public class EquipmentHUD : MonoBehaviour
     public TextMeshProUGUI nearbyItem;
     public CanvasGroup equipMessageGroup;
     public TextMeshProUGUI equipMessage;
+    public TextMeshProUGUI shardBonuses;
     private float messageUntil;
-    private readonly EquippedItem[] displayedItems = new EquippedItem[5];
+    private EquippedItem[] displayedItems = Array.Empty<EquippedItem>();
     private EquippedItem displayedPickup;
     private EquippedItem displayedCurrent;
     private bool initialized;
@@ -67,6 +68,11 @@ public class EquipmentHUD : MonoBehaviour
             if (comparisonPanel != null) comparisonPanel.SetActive(false);
             return;
         }
+        if (displayedItems.Length != slots.Length)
+        {
+            displayedItems = new EquippedItem[slots.Length];
+            initialized = false;
+        }
         for (int i = 0; i < slots.Length; i++)
         {
             var view = slots[i];
@@ -80,6 +86,8 @@ public class EquipmentHUD : MonoBehaviour
             view.itemName.color = item != null ? Color.white : Color.gray;
             view.rarity.text = item != null ? RarityName(item.Rarity) : "-";
             view.rarity.color = color;
+            if (view.slot == ItemSlot.StatShard && shardBonuses != null)
+                shardBonuses.text = DescribeShardBonuses(item);
         }
         initialized = true;
         var pickup = equipment.TargetedPickup;
@@ -91,13 +99,30 @@ public class EquipmentHUD : MonoBehaviour
         if (displayedPickup == candidate && displayedCurrent == current) return;
         displayedPickup = candidate;
         displayedCurrent = current;
-        string slotName = candidate.Definition.Slot == ItemSlot.Pants ? "LEGS" : candidate.Definition.Slot.ToString().ToUpperInvariant();
+        string slotName = candidate.Definition.Slot == ItemSlot.Pants ? "LEGS"
+            : candidate.Definition.Slot == ItemSlot.StatShard ? "STAT SHARD" : candidate.Definition.Slot.ToString().ToUpperInvariant();
         swapPrompt.text = "[E] " + (current == null ? "EQUIP" : "SWAP") + "  /  " + slotName;
         currentItem.text = Describe(current);
         nearbyItem.text = Describe(candidate);
     }
 
     private static string RarityName(ItemRarity rarity) => rarity.ToString() == "SuperRare" ? "SUPER RARE" : rarity.ToString().ToUpperInvariant();
+
+    private static string DescribeShardBonuses(EquippedItem item)
+    {
+        if (item == null) return "Equip a stat shard\nto gain bonuses.";
+        var text = new StringBuilder();
+        if (item.RolledDamage > 0) text.AppendLine("+" + item.RolledDamage + " Damage");
+        foreach (var affix in item.Affixes)
+        {
+            if (affix.definition == null) continue;
+            var stat = affix.definition.StatType;
+            bool percent = stat == StatType.AttackSpeed || stat == StatType.CritChance || stat == StatType.AbilityCooldownReduction || stat == StatType.MoveSpeed;
+            string name = System.Text.RegularExpressions.Regex.Replace(stat.ToString(), "([a-z])([A-Z])", "$1 $2");
+            text.Append('+').Append(Mathf.RoundToInt(affix.rolledValue * (percent ? 100 : 1))).Append(percent ? "% " : " ").AppendLine(name);
+        }
+        return text.Length > 0 ? text.ToString().TrimEnd() : "No rolled bonuses";
+    }
 
     private static string Describe(EquippedItem item)
     {
