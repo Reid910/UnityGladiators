@@ -1939,7 +1939,7 @@ MonoBehaviour:
   damageNumberSpawnOffset: {x: 0, y: 2, z: 0}
   damageNumberColor: {r: 1, g: 0.15, b: 0.15, a: 1}
   hitStopDuration: 0.05
-  hitClip: {fileID: 8300000, guid: 8dde54c428cad1a448635198e7bcf7b4, type: 3}
+  hitClip: {fileID: 8300000, guid: 0a1d0d2cbdc3f1949a0d8bbad3bcc9a9, type: 3}
   deathClip: {fileID: 8300000, guid: 9e776e7a690cfc64d9ac03717b2e079c, type: 3}
 --- !u!114 &1655791083341687734
 MonoBehaviour:

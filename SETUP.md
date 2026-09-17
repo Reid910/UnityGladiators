@@ -107,13 +107,14 @@ SFX — swap any of these later if a better-fitting sound turns up:
   Ultimate = `bong_001`, Hit Impact = `metalPot2`, Ability Cast =
   `glitch_001`, Dash = `cloth1`, Slide = `cloth3`, Deflect = `metalClick`,
   Block = `metalLatch`.
-- `Health` (Player.prefab + Enemy.prefab): Hit = `metalPot1`, Death =
-  `dropLeather`.
+- `Health` (Player.prefab + Enemy.prefab): Hit = `tick_001` (short, quiet —
+  played at explicit 0.4 volume in code since it fires on every hit taken),
+  Death = `dropLeather`.
 - `Stagger` (Player.prefab + Enemy.prefab): Break = `glass_001` (a
   "shatter" sound doubling as the Broken-state cue).
 - `EnemyController` (Enemy.prefab): Attack Swing = `knifeSlice2`.
 - `WaveManager` (SampleScene): Background Music = Alexander Ehlers -
-  "Doomed", Music Volume unchanged (0.5).
+  "Doomed", Music Volume set to 0.2 for testing (was 0.5).
 
 Verify: play a wave and confirm each sound actually fires at the moment it
 should (swing on attack, thud on getting hit, shatter on stagger break,
