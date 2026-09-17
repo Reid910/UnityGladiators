@@ -1014,6 +1014,37 @@ breaks and finishers, not a slow tank-and-spank.
 - [ ] `finisherRampDuration` (0.4s) / `finisherRampStartTimeScale` (0.15)
       are first-pass guesses — needs an actual kill in play to judge feel.
 
+## Dedicated finisher action + narrower Light Attack range
+- [x] Reported from playtesting the UI-pass build: finishing a Broken enemy
+      with Light attack didn't read as a finisher at all — the kill was
+      happening buried inside a normal combo swing (`CheckHit()`'s
+      always-been-there "any hit on a Broken target executes it" branch),
+      indistinguishable from a regular attack that just happened to
+      one-shot something.
+      - `TryLightAttack()` now checks for a nearby Broken enemy
+        (`TryFindNearbyBrokenEnemy()`, using the new smaller
+        `Light Attack Range`) *before* running the normal combo logic. If
+        one's found, it pre-empts the combo entirely with a dedicated
+        `PerformFinisherAttack()` action instead — own animator trigger
+        (`Finisher Animator Trigger`, defaults to reusing `AttackHeavy`'s
+        swing — no dedicated finisher animation exists yet), own
+        windup/recovery timing, grants hyper armor like every other big
+        committed action, and calls `Health.Execute()` directly on the
+        known target rather than going through the normal multi-enemy
+        `CheckHit()` sweep.
+      - Heavy/Ultimate/Ability/Dash are unchanged — they still just execute
+        a Broken enemy mid-swing if one happens to be hit, no dedicated
+        action. Only Light was the reported complaint, and only Light
+        needed it (Heavy/Ultimate already have their own distinct big
+        swing animation).
+- [x] Also added `Light Attack Range`, separate from and smaller than the
+      general `Attack Range` (which Heavy/Ultimate/Ability still use as
+      the AoE/crowd tools) — a full-size sphere on a Light swing was
+      catching enemies well off to the side instead of just the one in
+      front, per direct playtest feedback.
+- [ ] `lightAttackRange` (1.0), `finisherWindup`/`finisherRecoveryTime`
+      (0.3/0.4) are first-pass guesses, untuned.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.
