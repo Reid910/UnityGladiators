@@ -932,7 +932,7 @@ public class PlayerCombat : MonoBehaviour
             enemyHealth.TakeDamage(totalDamage);
             AddUltimateMeter(ultimateMeterPerHit);
             ApplyLifesteal(totalDamage);
-            AudioManager.PlaySfx(hitImpactClip);
+            AudioManager.PlaySfx(hitImpactClip, 0.35f);
 
             if (enemyStagger != null)
             {
