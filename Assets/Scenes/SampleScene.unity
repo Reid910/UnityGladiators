@@ -6981,8 +6981,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6bc60576c8a6ba4469fd48e6e12aac95, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::PlayerEquipment
+--- !u!114 &700000007 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3281479785153607649, guid: 929cac258d53450459d73a2556e53fa9, type: 3}
+  m_PrefabInstance: {fileID: 700000001}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a5a4df09571049468cd57ad58c69df5, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: '::'
 --- !u!1 &700509697
 GameObject:
   m_ObjectHideFlags: 0
@@ -9957,6 +9968,8 @@ MonoBehaviour:
   playButton: {fileID: 1497970107}
   resumeButton: {fileID: 1498607951}
   orbitCamera: {fileID: 330585548}
+  playerCombat: {fileID: 700000005}
+  playerController: {fileID: 700000007}
   gameUI: {fileID: 899868950}
 --- !u!1 &902407841
 GameObject:

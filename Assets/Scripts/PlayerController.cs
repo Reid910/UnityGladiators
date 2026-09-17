@@ -126,6 +126,21 @@ public class PlayerController : MonoBehaviour
         inputSystemActions.Player.Disable();
     }
 
+    // See PlayerCombat.SetGameplayInputEnabled — same reasoning, called by
+    // ArenaMenuController to suspend/restore input without disabling this
+    // whole component.
+    public void SetGameplayInputEnabled(bool isEnabled)
+    {
+        if (isEnabled)
+        {
+            inputSystemActions.Player.Enable();
+        }
+        else
+        {
+            inputSystemActions.Player.Disable();
+        }
+    }
+
     private void Update()
     {
         movementInput = IsIncapacitated
