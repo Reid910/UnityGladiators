@@ -3,6 +3,20 @@
 Manual Unity Editor steps needed to make the current code playable. Updated after
 each feature.
 
+## Camera static facing — no Editor steps needed, but verify
+
+No new Inspector wiring — pure code (`ThirdPersonCamera.cs`).
+
+1. Hold a movement key (WASD) without touching the mouse at all — the
+   camera's facing should stay completely fixed relative to your last mouse
+   look, no swinging/reorienting as you walk. This was the actual reported
+   bug ("camera follows character direction").
+2. Confirm normal mouse-look still works exactly as before, and that the
+   player stays framed the same way (roughly centered, camera angled down
+   slightly) as it did before this change — the fix reproduces the same
+   geometry the old code used, just without depending on the target's live
+   position.
+
 ## Combat lock/cancel/freeze rework — verify before trusting
 
 No Editor steps needed — same auto-fetch pattern as everything else on

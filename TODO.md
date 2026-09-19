@@ -1132,6 +1132,29 @@ breaks and finishers, not a slow tank-and-spank.
       are still first-pass guesses — worth another look now that the
       pulse actually does something in every case.
 
+## Camera work, part 1: static facing decoupled from movement
+- [x] Reported directly: the camera seemed to "follow" character direction
+      even with the mouse completely still, just from WASD movement alone.
+      Root cause: `ThirdPersonCamera`'s position lags behind the target via
+      `Vector3.Lerp(..., followSpeed * Time.deltaTime)`, but its rotation
+      was set every frame via `transform.LookAt(target.position + ...)` —
+      recalculated against the player's *actual* (non-lagged) position. So
+      while moving, LookAt had to keep swinging the facing angle to catch
+      up with the target outrunning the camera's lagged position, which
+      read as the camera reacting to movement direction.
+      Fixed by deriving rotation the same way position is derived — purely
+      from mouse-controlled yaw/pitch, with no `target.position` anywhere
+      in the formula: `cameraRotation * -offset + Vector3.up * 1.4f` is the
+      exact same geometric direction the old `LookAt` produced (offset's
+      own inverse gives the direction from the camera's orbit position
+      back toward the target; the `+ up * 1.4` matches the original's
+      "look slightly above the target's feet"), just computed without
+      referencing the target's current position at all.
+- [ ] Next up in "camera work": collision/occlusion (camera can clip
+      through the new arena obstacle pillars/walls) and zoom. Combat
+      -assist framing stays explicitly deferred per
+      `docs/combat-redesign-plan.md`'s Open Questions.
+
 ## M7 — Polish / playtest
 - [ ] Playtest the full loop (waves + combos + drops) end to end, tune numbers.
 - [ ] Cut or simplify anything that isn't landing rather than adding more scope.

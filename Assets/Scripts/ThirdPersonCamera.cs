@@ -59,7 +59,21 @@ public class ThirdPersonCamera : MonoBehaviour
         Vector3 desiredPosition = target.position + cameraRotation * offset;
 
         transform.position = Vector3.Lerp(transform.position, desiredPosition, followSpeed * Time.deltaTime);
-        transform.LookAt(target.position + Vector3.up * 1.4f);
+
+        // Facing is derived the same way the position offset is — purely
+        // from yaw/pitch — instead of a LookAt against the target's live
+        // position. LookAt recalculated every frame against the player's
+        // actual (non-lagged) position, but the camera's own position lags
+        // behind it via the Lerp above — so while moving, LookAt had to keep
+        // swinging the facing angle to keep up, which read as "the camera
+        // follows character direction" even with the mouse completely
+        // still. This reproduces the exact same geometry LookAt used to
+        // produce (cameraRotation * -offset is the direction from the
+        // camera's own offset position back toward the target; + up*1.4
+        // matches the original's "look slightly above the target's feet"),
+        // just without target.position anywhere in the formula.
+        Vector3 lookDirection = cameraRotation * -offset + Vector3.up * 1.4f;
+        transform.rotation = Quaternion.LookRotation(lookDirection);
     }
 
     // Holding Alt frees the cursor (e.g. to click off the game window) without
